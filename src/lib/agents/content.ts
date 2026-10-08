@@ -55,7 +55,7 @@ const ContentAI = z.object({
         .array(z.string())
         .describe("Shot-by-shot for video (prefix with timing like '0-2s:'), slide-by-slide for carousels ('Slide 1:'), paragraph-by-paragraph for text posts. 3-8 steps."),
       caption: z.string().describe("Ready-to-paste caption in the platform's native style and the owner's language mix. No hashtags in the caption."),
-      hashtags: z.array(z.string()).describe("8-15 hashtags (3-5 for LinkedIn): mix of Singapore/local and niche tags. No banned, spammy or generic tags like #fyp or #followforfollow."),
+      hashtags: z.array(z.string()).describe("8-15 hashtags (3-5 for LinkedIn): mix of Singapore/local and niche tags. No banned, spammy or overly broad tags like #fyp or #followforfollow."),
       cta: z.string().describe("The single call to action"),
       why_it_works: z.string().describe("1-2 sentences on why this works for this business and goal"),
       effort: z.string().describe("Exactly one of: quick, half-day, project"),
@@ -224,7 +224,7 @@ How you write:
 - Hooks: the exact words for the first 2 seconds (video) or first line (post). Make them stop the scroll: a specific problem, a myth, a question customers ask, a surprising angle.
 - Scripts: shot-by-shot with timings for video ("0-2s: ..."), slide-by-slide for carousels ("Slide 1: ..."), paragraph-by-paragraph for text posts. Include on-screen text and what to film. Keep videos under 45 seconds unless the format needs more.
 - Captions: native to the platform. TikTok and Reels short, LinkedIn longer and story-led with line breaks, Xiaohongshu as a note with a title line and practical detail, Facebook conversational. Write in the owner's language mix. Keep emojis to a minimum. Never put hashtags inside the caption.
-- Hashtags: 8-15 per idea (3-5 for LinkedIn, none for Stories), mixing Singapore/local tags with niche tags. No banned, spammy or generic tags (#fyp, #foryou, #viral, #followforfollow, #like4like, #instagood).
+- Hashtags: 8-15 per idea (3-5 for LinkedIn, none for Stories), mixing Singapore/local tags with niche tags. No banned, spammy or overly broad tags (#fyp, #foryou, #viral, #followforfollow, #like4like, #instagood).
 - Match formats to platforms: YouTube Shorts is video only; Xiaohongshu is image notes or video notes; LinkedIn suits text posts, document carousels and native video.
 - Spread ideas across the owner's chosen platforms and across the pillars in roughly the pillar mix.
 - Never invent numbers: no view counts, follower counts, engagement rates, prices or results. Use placeholders like [your price] where the owner must fill something in.

@@ -280,8 +280,8 @@ const TEMPLATES: Template[] = [
     pillar: "local",
     effort: "quick",
     build: (v) => ({
-      title: `POV: finding a ${v.industry} in ${v.loc} that explains things properly`,
-      hook: `POV: you finally found a ${v.industry} in ${v.loc} that tells you everything before you pay.`,
+      title: `POV: finding ${an(v.industry)} in ${v.loc} that explains things properly`,
+      hook: `POV: you finally found ${an(v.industry)} in ${v.loc} that tells you everything before you pay.`,
       script: [
         "0-2s: Relatable face to camera (relieved, surprised). Hook as text overlay. Use a trending sound from the TikTok/Instagram audio library.",
         "2-6s: Quick cut: phone screen showing a clear WhatsApp reply (blur the customer's name and number).",
@@ -516,7 +516,7 @@ const TEMPLATES: Template[] = [
       title: `Before we open at ${v.name}`,
       hook: `Before we open at ${v.name}. Nobody sees this part.`,
       script: [
-        "0-2s: Lights switching on or door unlocking. Hook on screen.",
+        "0-2s: Lights switching on or the door opening. Hook on screen.",
         "2-12s: Quick cuts of set-up: cleaning, prepping, checking the day's bookings (hide names).",
         "12-18s: Team chat or coffee moment.",
         "18-20s: Doors open. Text: 'Ready for you.'",
@@ -579,7 +579,7 @@ const TEMPLATES: Template[] = [
         "12-22s: What's missing or wrong for people in Singapore.",
         `22-26s: "Ask us before you try it."`,
       ],
-      caption: `Not all advice online fits everyone. Here's our take as a ${v.industry} in ${v.loc}.\n\nWhat advice should we check next?`,
+      caption: `Not all advice online fits everyone. Here's our take as ${an(v.industry)} in ${v.loc}.\n\nWhat advice should we check next?`,
       tags: ["stitch", "factcheck"],
       cta: "Comment the next piece of advice to check",
       why: "Reacting to content people have already seen borrows its reach, and correcting it shows expertise.",
@@ -587,13 +587,21 @@ const TEMPLATES: Template[] = [
   },
 ];
 
+function an(word: string): string {
+  return (/^[aeiou]/i.test(word) ? "an " : "a ") + word;
+}
+
+function joinAnd(list: string[]): string {
+  return list.length <= 1 ? list.join("") : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
+}
+
 function slug(s: string): string {
   return s.replace(/[^\p{L}\p{N}]+/gu, "").toLowerCase();
 }
 
 function splitList(s: string): string[] {
   return s
-    .split(/[,;\n/]|\band\b/)
+    .split(/[,;:\n/]|\band\b/)
     .map((x) => x.trim())
     .filter(Boolean);
 }
@@ -601,7 +609,7 @@ function splitList(s: string): string[] {
 function baseTags(ws: WorkspaceRow, niche: string, loc: string): string[] {
   const sg = /singapore|\bsg\b/i.test(loc) || !loc;
   const area = loc.split(",")[0].trim();
-  const nicheWords = splitList(niche || ws.industry).slice(0, 2).map(slug).filter(Boolean);
+  const nicheWords = [...new Set([...splitList(ws.industry), ...splitList(ws.offers), ...splitList(niche)].map(slug).filter((w) => w.length > 2 && w.length < 25))].slice(0, 2);
   const local = sg ? ["singapore", "sg"] : [slug(area)];
   if (sg && area && !/singapore/i.test(area)) local.push(slug(area));
   const nicheTags = nicheWords.flatMap((w) => (sg ? [w, `${w}sg`, `${w}singapore`] : [w, `${w}${slug(area)}`]));
@@ -630,19 +638,21 @@ function pillarsFor(goal: Goal, regulated: boolean): { key: PillarKey; name: str
 function vars(input: ContentInput, ws: WorkspaceRow, now: Date): Vars {
   const offers = splitList(ws.offers);
   const nicheParts = splitList(input.niche);
-  const offer = offers[0] || nicheParts[0] || ws.industry || "our service";
+  const nicheOffer = nicheParts.find((p) => p.toLowerCase() !== ws.industry.toLowerCase());
+  const offer = offers[0] || nicheOffer || (ws.industry ? `${ws.industry.toLowerCase()} services` : "our services");
   const loc = (ws.location || "Singapore").split(",")[0].trim() || "Singapore";
   const moments = seasonalMoments(now, ws.location || "Singapore").moments;
   // Prefer next month's moment for planning content (gives lead time).
   const nextMonth = MONTHS[(now.getMonth() + 1) % 12];
-  const moment = (moments.find((m) => m.startsWith(nextMonth)) || moments[0])
+  const notSale = (m: string) => !/sale|black friday/i.test(m);
+  const moment = (moments.find((m) => m.startsWith(nextMonth) && notSale(m)) || moments.find(notSale) || moments[0])
     .replace(/^[A-Za-z]+: /, "")
     .replace(/\s*\(.*\)$/, "");
   return {
     name: ws.name,
     industry: (ws.industry || nicheParts[0] || "business").toLowerCase(),
-    offer: offer.toLowerCase(),
-    offer2: (offers[1] || offer).toLowerCase(),
+    offer,
+    offer2: offers[1] || offer,
     loc,
     audience: ws.audience || "customers",
     regulated: Boolean(ws.regulated),
@@ -913,7 +923,7 @@ export function contentDemo(input: ContentInput, ws: WorkspaceRow, now = new Dat
     score: null,
     summary: input.more_like
       ? `This is sample output. Here are ${ideas.length} variations on "${input.more_like}" for ${ws.name}, each a different angle or format so you can keep a winning topic going.${lang}`
-      : `This is sample output. Here are ${ideas.length} ready-to-film ideas for ${ws.name} across ${input.platforms.join(" and ")}, built around 4 content pillars for the goal "${GOALS[input.goal].toLowerCase()}", plus a 2-week calendar at ${input.per_week} posts a week. Trend research needs the live AI, so this plan uses evergreen formats.${lang}`,
+      : `This is sample output. Here are ${ideas.length} ready-to-film ideas for ${ws.name} across ${joinAnd(input.platforms)}, built around 4 content pillars for the goal "${GOALS[input.goal].toLowerCase()}", plus a 2-week calendar at ${input.per_week} post${input.per_week === 1 ? "" : "s"} a week. Trend research needs the live AI, so this plan uses evergreen formats.${lang}`,
     platforms: input.platforms,
     goal: GOALS[input.goal],
     more_like: input.more_like,

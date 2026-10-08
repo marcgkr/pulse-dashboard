@@ -619,6 +619,8 @@ export function analyzeAds(rows: AdRow[], opts: { currency?: Partial<Record<Plat
 
     const flag = (e: Entity | null, type: FlagType, severity: Flag["severity"], detail: string, level?: Flag["level"]) => {
       if (e && !e.flags.includes(type)) e.flags.push(type);
+      // Campaign rows still get the badge, but when ad sets / ad groups exist the flag list reports the finer level only.
+      if (e && e.level === "campaign" && adsets.length > 0 && type !== "concentration") return;
       flags.push({ type, platform, level: level ?? e?.level ?? "account", name: e?.name ?? P, parent: e?.parent ?? "", severity, spend: e?.spend ?? tot.spend, detail });
     };
 
@@ -679,7 +681,8 @@ export function analyzeAds(rows: AdRow[], opts: { currency?: Partial<Record<Plat
     // Scale and pause candidates (finest structural level, plus Google keywords for pause).
     if (cpa && !trackingBroken) {
       for (const e of flagLevel) {
-        if (e.conversions >= 2 && e.cpa && e.spend_share >= 0.05) {
+        // Skip tired audiences: adding budget to a high-frequency ad set mostly raises frequency further.
+        if (e.conversions >= 2 && e.cpa && e.spend_share >= 0.05 && !(e.frequency != null && e.frequency > 3)) {
           const ratio = e.cpa / cpa;
           const roasBetter = tot.roas && e.roas ? e.roas >= tot.roas * 1.25 : false;
           // Already showing for most eligible searches (typical of brand campaigns): more budget adds little.
@@ -730,7 +733,8 @@ export function analyzeAds(rows: AdRow[], opts: { currency?: Partial<Record<Plat
     const lowCtr = shareOf(["low_ctr"]);
     const fatigue = shareOf(["high_frequency"]);
     const termWaste = platform === "google" && tot.spend > 0 ? Math.min(1, wastedTermSpend / tot.spend) : 0;
-    let score = 100 - 60 * waste - 15 * lowCtr - 15 * fatigue - 25 * termWaste;
+    const objectiveShare = tot.conv_known && tot.spend > 0 ? nonConvSpend / tot.spend : 0;
+    let score = 100 - 60 * waste - 15 * lowCtr - 15 * fatigue - 25 * termWaste - 25 * objectiveShare;
     if (flags.some((f) => f.platform === platform && f.type === "concentration" && f.severity === "medium")) score -= 5;
     if (flags.some((f) => f.platform === platform && f.type === "conv_gt_clicks")) score -= 10;
     if (trackingBroken) score = Math.min(score, 20);

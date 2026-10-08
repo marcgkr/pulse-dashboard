@@ -211,13 +211,15 @@ export function preScan(text: string, category: Category, channel: Channel): Fla
       if (n >= 2) continue;
       seen.set(key, n + 1);
       const idx = m.index ?? 0;
+      // A free consultation is a softer inducement than a discount or free treatment.
+      const sev: Severity = rule.id === "inducement" && /consult/i.test(phrase) && severity === "high" ? "medium" : severity;
       flags.push({
         rule_id: rule.id,
         family: rule.family,
         phrase,
         snippet: snippetAround(text, idx, m[0].length),
         sentence: sentenceAround(text, idx, m[0].length).slice(0, 400),
-        severity,
+        severity: sev,
         why: rule.why,
       });
       if (flags.length >= 60) return flags;
@@ -248,9 +250,10 @@ const REPLACEMENTS: [RegExp, string | ((m: string) => string)][] = [
   [/\b(?:best|no\.?\s?1|number\s+one|leading|top[- ](?:rated|notch)|finest|premier|world[- ]class|most\s+(?:trusted|experienced|advanced|popular|effective)|unrivall?ed|unmatched|award[- ]winning|first\s+and\s+only)\b\s*/gi, ""],
   [/#\s?1\b\s*/g, ""],
   [/(?<!\bon\s)\btop(?![- ]?up\b)\s+(?=\w)/gi, ""],
+  [/\b(?:completely|100\s?%)\s+safe\b/gi, "carried out by trained professionals"],
   [/\bguaranteed\s+results?\b/gi, "results that vary from person to person"],
-  [/\bguarantee[sd]?\b\s*/gi, ""],
-  [/\b100\s?%\s*/gi, ""],
+  [/(?:,\s*)?\bguarantee[sd]?\b\s*/gi, " "],
+  [/(?:,\s*)?\b100\s?%\s*/gi, " "],
   [/\bpermanently\b/gi, "for longer"],
   [/\bpermanent\b/gi, "long-lasting"],
   [/\brisk[- ]free\b\s*/gi, ""],
@@ -258,10 +261,10 @@ const REPLACEMENTS: [RegExp, string | ((m: string) => string)][] = [
   [/\bno\s+side[- ]effects?\b/gi, "side effects explained at your consultation"],
   [/\b(?:no|zero)\s+downtime\b/gi, "minimal downtime for most people"],
   [/\b(?:no|zero)\s+(?:pain|risks?|scarring)\b/gi, "risks explained at your consultation"],
-  [/\b(?:completely|100%)\s+safe\b/gi, "carried out by trained professionals"],
   [/\bsafe\s+and\s+effective\b/gi, "carried out by trained professionals"],
   [/\b(?:limited[- ]time(?:\s+only)?|only\s+today|today\s+only|hurry(?:\s+now)?|last\s+chance|while\s+(?:stocks|slots)\s+last|ends?\s+(?:soon|tonight|today)|only\s+\d+\s+(?:slots|spots|seats)\s+left|don'?t\s+miss\s+out|act\s+now|flash\s+sale)\b[!:,]?\s*/gi, ""],
   [/\bbetter\s+than\s+(?:other|any|all)\s+\w+/gi, ""],
+  [/\bunlike\s+(?:other|many|most)\s+\w+,?\s*/gi, ""],
   [/\b(?:cures?|cured)\b/gi, "helps with"],
   [/\bmiracle\b\s*/gi, ""],
   [/\binstant(?:ly)?\s+results?\b/gi, "results over time"],
@@ -276,6 +279,7 @@ function tidy(s: string): string {
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\s+([,.!?;:])/g, "$1")
     .replace(/([,;:])\1+/g, "$1")
+    .replace(/[,;:]\s*([.!?])/g, "$1")
     .replace(/^[\s,;:.!-]+/, "")
     .replace(/\b(a|an|the|our|your)\s+(?=[,.!?]|$)/gi, "")
     .replace(/\(\s*\)/g, "")
@@ -294,6 +298,8 @@ export function rewriteSentence(sentence: string, category: Category): string {
   }
   if (medical) s = s.replace(/\bfree\s+(consult(?:ation)?s?)\b/gi, "$1");
   const out = tidy(s);
+  // A sentence left dangling by a removed word ("our doctors are.") is dropped instead.
+  if (/\b(?:are|is|was|were|be|our|the|a|an|with|of|for|and|to)[.!?]?$/i.test(out)) return "";
   return /[a-z0-9]/i.test(out) && out.split(/\s+/).length >= 2 ? out : "";
 }
 

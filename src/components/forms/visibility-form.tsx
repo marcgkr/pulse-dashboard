@@ -1,8 +1,102 @@
 "use client";
 
+import { useState } from "react";
+import { Radar, Wand2 } from "lucide-react";
+import { Button, Field, Input, Textarea } from "../ui";
+import { FormError, useRunAgent } from "../run-agent";
 import type { FormProps } from "./types";
 
-// STUB: replaced by the full implementation.
-export function VisibilityForm(_props: FormProps) {
-  return <p className="text-sm text-ink-3">This agent is being built.</p>;
+const MAX_PROMPTS = 8;
+
+function asText(v: unknown): string {
+  if (Array.isArray(v)) return v.map(String).join("\n");
+  return typeof v === "string" ? v : "";
+}
+
+function firstItems(s: string, n: number): string[] {
+  return s
+    .split(/[\n,;|/]+/)
+    .map((x) => x.replace(/\([^)]*\)/g, "").trim().toLowerCase())
+    .filter(Boolean)
+    .slice(0, n);
+}
+
+/** Template-based prompt ideas from the business profile. No AI call. */
+export function suggestPrompts(profile: FormProps["profile"]): string[] {
+  const loc = profile.location.split(",")[0]?.trim() || "Singapore";
+  const country = /singapore/i.test(profile.location) || !profile.location ? "Singapore" : loc;
+  const industry = (profile.industry || "").trim().toLowerCase() || "business";
+  const services = firstItems(profile.offers, 3);
+  const s1 = services[0] || industry;
+  const s2 = services[1] || s1;
+  const s3 = services[2] || industry;
+  const out = [
+    `best ${s1} in ${loc}`,
+    `where to get ${s2} in ${country}`,
+    `${industry} near ${loc} with good reviews`,
+    `how much does ${s3} cost in ${country}`,
+    `which ${industry} in ${country} do people recommend for ${s1}`,
+  ];
+  return [...new Set(out.map((p) => p.replace(/\s+/g, " ").trim()))].slice(0, 5);
+}
+
+export function VisibilityForm({ profile, lastInput }: FormProps) {
+  const domainDefault = profile.website.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] ?? "";
+  const [prompts, setPrompts] = useState(asText(lastInput?.prompts) || suggestPrompts(profile).join("\n"));
+  const [brand, setBrand] = useState((lastInput?.brand as string) || profile.name);
+  const [aliases, setAliases] = useState(asText(lastInput?.aliases).replace(/\n/g, ", "));
+  const [domain, setDomain] = useState((lastInput?.domain as string) || domainDefault);
+  const [competitors, setCompetitors] = useState(asText(lastInput?.competitors).replace(/\n/g, ", ") || profile.competitors);
+  const { start, pending, error } = useRunAgent("visibility");
+
+  const count = prompts.split("\n").filter((l) => l.trim()).length;
+  const tooMany = count > MAX_PROMPTS;
+
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void start({ prompts, brand, aliases, domain, competitors });
+      }}
+    >
+      <Field label="Questions customers ask AI assistants" hint={`One per line, up to ${MAX_PROMPTS}. Write them the way a customer would type them.`}>
+        <Textarea
+          value={prompts}
+          onChange={(e) => setPrompts(e.target.value)}
+          rows={6}
+          placeholder={"best lash extension salon in Orchard\nwhere to get hydrafacial in Singapore"}
+          required
+        />
+      </Field>
+      <div className="-mt-2 flex flex-wrap items-center justify-between gap-2">
+        <span className={tooMany ? "font-mono text-xs text-pulse" : "font-mono text-xs text-ink-3"}>
+          {count} / {MAX_PROMPTS} questions
+        </span>
+        <Button type="button" variant="secondary" onClick={() => setPrompts(suggestPrompts(profile).join("\n"))}>
+          <Wand2 size={15} /> Suggest prompts
+        </Button>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Brand name">
+          <Input value={brand} onChange={(e) => setBrand(e.target.value)} required />
+        </Field>
+        <Field label="Website domain" hint="Used to check if AI cites your site.">
+          <Input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="yourbusiness.com.sg" />
+        </Field>
+      </div>
+      <Field label="Other names for your brand" hint="Comma separated. Short names, old names, spellings customers use.">
+        <Input value={aliases} onChange={(e) => setAliases(e.target.value)} placeholder="e.g. Zion, Zion Clinic" />
+      </Field>
+      <Field label="Competitors to watch" hint="Comma separated.">
+        <Input value={competitors} onChange={(e) => setCompetitors(e.target.value)} placeholder="Competitor A, Competitor B" />
+      </Field>
+
+      <FormError error={error} />
+      <Button type="submit" disabled={pending || tooMany || count === 0}>
+        <Radar size={16} /> {pending ? "Starting..." : "Check AI visibility"}
+      </Button>
+    </form>
+  );
 }

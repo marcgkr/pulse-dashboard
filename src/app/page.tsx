@@ -214,23 +214,24 @@ export default function LandingPage() {
       <main>
         {/* Hero: the live checkup */}
         <section id="checkup" className="chart-grid border-b border-line">
-          <div className="mx-auto grid max-w-6xl gap-10 px-4 pb-14 pt-12 md:px-6 md:pb-20 md:pt-16 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-14">
-            <div>
-              <Label className="mb-4 text-scrub">For Singapore business owners who do their own marketing</Label>
-              <h1 className="font-display text-[2.6rem] font-semibold leading-[1.02] tracking-[-0.02em] sm:text-5xl lg:text-[3.6rem]">
-                Your marketing, diagnosed. The fixes, prescribed.
-              </h1>
-              <p className="mt-5 max-w-xl text-lg leading-relaxed text-ink-2">
-                {BRAND.name} examines your website, search presence, AI visibility and ads, then hands you a prescription: each problem, why it matters, and the exact steps
-                to fix it yourself.
-              </p>
-              <p className="mt-4 max-w-xl text-[15px] text-ink-2">
-                Try it now on your own website. You get a score and your first three prescriptions in under a minute.
-              </p>
-            </div>
-            <div className="min-w-0">
-              <Checkup />
-            </div>
+          <div className="mx-auto max-w-6xl px-4 pb-14 pt-12 md:px-6 md:pb-20 md:pt-16">
+            <Checkup
+              intro={
+                <div>
+                  <Label className="mb-4 text-scrub">For Singapore business owners who do their own marketing</Label>
+                  <h1 className="font-display text-[2.6rem] font-semibold leading-[1.02] tracking-[-0.02em] sm:text-5xl lg:text-[3.6rem]">
+                    Your marketing, diagnosed. The fixes, prescribed.
+                  </h1>
+                  <p className="mt-5 max-w-xl text-lg leading-relaxed text-ink-2">
+                    {BRAND.name} examines your website, search presence, AI visibility and ads, then hands you a prescription: each problem, why it matters, and the exact steps
+                    to fix it yourself.
+                  </p>
+                  <p className="mt-4 max-w-xl text-[15px] text-ink-2">
+                    Try it now on your own website. You get a score and your first three prescriptions in under a minute.
+                  </p>
+                </div>
+              }
+            />
           </div>
         </section>
 
