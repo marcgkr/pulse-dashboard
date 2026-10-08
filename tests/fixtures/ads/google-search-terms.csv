@@ -1,0 +1,18 @@
+Search terms report
+"1 September 2026 - 30 September 2026"
+Search term,Match type,Added/Excluded,Campaign,Ad group,Clicks,Impr.,CTR,Currency code,Avg. CPC,Cost,Conv. rate,Conversions,Cost / conv.
+hydrafacial singapore,Phrase match,Added,"Search - Hydrafacial, Orchard",Hydrafacial,214,"3,980",5.38%,SGD,2.71,579.94,7.94%,17.00,34.11
+hydrafacial near me,Phrase match,None,"Search - Hydrafacial, Orchard",Hydrafacial,166,"2,710",6.13%,SGD,2.90,481.40,7.23%,12.00,40.12
+best hydrafacial orchard,Broad match,None,"Search - Hydrafacial, Orchard",Hydrafacial,88,"1,904",4.62%,SGD,3.10,272.80,4.55%,4.00,68.20
+pico laser price,Phrase match,None,Search - Pico Laser Price,Pico Laser,121,"2,880",4.20%,SGD,3.05,369.05,2.48%,3.00,123.02
+cheap pico laser,Broad match,None,Search - Pico Laser Price,Pico Laser,74,"1,610",4.60%,SGD,2.95,218.30,0.00%,0.00,0.00
+free facial,Broad match,None,"Search - Hydrafacial, Orchard",Hydrafacial,41,"1,120",3.66%,SGD,2.40,98.40,0.00%,0.00,0.00
+hydrafacial course,Broad match,None,"Search - Hydrafacial, Orchard",Hydrafacial,37,980,3.78%,SGD,2.60,96.20,0.00%,0.00,0.00
+beauty therapist jobs,Broad match,None,"Search - Hydrafacial, Orchard",Hydrafacial,29,860,3.37%,SGD,2.20,63.80,0.00%,0.00,0.00
+how to do hydrafacial at home,Broad match,None,"Search - Hydrafacial, Orchard",Hydrafacial,33,"1,240",2.66%,SGD,1.90,62.70,0.00%,0.00,0.00
+pico laser side effects,Broad match,Excluded,Search - Pico Laser Price,Pico Laser,22,640,3.44%,SGD,2.10,46.20,0.00%,0.00,0.00
+zion aesthetics,Exact match,Added,Search - Brand,Brand,301,"1,240",24.27%,SGD,0.35,105.35,9.63%,29.00,3.63
+zion aesthetics reviews,Phrase match,None,Search - Brand,Brand,48,310,15.48%,SGD,0.52,24.96,0.00%,0.00,0.00
+facial,Broad match,None,"Search - Hydrafacial, Orchard",Hydrafacial,3,95,3.16%,SGD,1.80,5.40,0.00%,0.00,0.00
+Total: Search terms,--,--,--,--,"1,177","19,569",6.01%,SGD,2.06,"2,424.50",5.61%,66.00,36.73
+Total: Other search terms,--,--,--,--,210,"4,100",5.12%,SGD,2.20,462.00,4.29%,9.00,51.33
