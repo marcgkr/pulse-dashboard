@@ -54,16 +54,29 @@ export async function POST(req: Request) {
   db().prepare("INSERT INTO chat_messages (id, workspace_id, role, content, created_at) VALUES (?, ?, 'user', ?, ?)").run(id("m_"), ws.id, message, now());
 
   const encoder = new TextEncoder();
+  let cancelled = false;
   const stream = new ReadableStream({
+    cancel() {
+      // The browser went away (navigated, closed the tab). Keep generating so the answer is saved.
+      cancelled = true;
+    },
     async start(controller) {
       let full = "";
+      const send = (text: string) => {
+        if (cancelled) return;
+        try {
+          controller.enqueue(encoder.encode(text));
+        } catch {
+          cancelled = true;
+        }
+      };
       try {
         if (!aiEnabled()) {
           full =
             "I'm running in demo mode, so I can't answer live yet. Once an Anthropic API key is added, I'll answer using your business profile, your latest reports and your open prescriptions.\n\nIn the meantime, the best next step is usually to work through your **urgent** prescriptions on the Prescriptions board, then re-run Site Doctor to see your score move.";
           for (const chunk of full.match(/.{1,24}/gs) ?? []) {
-            controller.enqueue(encoder.encode(chunk));
-            await new Promise((r) => setTimeout(r, 20));
+            send(chunk);
+            if (!cancelled) await new Promise((r) => setTimeout(r, 20));
           }
         } else {
           const messages: Anthropic.Beta.BetaMessageParam[] = [
@@ -73,19 +86,19 @@ export async function POST(req: Request) {
           const system = `${SYSTEM}\n\nBUSINESS PROFILE\n${businessContext(ws)}\n\n${contextFor(ws.id)}\n\nToday is ${new Date().toISOString().slice(0, 10)}.`;
           for await (const delta of chatStream({ system, messages })) {
             full += delta;
-            controller.enqueue(encoder.encode(delta));
+            send(delta);
           }
         }
       } catch (e) {
         console.error("[chat]", e);
         const msg = "\n\n(Something went wrong reaching the AI. Try again in a minute.)";
         full += msg;
-        controller.enqueue(encoder.encode(msg));
+        send(msg);
       } finally {
         if (full.trim()) {
           db().prepare("INSERT INTO chat_messages (id, workspace_id, role, content, created_at) VALUES (?, ?, 'assistant', ?, ?)").run(id("m_"), ws.id, full, now());
         }
-        controller.close();
+        if (!cancelled) controller.close();
       }
     },
   });
