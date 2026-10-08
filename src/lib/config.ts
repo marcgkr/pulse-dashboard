@@ -42,7 +42,7 @@ export const PLANS: Plan[] = [
     blurb: "For owners who want a clear weekly to-do list.",
     runsPerMonth: 40,
     features: [
-      "Every agent unlocked",
+      "Every specialist included",
       "40 agent runs a month",
       "Ask PULSE strategist chat",
       "Compliance check for SG healthcare ads",

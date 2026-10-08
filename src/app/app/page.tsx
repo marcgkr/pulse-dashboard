@@ -19,16 +19,34 @@ export default async function Dashboard() {
   const { user, ws } = await requireWorkspace();
   const pulse = pulseScore(ws.id);
   const history = db().prepare("SELECT day, score FROM score_history WHERE workspace_id = ? ORDER BY day DESC LIMIT 30").all(ws.id).reverse() as { day: string; score: number }[];
-  const tasks = (db()
-    .prepare(`SELECT * FROM tasks WHERE workspace_id = ? AND status IN ('todo','doing') ORDER BY ${PRIORITY_ORDER}, created_at DESC LIMIT 4`)
-    .all(ws.id) as TaskRow[]).map(parseTask);
+  // Top open prescriptions, taking the best one from each specialist in turn so one report can't fill the list.
+  const openSorted = db()
+    .prepare(`SELECT * FROM tasks WHERE workspace_id = ? AND status IN ('todo','doing') ORDER BY ${PRIORITY_ORDER}, CASE impact WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, created_at DESC`)
+    .all(ws.id) as TaskRow[];
+  const queues = new Map<string, TaskRow[]>();
+  for (const t of openSorted) queues.set(t.agent, [...(queues.get(t.agent) ?? []), t]);
+  const picked: TaskRow[] = [];
+  while (picked.length < 4 && [...queues.values()].some((q) => q.length)) {
+    const heads = [...queues.values()].filter((q) => q.length).map((q) => q[0]);
+    const rank = (t: TaskRow) => ["urgent", "high", "medium", "low"].indexOf(t.priority);
+    heads.sort((a, b) => rank(a) - rank(b));
+    for (const h of heads) {
+      if (picked.length >= 4) break;
+      if (rank(h) > rank(heads[0]) + 1) continue;
+      picked.push(h);
+      queues.get(h.agent)!.shift();
+    }
+  }
+  const tasks = picked.map(parseTask);
   const counts = db()
     .prepare("SELECT status, COUNT(*) n FROM tasks WHERE workspace_id = ? GROUP BY status")
     .all(ws.id) as { status: string; n: number }[];
   const count = (s: string) => counts.find((c) => c.status === s)?.n ?? 0;
   const recent = db().prepare("SELECT * FROM runs WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 5").all(ws.id) as RunRow[];
   const hasRuns = recent.length > 0;
-  const today = new Date().toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "long" });
+  const today = new Date().toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Singapore" });
+  const hour = Number(new Date().toLocaleString("en-SG", { hour: "numeric", hour12: false, timeZone: "Asia/Singapore" }));
+  const partOfDay = hour < 12 ? "Morning" : hour < 18 ? "Afternoon" : "Evening";
 
   return (
     <div className="space-y-10">
@@ -36,7 +54,7 @@ export default async function Dashboard() {
         <div>
           <Label>Chart · {today}</Label>
           <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight md:text-4xl">
-            {hasRuns ? `Morning check, ${user.name.split(" ")[0]}.` : `Welcome, ${user.name.split(" ")[0]}.`}
+            {hasRuns ? `${partOfDay} check, ${user.name.split(" ")[0]}.` : `Welcome, ${user.name.split(" ")[0]}.`}
           </h1>
         </div>
         <p className="text-sm text-ink-2">

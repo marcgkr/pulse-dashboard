@@ -117,7 +117,7 @@ export function parseNum(raw: string | number | null | undefined): number | null
   if (raw == null) return null;
   if (typeof raw === "number") return Number.isFinite(raw) ? raw : null;
   let s = String(raw).trim();
-  if (!s || /^(--|-|n\/a|na|null|none|—)$/i.test(s)) return null;
+  if (!s || /^(--|-|n\/a|na|null|none|\u2014)$/i.test(s)) return null;
   const negative = /^\(.*\)$/.test(s) || /^-/.test(s.replace(/[^\d\-]/g, ""));
   s = s.replace(/[^\d.,]/g, "");
   if (!s) return null;
@@ -590,7 +590,14 @@ function group(rows: AdRow[], key: (r: AdRow) => string, make: (r: AdRow) => Pic
 
 const lc = (s: string) => s.toLowerCase().trim();
 
-export function analyzeAds(rows: AdRow[], opts: { currency?: Partial<Record<Platform, string | null>>; brandTerms?: string[] } = {}): AdsAnalysis {
+/** Meta frequency above this is flagged as possible ad fatigue. A common rule of thumb, not a platform rule: adjust per account. */
+export const DEFAULT_FREQUENCY_THRESHOLD = 3;
+
+export function analyzeAds(
+  rows: AdRow[],
+  opts: { currency?: Partial<Record<Platform, string | null>>; brandTerms?: string[]; frequencyThreshold?: number } = {},
+): AdsAnalysis {
+  const freqMax = opts.frequencyThreshold ?? DEFAULT_FREQUENCY_THRESHOLD;
   const flags: Flag[] = [];
   const tracking: string[] = [];
   const platforms: AdsAnalysis["platforms"] = {};
@@ -667,8 +674,8 @@ export function analyzeAds(rows: AdRow[], opts: { currency?: Partial<Record<Plat
       if (ctr && e.ctr != null && e.impressions >= 1000 && e.ctr < ctr * 0.5 && e.level !== "keyword") {
         flag(e, "low_ctr", "medium", `Click-through rate is under half your account average, so the ad isn't matching what people want.`);
       }
-      if (platform === "meta" && e.frequency != null && e.frequency > 3 && e.level !== "keyword") {
-        flag(e, "high_frequency", e.frequency > 5 ? "high" : "medium", `Frequency ${e.frequency.toFixed(1)}: the same people see this about ${Math.round(e.frequency)} times. Above 3 is a common rule of thumb for ad fatigue (adjust for retargeting).`);
+      if (platform === "meta" && e.frequency != null && e.frequency > freqMax && e.level !== "keyword") {
+        flag(e, "high_frequency", e.frequency > freqMax + 2 ? "high" : "medium", `Frequency ${e.frequency.toFixed(1)}: the same people see this about ${Math.round(e.frequency)} times. Above ${freqMax} is a common rule of thumb for ad fatigue (adjust for retargeting).`);
       }
     }
     const topShare = campaigns.length >= 2 ? campaigns[0].spend_share : null;
@@ -682,7 +689,7 @@ export function analyzeAds(rows: AdRow[], opts: { currency?: Partial<Record<Plat
     if (cpa && !trackingBroken) {
       for (const e of flagLevel) {
         // Skip tired audiences: adding budget to a high-frequency ad set mostly raises frequency further.
-        if (e.conversions >= 2 && e.cpa && e.spend_share >= 0.05 && !(e.frequency != null && e.frequency > 3)) {
+        if (e.conversions >= 2 && e.cpa && e.spend_share >= 0.05 && !(e.frequency != null && e.frequency > freqMax)) {
           const ratio = e.cpa / cpa;
           const roasBetter = tot.roas && e.roas ? e.roas >= tot.roas * 1.25 : false;
           // Already showing for most eligible searches (typical of brand campaigns): more budget adds little.

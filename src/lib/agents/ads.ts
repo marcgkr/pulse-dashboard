@@ -70,7 +70,14 @@ const AdsAI = z.object({
 });
 type AdsAIOut = z.infer<typeof AdsAI>;
 
-export type AdsAIResult = Omit<AdsAIOut, "summary" | "prescriptions" | "creative_feedback"> & { diagnosis: { platform: Platform; verdict: string; points: string[] }[] };
+export type AdsAIResult = {
+  diagnosis: { platform: Platform; verdict: string; points: string[] }[];
+  what_to_pause: { platform: Platform; name: string; reason: string }[];
+  what_to_scale: { platform: Platform; name: string; reason: string; budget_shift_pct: number }[];
+  negative_keywords: string[];
+  audience_notes: string[];
+  tracking_issues: string[];
+};
 
 export type AdsCreative = { source: "ai" | "template"; google_headlines: string[]; google_descriptions: string[]; meta: string[] };
 
@@ -98,14 +105,14 @@ function locationWord(ws: WorkspaceRow): string {
   return l && l.length <= 20 ? l : "Singapore";
 }
 
-const GENERIC = new Set(["clinic", "clinics", "aesthetic", "aesthetics", "salon", "studio", "group", "medical", "dental", "beauty", "the", "and", "pte", "ltd", "law", "legal", "llc", "centre", "center", "spa", "skin", "hair", "singapore", "sg", "co"]);
+const COMMON_NAME_WORDS = new Set(["clinic", "clinics", "aesthetic", "aesthetics", "salon", "studio", "group", "medical", "dental", "beauty", "the", "and", "pte", "ltd", "law", "legal", "llc", "centre", "center", "spa", "skin", "hair", "singapore", "sg", "co"]);
 function brandTerms(ws: WorkspaceRow): string[] {
   const name = (ws.name || "").toLowerCase().replace(/\b(pte|ltd|llp|llc)\b\.?/g, "").trim();
   const out = name ? [name] : [];
   const first = name.split(/\s+/)[0];
   // The first word alone counts as brand only if it isn't also the service ("Lash Lab" must not swallow "lash extensions").
   const serviceText = `${ws.offers} ${ws.industry}`.toLowerCase();
-  if (first && first.length >= 4 && !GENERIC.has(first) && !serviceText.includes(first)) out.push(first);
+  if (first && first.length >= 4 && !COMMON_NAME_WORDS.has(first) && !serviceText.includes(first)) out.push(first);
   return out;
 }
 
@@ -477,7 +484,7 @@ export function templateCreative(a: AdsAnalysis, ws: WorkspaceRow): AdsCreative 
         ? "Test a 20-second video of your doctor or practitioner explaining who the treatment suits and what to expect. Skip before-and-after photos and testimonials."
         : "Test a real before-and-after or a behind-the-scenes clip from your team instead of polished stock images.",
     );
-    meta.push(`Test a clear next step in the ad itself: 'WhatsApp us to check a slot this week' beats a generic 'Learn more'.`);
+    meta.push(`Test a clear next step in the ad itself: 'WhatsApp us to check a slot this week' gets more replies than a plain 'Learn more' button.`);
     meta.push("Make vertical 9:16 versions for Reels and Stories; square images get cropped there.");
   }
   return { source: "template", google_headlines: headlines, google_descriptions: descriptions, meta };

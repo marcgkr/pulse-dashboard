@@ -58,7 +58,7 @@ export function RxSlip({ data, defaultOpen = false }: { data: SlipData; defaultO
           <div className="min-w-0 flex-1">
             <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
               <Badge tone={priorityTone[data.priority]}>{data.priority}</Badge>
-              <Badge>{data.category || "General"}</Badge>
+              {!(data.agentName && data.agentName.toLowerCase().startsWith((data.category || "").toLowerCase())) && <Badge>{data.category || "General"}</Badge>}
               {data.agentName && <Badge tone="ink">{data.agentName}</Badge>}
             </div>
             <h3 className={cx("font-display text-[17px] font-semibold leading-snug", done && "line-through decoration-scrub/60")}>{data.title}</h3>

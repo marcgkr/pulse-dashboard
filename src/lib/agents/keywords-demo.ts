@@ -97,8 +97,15 @@ export function normalizeSlug(s: string): string {
   return "/" + parts.join("/");
 }
 
+const SMALL_WORDS = new Set(["a", "an", "and", "at", "by", "for", "in", "of", "on", "or", "the", "to", "vs", "with"]);
+
 export function titleCase(s: string): string {
-  return s.replace(/\b([a-z])([a-z]*)/g, (_, a: string, b: string) => a.toUpperCase() + b);
+  let first = true;
+  return s.replace(/\b([a-z])([a-z]*)/g, (word: string, a: string, b: string) => {
+    const keep = !first && SMALL_WORDS.has(word);
+    first = false;
+    return keep ? word : a.toUpperCase() + b;
+  });
 }
 
 export function cleanKeyword(s: string): string {
@@ -437,10 +444,19 @@ function coreKeyword(kw: string, p: Place): string {
 
 const related = (a: string, b: string) => a.includes(b) || b.includes(a);
 
+/**
+ * Turns a free-text location into one area + one region.
+ * "Singapore (Tampines and Orchard)" -> tampines / singapore; "Tampines, Singapore" -> tampines / singapore.
+ */
 function place(location: string): Place {
-  const parts = location.split(",").map((p) => p.trim()).filter(Boolean);
-  const region = (parts[parts.length - 1] || "Singapore").toLowerCase();
-  const area = (parts[0] || region).toLowerCase();
+  const raw = (location || "Singapore").toLowerCase();
+  const inner = raw.match(/\(([^)]*)\)/)?.[1] ?? "";
+  const outer = raw.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
+  const split = (t: string) => t.split(/,|\/|&|\band\b|;/).map((x) => x.trim()).filter(Boolean);
+  const outerParts = split(outer);
+  const innerParts = split(inner).filter((x) => !/^(east|west|north|south|central|north-east|islandwide)$/.test(x));
+  const region = outerParts[outerParts.length - 1] || "singapore";
+  const area = innerParts[0] || (outerParts.length > 1 ? outerParts[0] : region);
   return { area, region, areaTitle: titleCase(area), regionTitle: titleCase(region) };
 }
 

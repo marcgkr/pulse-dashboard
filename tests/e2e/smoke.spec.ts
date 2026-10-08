@@ -30,12 +30,12 @@ test("owner signs up, runs Site Doctor, and works a prescription", async ({ page
   await expect(page.locator("article")).toHaveCount(1);
 
   await page.goto("/app");
-  await expect(page.getByRole("heading", { name: /Morning check/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /(Morning|Afternoon|Evening) check/ })).toBeVisible();
 
   await page.goto("/app/ask");
   await page.getByLabel("Your question").fill("What should I fix first?");
   await page.getByRole("button", { name: "Send" }).click();
-  await expect(page.getByText("demo mode")).toBeVisible();
+  await expect(page.getByText("I'm running in demo mode")).toBeVisible();
 
   await page.goto("/admin");
   await expect(page.getByRole("heading", { name: "Admin console" })).toBeVisible();
