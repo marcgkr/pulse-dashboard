@@ -21,6 +21,8 @@ export type Plan = {
   priceMonthly: number; // SGD
   blurb: string;
   runsPerMonth: number;
+  /** Ask PULSE messages a month (live AI only). */
+  chatPerMonth: number;
   features: string[];
   stripePriceEnv?: string;
 };
@@ -33,6 +35,7 @@ export const PLANS: Plan[] = [
     priceMonthly: 0,
     blurb: "See what's wrong before you pay anything.",
     runsPerMonth: 5,
+    chatPerMonth: 0,
     features: ["Site Doctor (1 site)", "5 agent runs a month", "Prescription board"],
   },
   {
@@ -41,6 +44,7 @@ export const PLANS: Plan[] = [
     priceMonthly: 99,
     blurb: "For owners who want a clear weekly to-do list.",
     runsPerMonth: 40,
+    chatPerMonth: 300,
     features: [
       "Every specialist included",
       "40 agent runs a month",
@@ -55,6 +59,7 @@ export const PLANS: Plan[] = [
     priceMonthly: 249,
     blurb: "For businesses running Google and Meta ads every month.",
     runsPerMonth: 150,
+    chatPerMonth: 1000,
     features: [
       "Everything in Starter",
       "150 agent runs a month",
@@ -69,6 +74,7 @@ export const PLANS: Plan[] = [
     priceMonthly: 499,
     blurb: "For multi-outlet brands and in-house marketers.",
     runsPerMonth: 500,
+    chatPerMonth: 3000,
     features: [
       "Everything in Growth",
       "500 agent runs a month",

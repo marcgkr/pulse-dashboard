@@ -2,6 +2,7 @@ import { z } from "zod";
 import { businessContext, normalizePrescription, pick, PrescriptionSchema, research, structured, type Prescription } from "../ai";
 import type { WorkspaceRow } from "../db";
 import type { AgentContext, AgentDef, AgentResult } from "./types";
+import { countryCode } from "./keywords-demo";
 
 // ---------- Types ----------
 
@@ -380,6 +381,7 @@ async function runLive(input: Input, ctx: AgentContext): Promise<VisibilityResul
         prompt: `A customer in ${location} asks you:\n\n"${prompt}"\n\nSearch the web and answer them.`,
         maxSearches: 3,
         effort: "low",
+        country: countryCode(location),
       });
       return { prompt, text: r.text, sources: r.sources.slice(0, 20), error: undefined as string | undefined };
     } catch (e) {

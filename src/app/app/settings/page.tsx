@@ -74,7 +74,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             ))}
           </div>
           <div className="mt-5">
-            <PlanButtons current={ws.plan} stripe={stripeEnabled()} hasCustomer={!!ws.stripe_customer_id} contact={BRAND.contactEmail} />
+            <PlanButtons current={ws.plan} stripe={stripeEnabled()} hasCustomer={!!ws.stripe_customer_id} hasSubscription={!!ws.stripe_subscription_id} contact={BRAND.contactEmail} />
           </div>
         </Card>
       </section>

@@ -6,18 +6,26 @@ import { db, id, now, type UserRow, type WorkspaceRow } from "./db";
 const COOKIE = "prx_session";
 const SESSION_DAYS = 30;
 
-export function hashPassword(password: string): string {
+const scrypt = (password: string, salt: Buffer, len: number) =>
+  new Promise<Buffer>((resolve, reject) => crypto.scrypt(password, salt, len, (err, key) => (err ? reject(err) : resolve(key))));
+
+export const PASSWORD_MAX = 256;
+
+export async function hashPassword(password: string): Promise<string> {
   const salt = crypto.randomBytes(16);
-  const hash = crypto.scryptSync(password, salt, 64);
+  const hash = await scrypt(password, salt, 64);
   return `scrypt$${salt.toString("hex")}$${hash.toString("hex")}`;
 }
 
-export function verifyPassword(password: string, stored: string): boolean {
-  const [scheme, saltHex, hashHex] = stored.split("$");
+// Used when the email doesn't exist so login takes the same time either way.
+const DUMMY_HASH = `scrypt$${"0".repeat(32)}$${"0".repeat(128)}`;
+
+export async function verifyPassword(password: string, stored: string | null): Promise<boolean> {
+  const [scheme, saltHex, hashHex] = (stored ?? DUMMY_HASH).split("$");
   if (scheme !== "scrypt" || !saltHex || !hashHex) return false;
   const expected = Buffer.from(hashHex, "hex");
-  const actual = crypto.scryptSync(password, Buffer.from(saltHex, "hex"), expected.length);
-  return crypto.timingSafeEqual(expected, actual);
+  const actual = await scrypt(password.slice(0, PASSWORD_MAX), Buffer.from(saltHex, "hex"), expected.length);
+  return stored != null && crypto.timingSafeEqual(expected, actual);
 }
 
 export async function createSession(userId: string) {
@@ -53,13 +61,12 @@ export async function currentUser(): Promise<UserRow | null> {
   return row ?? null;
 }
 
-export function isAdmin(user: Pick<UserRow, "email"> | null): boolean {
-  if (!user) return false;
-  const admins = (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  return admins.includes(user.email.toLowerCase());
+/**
+ * Admin is a flag on the user row, granted only with ADMIN_SETUP_TOKEN (see /admin/claim) or the CLI.
+ * Never by email alone: emails aren't verified, so anyone could sign up as an admin address.
+ */
+export function isAdmin(user: Pick<UserRow, "is_admin"> | null): boolean {
+  return Boolean(user?.is_admin);
 }
 
 export function workspaceFor(userId: string): WorkspaceRow | null {
@@ -87,16 +94,17 @@ export async function apiWorkspace(): Promise<{ user: UserRow; ws: WorkspaceRow 
   return { user, ws };
 }
 
-export function createUser(email: string, name: string, password: string): UserRow {
+export async function createUser(email: string, name: string, password: string): Promise<UserRow> {
   const user: UserRow = {
     id: id("u_"),
     email: email.trim().toLowerCase(),
-    name: name.trim(),
-    password_hash: hashPassword(password),
+    name: name.trim().slice(0, 120),
+    password_hash: await hashPassword(password),
+    is_admin: 0,
     created_at: now(),
   };
   db()
-    .prepare("INSERT INTO users (id, email, name, password_hash, created_at) VALUES (@id, @email, @name, @password_hash, @created_at)")
+    .prepare("INSERT INTO users (id, email, name, password_hash, is_admin, created_at) VALUES (@id, @email, @name, @password_hash, @is_admin, @created_at)")
     .run(user);
   return user;
 }

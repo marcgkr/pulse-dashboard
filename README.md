@@ -35,7 +35,7 @@ See `.env.example`. The important ones:
 
 - `ANTHROPIC_API_KEY` turns on live agents. `PULSERX_MODEL` overrides the model (default `claude-opus-5-5`).
 - `DATABASE_PATH` is the SQLite file. In production, put it on a persistent volume.
-- `ADMIN_EMAILS` gets access to `/admin`.
+- `ADMIN_SETUP_TOKEN` (16+ characters) lets you make your own account an admin: sign up, open `/admin/claim`, enter the token, then remove the variable.
 - `GOOGLE_PSI_KEY` (optional) adds Google PageSpeed mobile scores to Site Doctor.
 - `STRIPE_*` (optional) turns on self-serve upgrades. Create one recurring price per paid plan and point the webhook at `/api/billing/webhook` with events `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`.
 
@@ -45,7 +45,7 @@ Plans and prices live in `src/lib/config.ts`. The brand name, domain and the don
 
 1. New project from this repo. Railway picks up `railway.json` and builds the `Dockerfile`.
 2. Add a volume mounted at `/data` (the image sets `DATABASE_PATH=/data/marketingrx.db`).
-3. Set `ANTHROPIC_API_KEY`, `ADMIN_EMAILS`, `APP_URL=https://marketingrx.ai`, and Stripe keys if billing is on.
+3. Set `ANTHROPIC_API_KEY`, `ADMIN_SETUP_TOKEN`, `APP_URL=https://marketingrx.ai`, and Stripe keys if billing is on.
 4. Point marketingrx.ai at the service under Settings > Networking > Custom domain.
 
 SQLite on one instance is fine for the first few hundred businesses. Agent runs execute in the web process; if you scale to multiple instances, move the database to Postgres and runs to a queue first.

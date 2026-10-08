@@ -8,7 +8,8 @@
     "start": "next start -p ${PORT:-3000}",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "test:live": "ANTHROPIC_API_KEY=test ANTHROPIC_BASE_URL=http://127.0.0.1:4600 PULSERX_ALLOW_PRIVATE=1 NO_PROXY='*' DATABASE_PATH=data/live-test.db tsx tests/live-paths.test.ts"
   },
   "engines": {
     "node": ">=20"
@@ -22,6 +23,7 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "stripe": "^23.0.0",
+    "undici": "^7.30.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {

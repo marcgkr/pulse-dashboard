@@ -3,6 +3,13 @@ import { apiWorkspace } from "@/lib/auth";
 import { aiEnabled, businessContext, chatStream } from "@/lib/ai";
 import { db, id, now, type RunRow, type TaskRow } from "@/lib/db";
 import { getAgent } from "@/lib/agents";
+import { planById } from "@/lib/config";
+import { errorResponse, readJson } from "@/lib/http";
+import { recordUsage, todaySgt, usedThisMonth } from "@/lib/runs";
+
+// One reply at a time per business, so a script can't fan out parallel requests.
+const inFlight = new Set<string>();
+const HISTORY_CHARS = 30_000;
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -43,14 +50,45 @@ export async function POST(req: Request) {
   const auth = await apiWorkspace();
   if (!auth) return new Response("Log in first.", { status: 401 });
   const { ws } = auth;
-  const body = (await req.json().catch(() => ({}))) as { message?: string };
-  const message = (body.message ?? "").trim().slice(0, 4000);
+  let body: { message?: unknown };
+  try {
+    body = await readJson(req);
+  } catch (e) {
+    return errorResponse(e);
+  }
+  const message = String(body.message ?? "").trim().slice(0, 4000);
   if (!message) return new Response("Type a question first.", { status: 400 });
+
+  const live = aiEnabled();
+  if (live) {
+    const plan = planById(ws.plan);
+    if (plan.chatPerMonth === 0) return new Response("Ask PULSE is part of the paid plans. Upgrade in Settings to chat with the strategist.", { status: 402 });
+    if (usedThisMonth(ws.id, "chat") >= plan.chatPerMonth) {
+      return new Response(`You've used all ${plan.chatPerMonth} Ask PULSE messages on the ${plan.name} plan this month.`, { status: 402 });
+    }
+    if (inFlight.has(ws.id)) return new Response("Wait for the current answer to finish first.", { status: 429 });
+  }
 
   const history = db()
     .prepare("SELECT role, content FROM chat_messages WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 20")
     .all(ws.id)
     .reverse() as { role: "user" | "assistant"; content: string }[];
+  // The API requires the first message to be from the user. The 20-message window can start on an assistant
+  // reply (e.g. after a turn that saved no answer), which would make every request fail with a 400.
+  // Keep the newest messages within a character budget.
+  let budget = HISTORY_CHARS;
+  for (let i = history.length - 1; i >= 0; i--) {
+    budget -= history[i].content.length;
+    if (budget < 0) {
+      history.splice(0, i + 1);
+      break;
+    }
+  }
+  while (history[0]?.role === "assistant") history.shift();
+  if (live) {
+    inFlight.add(ws.id);
+    recordUsage(ws.id, "chat", ws.id);
+  }
   db().prepare("INSERT INTO chat_messages (id, workspace_id, role, content, created_at) VALUES (?, ?, 'user', ?, ?)").run(id("m_"), ws.id, message, now());
 
   const encoder = new TextEncoder();
@@ -71,7 +109,7 @@ export async function POST(req: Request) {
         }
       };
       try {
-        if (!aiEnabled()) {
+        if (!live) {
           full =
             "I'm running in demo mode, so I can't answer live yet. Once an Anthropic API key is added, I'll answer using your business profile, your latest reports and your open prescriptions.\n\nIn the meantime, the best next step is usually to work through your **urgent** prescriptions on the Prescriptions board, then re-run Site Doctor to see your score move.";
           for (const chunk of full.match(/.{1,24}/gs) ?? []) {
@@ -83,7 +121,7 @@ export async function POST(req: Request) {
             ...history.map((m) => ({ role: m.role, content: m.content })),
             { role: "user", content: message },
           ];
-          const system = `${SYSTEM}\n\nBUSINESS PROFILE\n${businessContext(ws)}\n\n${contextFor(ws.id)}\n\nToday is ${new Date().toISOString().slice(0, 10)}.`;
+          const system = `${SYSTEM}\n\nBUSINESS PROFILE\n${businessContext(ws)}\n\n${contextFor(ws.id)}\n\nToday is ${todaySgt()} (Singapore time).`;
           for await (const delta of chatStream({ system, messages })) {
             full += delta;
             send(delta);
@@ -98,6 +136,7 @@ export async function POST(req: Request) {
         if (full.trim()) {
           db().prepare("INSERT INTO chat_messages (id, workspace_id, role, content, created_at) VALUES (?, ?, 'assistant', ?, ?)").run(id("m_"), ws.id, full, now());
         }
+        inFlight.delete(ws.id);
         if (!cancelled) controller.close();
       }
     },

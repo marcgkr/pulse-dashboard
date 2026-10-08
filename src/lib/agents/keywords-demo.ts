@@ -184,6 +184,8 @@ function readRows(text: string, delim: string | null): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = "";
+  // Whitespace-only so far (tracked instead of cell.trim() per character, which was quadratic).
+  let blank = true;
   let quoted = false;
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
@@ -194,21 +196,27 @@ function readRows(text: string, delim: string | null): string[][] {
           i++;
         } else quoted = false;
       } else cell += ch;
+      blank = false;
       continue;
     }
-    if (ch === '"' && cell.trim() === "") {
+    if (ch === '"' && blank) {
       quoted = true;
       cell = "";
     } else if (ch === delim) {
       row.push(cell);
       cell = "";
+      blank = true;
     } else if (ch === "\n" || ch === "\r") {
       if (ch === "\r" && text[i + 1] === "\n") i++;
       row.push(cell);
       rows.push(row);
       row = [];
       cell = "";
-    } else cell += ch;
+      blank = true;
+    } else {
+      cell += ch;
+      if (ch !== " " && ch !== "\t") blank = false;
+    }
   }
   row.push(cell);
   rows.push(row);

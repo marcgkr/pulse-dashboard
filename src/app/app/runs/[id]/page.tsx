@@ -12,6 +12,7 @@ import { ScoreDial } from "@/components/brand";
 import { Badge, ButtonLink, Card, Label } from "@/components/ui";
 import { RerunButton } from "@/components/rerun-button";
 import type { AgentId } from "@/lib/agents/types";
+import { clientInput } from "@/lib/client-input";
 
 export const metadata = { title: "Report" };
 
@@ -21,7 +22,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
   const run = db().prepare("SELECT * FROM runs WHERE id = ? AND workspace_id = ?").get(id, ws.id) as RunRow | undefined;
   if (!run) notFound();
   const agent = getAgent(run.agent);
-  const input = JSON.parse(run.input_json) as Record<string, unknown>;
+  const input = clientInput(run.agent, JSON.parse(run.input_json) as Record<string, unknown>);
   const parent = run.parent_run_id ? (db().prepare("SELECT id, title FROM runs WHERE id = ? AND workspace_id = ?").get(run.parent_run_id, ws.id) as { id: string; title: string } | undefined) : undefined;
 
   const header = (
@@ -30,7 +31,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
         <ArrowLeft size={14} /> {agent?.name ?? "Back"}
       </Link>
       <div className="flex flex-wrap items-center gap-2">
-        <Label>{new Date(run.created_at).toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short" })}</Label>
+        <Label>{new Date(run.created_at).toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Singapore" })}</Label>
         {run.demo ? <Badge tone="amber">Sample output</Badge> : null}
       </div>
       <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight">{run.title}</h1>
@@ -59,7 +60,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
           <p className="font-display text-lg font-semibold text-pulse">This checkup didn&apos;t finish.</p>
           <p className="mt-1 text-ink-2">{run.error}</p>
           <div className="mt-4 flex gap-2">
-            <RerunButton agent={run.agent} input={input} label="Try again" />
+            <RerunButton agent={run.agent} rerunOf={run.id} label="Try again" />
             <ButtonLink href={`/app/agents/${run.agent}`} variant="secondary">
               Change the input
             </ButtonLink>
@@ -88,7 +89,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
           )}
         </div>
         <div className="shrink-0">
-          <RerunButton agent={run.agent} input={input} label="Re-check" />
+          <RerunButton agent={run.agent} rerunOf={run.id} label="Re-check" />
         </div>
       </Card>
 

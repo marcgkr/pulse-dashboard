@@ -3,15 +3,37 @@ import { planById } from "./config";
 import { db, id, now, type RunRow, type TaskRow, type WorkspaceRow } from "./db";
 import { getAgent, type AgentResult } from "./agents";
 
-export function runsThisMonth(workspaceId: string): number {
-  const start = new Date();
-  start.setUTCDate(1);
-  start.setUTCHours(0, 0, 0, 0);
+const SGT_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+/** Start of the current calendar month in Singapore time, as an ISO timestamp. */
+export function monthStartSgt(d = new Date()): string {
+  const sg = new Date(d.getTime() + SGT_OFFSET_MS);
+  return new Date(Date.UTC(sg.getUTCFullYear(), sg.getUTCMonth(), 1) - SGT_OFFSET_MS).toISOString();
+}
+
+/** Today's date (YYYY-MM-DD) in Singapore time. */
+export function todaySgt(d = new Date()): string {
+  return new Date(d.getTime() + SGT_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/** Counts from usage_events, not runs, so deleting a report doesn't hand back a run. */
+export function usedThisMonth(workspaceId: string, kind: "run" | "chat"): number {
   const row = db()
-    .prepare("SELECT COUNT(*) AS n FROM runs WHERE workspace_id = ? AND created_at >= ? AND demo = 0")
-    .get(workspaceId, start.toISOString()) as { n: number };
+    .prepare("SELECT COUNT(*) AS n FROM usage_events WHERE workspace_id = ? AND kind = ? AND created_at >= ?")
+    .get(workspaceId, kind, monthStartSgt()) as { n: number };
   return row.n;
 }
+
+export function runsThisMonth(workspaceId: string): number {
+  return usedThisMonth(workspaceId, "run");
+}
+
+export function recordUsage(workspaceId: string, kind: "run" | "chat", ref: string) {
+  db().prepare("INSERT INTO usage_events (workspace_id, kind, ref, created_at) VALUES (?, ?, ?, ?)").run(workspaceId, kind, ref, now());
+}
+
+const MAX_ACTIVE_RUNS = 2;
+const RUN_DEADLINE_MS = 15 * 60 * 1000;
 
 export function usage(ws: WorkspaceRow) {
   const plan = planById(ws.plan);
@@ -44,6 +66,8 @@ export function startRun(ws: WorkspaceRow, agentId: string, rawInput: unknown, p
     const u = usage(ws);
     if (u.left <= 0) throw new RunError(`You've used all ${u.limit} agent runs on the ${u.plan.name} plan this month.`, 402);
   }
+  const active = (db().prepare("SELECT COUNT(*) AS n FROM runs WHERE workspace_id = ? AND status IN ('queued','running')").get(ws.id) as { n: number }).n;
+  if (active >= MAX_ACTIVE_RUNS) throw new RunError("You already have two checkups running. Wait for one to finish, then try again.", 429);
 
   let input: unknown;
   try {
@@ -74,6 +98,7 @@ export function startRun(ws: WorkspaceRow, agentId: string, rawInput: unknown, p
        VALUES (@id, @workspace_id, @agent, @title, @input_json, @status, @progress, @demo, @parent_run_id, @created_at)`,
     )
     .run(run);
+  if (live) recordUsage(ws.id, "run", run.id);
 
   // Fire and forget. The UI polls the run row for progress.
   void execute(run.id, ws, input, live);
@@ -85,19 +110,36 @@ export async function execute(runId: string, ws: WorkspaceRow, input: unknown, l
   const agent = getAgent(run.agent)!;
   const setProgress = (msg: string) => db().prepare("UPDATE runs SET progress = ? WHERE id = ?").run(msg.slice(0, 200), runId);
   db().prepare("UPDATE runs SET status = 'running' WHERE id = ?").run(runId);
+  let result: AgentResult;
+  let timer: NodeJS.Timeout | undefined;
   try {
     const ctx = { ws, runId, progress: setProgress };
-    const result: AgentResult = live ? await agent.run(input, ctx) : await agent.demo(input, ctx);
-    db()
-      .prepare("UPDATE runs SET status = 'done', progress = '', result_json = ?, score = ?, demo = ?, finished_at = ? WHERE id = ?")
-      .run(JSON.stringify(result), result.score ?? null, result.demo ? 1 : 0, now(), runId);
-    addTasksFromResult(ws.id, run, result);
-    recordScore(ws.id);
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("This checkup took too long and was stopped. Try again, or try a smaller input.")), RUN_DEADLINE_MS);
+    });
+    result = await Promise.race([live ? agent.run(input, ctx) : agent.demo(input, ctx), deadline]);
   } catch (e) {
     console.error(`[run ${runId}] ${agent.id} failed`, e);
     db()
-      .prepare("UPDATE runs SET status = 'error', error = ?, finished_at = ? WHERE id = ?")
+      .prepare("UPDATE runs SET status = 'error', error = ?, finished_at = ? WHERE id = ? AND status = 'running'")
       .run(friendlyError(e), now(), runId);
+    // Failed runs don't use up the plan's allowance.
+    db().prepare("DELETE FROM usage_events WHERE kind = 'run' AND ref = ?").run(runId);
+    return;
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const saved = db()
+    .prepare("UPDATE runs SET status = 'done', progress = '', result_json = ?, score = ?, demo = ?, finished_at = ? WHERE id = ? AND status = 'running'")
+    // Reports on built-in sample data keep their score inside the report but never feed the Pulse Score.
+    .run(JSON.stringify(result), result.sample ? null : (result.score ?? null), result.demo ? 1 : 0, now(), runId);
+  if (saved.changes === 0) return; // deleted while running
+  try {
+    addTasksFromResult(ws.id, run, result);
+    recordScore(ws.id);
+  } catch (e) {
+    console.error(`[run ${runId}] saving prescriptions failed`, e);
   }
 }
 
@@ -109,19 +151,31 @@ function friendlyError(e: unknown): string {
   return err?.message?.slice(0, 400) || "Something went wrong.";
 }
 
+// Specialists that diagnose the whole account each time: a new report replaces the untouched
+// prescriptions from the previous one, so the board reflects the latest checkup.
+const SUPERSEDING_AGENTS = new Set(["site", "ads"]);
+
+const titleKey = (t: string) => t.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+
 function addTasksFromResult(workspaceId: string, run: RunRow, result: AgentResult) {
+  if (result.sample) return; // sample data must never land on the real board
+  if (SUPERSEDING_AGENTS.has(run.agent)) {
+    db()
+      .prepare("UPDATE tasks SET status = 'superseded' WHERE workspace_id = ? AND agent = ? AND status = 'todo' AND (run_id IS NULL OR run_id != ?)")
+      .run(workspaceId, run.agent, run.id);
+  }
   const open = db()
-    .prepare("SELECT lower(title) AS t FROM tasks WHERE workspace_id = ? AND status IN ('todo','doing')")
-    .all(workspaceId) as { t: string }[];
-  const seen = new Set(open.map((r) => r.t));
+    .prepare("SELECT title FROM tasks WHERE workspace_id = ? AND status IN ('todo','doing')")
+    .all(workspaceId) as { title: string }[];
+  const seen = new Set(open.map((r) => titleKey(r.title)));
   const insert = db().prepare(
     `INSERT INTO tasks (id, workspace_id, run_id, agent, title, diagnosis, steps_json, where_to, priority, impact, effort, category, recheck_days, status, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'todo', ?)`,
   );
   const tx = db().transaction(() => {
     for (const p of result.prescriptions ?? []) {
-      if (!p?.title || seen.has(p.title.toLowerCase())) continue;
-      seen.add(p.title.toLowerCase());
+      if (!p?.title || seen.has(titleKey(p.title))) continue;
+      seen.add(titleKey(p.title));
       insert.run(
         id("t_"),
         workspaceId,
@@ -168,7 +222,7 @@ export function pulseScore(workspaceId: string): PulseScore {
          SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) AS done,
          SUM(CASE WHEN status IN ('todo','doing') AND priority IN ('urgent','high') THEN 1 ELSE 0 END) AS openHigh,
          COUNT(*) AS total
-       FROM tasks WHERE workspace_id = ? AND status != 'skipped'`,
+       FROM tasks WHERE workspace_id = ? AND status NOT IN ('skipped','superseded')`,
     )
     .get(workspaceId) as { done: number | null; openHigh: number | null; total: number };
   const follow = t.total ? Math.round(((t.done ?? 0) / t.total) * 100) : null;
@@ -190,7 +244,7 @@ export function pulseScore(workspaceId: string): PulseScore {
 export function recordScore(workspaceId: string) {
   const { score } = pulseScore(workspaceId);
   if (score == null) return;
-  const day = new Date().toISOString().slice(0, 10);
+  const day = todaySgt();
   db()
     .prepare("INSERT INTO score_history (workspace_id, day, score) VALUES (?, ?, ?) ON CONFLICT(workspace_id, day) DO UPDATE SET score = excluded.score")
     .run(workspaceId, day, score);

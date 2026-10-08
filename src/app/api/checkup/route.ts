@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auditSite, type Check } from "@/lib/agents/site-audit";
+import { clientIp, HttpError, readJson } from "@/lib/http";
 import { rulePrescriptions } from "@/lib/agents/site";
 import { normalizeUrl } from "@/lib/safe-fetch";
 
@@ -18,11 +19,6 @@ const TIMEOUT_MS = 55_000;
 const g = globalThis as unknown as { __checkupHits?: Map<string, number[]> };
 const hits = (g.__checkupHits ??= new Map<string, number[]>());
 
-function clientIp(req: Request): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  return req.headers.get("x-real-ip")?.trim() || "unknown";
-}
 
 function rateLimit(ip: string): { ok: boolean; retryAfter: number } {
   const now = Date.now();
@@ -42,12 +38,17 @@ function rateLimit(ip: string): { ok: boolean; retryAfter: number } {
 
 class TimeoutError extends Error {}
 
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+/** Races the work against a deadline and aborts it (stops further page fetches) when the deadline wins. */
+function withTimeout<T>(work: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
+  const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout>;
   return Promise.race([
-    p,
+    work(controller.signal),
     new Promise<T>((_, reject) => {
-      timer = setTimeout(() => reject(new TimeoutError("timeout")), ms);
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new TimeoutError("timeout"));
+      }, ms);
     }),
   ]).finally(() => clearTimeout(timer));
 }
@@ -55,7 +56,13 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 const statusRank = { fail: 0, warn: 1, pass: 2 } as const;
 
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => null)) as { url?: unknown } | null;
+  let body: { url?: unknown } | null;
+  try {
+    body = await readJson(req, 4000);
+  } catch (e) {
+    if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
+    throw e;
+  }
   const raw = typeof body?.url === "string" ? body.url.trim() : "";
   if (!raw) return NextResponse.json({ error: "Enter your website address, for example yourclinic.sg." }, { status: 400 });
   if (raw.length > 300) return NextResponse.json({ error: "That address is too long. Enter just your homepage, like yourclinic.sg." }, { status: 400 });
@@ -77,7 +84,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const audit = await withTimeout(auditSite(url, { maxPages: 3 }), TIMEOUT_MS);
+    const audit = await withTimeout((signal) => auditSite(url, { maxPages: 3, signal }), TIMEOUT_MS);
     const topIssues: Check[] = audit.checks
       .filter((c) => c.status !== "pass")
       .sort((a, b) => b.weight - a.weight || statusRank[a.status] - statusRank[b.status])

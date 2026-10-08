@@ -38,7 +38,19 @@ export function WindsorForm({ connected }: { connected: boolean }) {
   );
 }
 
-export function PlanButtons({ current, stripe, hasCustomer, contact }: { current: string; stripe: boolean; hasCustomer: boolean; contact: string }) {
+export function PlanButtons({
+  current,
+  stripe,
+  hasCustomer,
+  hasSubscription,
+  contact,
+}: {
+  current: string;
+  stripe: boolean;
+  hasCustomer: boolean;
+  hasSubscription: boolean;
+  contact: string;
+}) {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   async function go(path: string, body: unknown, key: string) {
@@ -61,7 +73,8 @@ export function PlanButtons({ current, stripe, hasCustomer, contact }: { current
   }
   return (
     <div className="flex flex-wrap gap-2">
-      {PLANS.filter((p) => p.id !== "free" && p.id !== current).map((p) => (
+      {hasSubscription && <p className="w-full text-sm text-ink-2">To switch plans or cancel, use Manage billing.</p>}
+      {!hasSubscription && PLANS.filter((p) => p.id !== "free" && p.id !== current).map((p) => (
         <Button key={p.id} disabled={!!pending} onClick={() => go("/api/billing/checkout", { plan: p.id }, p.id)}>
           {pending === p.id ? "Opening checkout..." : `Switch to ${p.name}`}
         </Button>

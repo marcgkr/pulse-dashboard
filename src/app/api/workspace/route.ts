@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentUser, workspaceFor } from "@/lib/auth";
 import { db, id, now } from "@/lib/db";
+import { errorResponse, readJson } from "@/lib/http";
 
 const FIELDS = ["name", "website", "industry", "location", "audience", "offers", "competitors", "goals", "monthly_budget", "tone"] as const;
 const REGULATED = /medical|clinic|aesthetic|dental|doctor|surgery|surgeon|health|physio|rehab|legal|law|lawyer|syariah|financ|insurance|supplement/i;
@@ -15,7 +16,12 @@ export async function POST(req: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Log in first." }, { status: 401 });
   if (workspaceFor(user.id)) return NextResponse.json({ error: "You already have a business set up." }, { status: 409 });
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  let body: Record<string, unknown>;
+  try {
+    body = await readJson(req);
+  } catch (e) {
+    return errorResponse(e);
+  }
   const f = clean(body);
   if (!f.name) return NextResponse.json({ error: "Enter your business name." }, { status: 400 });
   const regulated = typeof body.regulated === "boolean" ? body.regulated : REGULATED.test(`${f.industry} ${f.offers}`);
@@ -48,7 +54,12 @@ export async function PATCH(req: Request) {
   const user = await currentUser();
   const ws = user && workspaceFor(user.id);
   if (!user || !ws) return NextResponse.json({ error: "Log in first." }, { status: 401 });
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  let body: Record<string, unknown>;
+  try {
+    body = await readJson(req);
+  } catch (e) {
+    return errorResponse(e);
+  }
   const f = clean(body);
   if (f.name === "") return NextResponse.json({ error: "Business name can't be empty." }, { status: 400 });
   const sets: string[] = [];
@@ -63,7 +74,7 @@ export async function PATCH(req: Request) {
   }
   if (typeof body.windsor_api_key === "string") {
     sets.push("windsor_api_key = ?");
-    vals.push(body.windsor_api_key.trim() || null);
+    vals.push(body.windsor_api_key.trim().slice(0, 300) || null);
   }
   if (sets.length) db().prepare(`UPDATE workspaces SET ${sets.join(", ")} WHERE id = ?`).run(...vals, ws.id);
   return NextResponse.json({ ok: true });

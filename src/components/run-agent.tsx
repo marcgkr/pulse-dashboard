@@ -10,14 +10,14 @@ export function useRunAgent(agent: string) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function start(input: unknown, parentRunId?: string) {
+  async function post(body: Record<string, unknown>) {
     setPending(true);
     setError(null);
     try {
       const res = await fetch("/api/runs", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ agent, input, parentRunId }),
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Couldn't start the agent.");
@@ -28,7 +28,12 @@ export function useRunAgent(agent: string) {
     }
   }
 
-  return { start, pending, error };
+  /** Start a run. Pass parentRunId for follow-ups (expand, more like this). */
+  const start = (input: unknown, parentRunId?: string) => post({ agent, input, parentRunId });
+  /** Run again with the exact stored input of an earlier run. */
+  const rerun = (runId: string) => post({ agent, rerunOf: runId });
+
+  return { start, rerun, pending, error };
 }
 
 export function FormError({ error }: { error: string | null }) {

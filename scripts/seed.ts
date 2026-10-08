@@ -17,7 +17,8 @@ async function main() {
     console.log(`${email} already exists. Delete it or use another SEED_EMAIL.`);
     return;
   }
-  const user = createUser(email, "Demo Owner", password);
+  const user = await createUser(email, "Demo Owner", password);
+  db().prepare("UPDATE users SET is_admin = 1 WHERE id = ?").run(user.id);
   const ws: WorkspaceRow = {
     id: id("w_"),
     owner_id: user.id,

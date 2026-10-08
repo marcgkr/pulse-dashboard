@@ -26,7 +26,7 @@ export default async function ReportsPage() {
               {r.status === "error" && <Badge tone="red">Failed</Badge>}
               {(r.status === "running" || r.status === "queued") && <Badge tone="amber">Working</Badge>}
               {r.score != null && <Badge tone={scoreTone(r.score)}>{r.score}</Badge>}
-              <span className="font-mono text-xs text-ink-3">{new Date(r.created_at).toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short" })}</span>
+              <span className="font-mono text-xs text-ink-3">{new Date(r.created_at).toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Singapore" })}</span>
             </Link>
           ))}
         </Card>

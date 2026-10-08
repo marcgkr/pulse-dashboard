@@ -18,7 +18,7 @@ export const AGENTS: Record<AgentId, AgentDef<any>> = {
 export const AGENT_ORDER: AgentId[] = ["site", "keywords", "visibility", "content", "ads", "compliance"];
 
 export function getAgent(id: string): AgentDef<any> | null {
-  return (AGENTS as Record<string, AgentDef<any>>)[id] ?? null;
+  return Object.hasOwn(AGENTS, id) ? (AGENTS as Record<string, AgentDef<any>>)[id] : null;
 }
 
 export type { AgentId, AgentDef, AgentResult, AgentContext } from "./types";

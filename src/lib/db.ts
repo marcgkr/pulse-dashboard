@@ -16,16 +16,22 @@ function open(): Database.Database {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   migrate(db);
-  // Runs execute in this process, so anything still marked as working was cut off by a restart.
-  db.prepare(
-    "UPDATE runs SET status = 'error', error = 'This run was interrupted by a server restart. Run it again.', finished_at = ? WHERE status IN ('queued','running')",
-  ).run(new Date().toISOString());
   return db;
 }
 
 export function db(): Database.Database {
   if (!global.__pulserxDb) global.__pulserxDb = open();
   return global.__pulserxDb;
+}
+
+/**
+ * Runs execute inside the web server process, so anything still marked as working when the
+ * server starts was cut off by a restart. Called once from src/instrumentation.ts.
+ */
+export function recoverInterruptedRuns() {
+  db()
+    .prepare("UPDATE runs SET status = 'error', error = 'This run was interrupted by a server restart. Run it again.', finished_at = ? WHERE status IN ('queued','running')")
+    .run(new Date().toISOString());
 }
 
 export function id(prefix = ""): string {
@@ -119,12 +125,26 @@ function migrate(db: Database.Database) {
       score INTEGER NOT NULL,
       PRIMARY KEY (workspace_id, day)
     );
+    CREATE TABLE IF NOT EXISTS usage_events (
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      ref TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS usage_ws ON usage_events(workspace_id, kind, created_at);
   `);
+  addColumn(db, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
+  addColumn(db, "workspaces", "stripe_subscription_id", "TEXT");
+}
+
+function addColumn(db: Database.Database, table: string, column: string, type: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
 }
 
 // ---------- Row types ----------
 
-export type UserRow = { id: string; email: string; name: string; password_hash: string; created_at: string };
+export type UserRow = { id: string; email: string; name: string; password_hash: string; is_admin: number; created_at: string };
 
 export type WorkspaceRow = {
   id: string;
@@ -142,6 +162,7 @@ export type WorkspaceRow = {
   regulated: number;
   plan: string;
   stripe_customer_id: string | null;
+  stripe_subscription_id?: string | null;
   windsor_api_key: string | null;
   created_at: string;
 };
@@ -177,7 +198,7 @@ export type TaskRow = {
   effort: "quick" | "half-day" | "project";
   category: string;
   recheck_days: number;
-  status: "todo" | "doing" | "done" | "skipped";
+  status: "todo" | "doing" | "done" | "skipped" | "superseded";
   notes: string;
   created_at: string;
   completed_at: string | null;

@@ -151,7 +151,7 @@ export default async function Dashboard() {
                 </div>
                 <p className="mt-1 text-sm text-ink-2">{a.blurb}</p>
                 <p className="mt-3 font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                  {last ? `Last seen ${new Date(last.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short" })}` : "Not run yet"}
+                  {last ? `Last seen ${new Date(last.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short", timeZone: "Asia/Singapore" })}` : "Not run yet"}
                 </p>
               </Link>
             );
@@ -180,7 +180,7 @@ export default async function Dashboard() {
                 {r.status === "error" && <Badge tone="red">Failed</Badge>}
                 {(r.status === "running" || r.status === "queued") && <Badge tone="amber">Working</Badge>}
                 {r.score != null && <Badge tone={scoreTone(r.score)}>{r.score}</Badge>}
-                <span className="hidden font-mono text-xs text-ink-3 sm:inline">{new Date(r.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short" })}</span>
+                <span className="hidden font-mono text-xs text-ink-3 sm:inline">{new Date(r.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short", timeZone: "Asia/Singapore" })}</span>
               </Link>
             ))}
           </Card>

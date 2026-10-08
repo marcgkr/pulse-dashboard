@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const email = "owner@example.com"; // matches ADMIN_EMAILS in playwright.config.ts; DB is reset each run
+const email = "owner@example.com"; // DB is reset each run
 
 test("owner signs up, runs Site Doctor, and works a prescription", async ({ page }) => {
   await page.goto("/signup?website=http://127.0.0.1:4555/");
@@ -38,8 +38,30 @@ test("owner signs up, runs Site Doctor, and works a prescription", async ({ page
   await expect(page.getByText("I'm running in demo mode")).toBeVisible();
 
   await page.goto("/admin");
+  await expect(page).toHaveURL(/\/app$/); // not an admin yet
+  await page.goto("/admin/claim");
+  await page.getByLabel("Setup token").fill("wrong-token-wrong-token");
+  await page.getByRole("button", { name: "Make me an admin" }).click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await page.getByLabel("Setup token").fill("e2e-setup-token-1234567890");
+  await page.getByRole("button", { name: "Make me an admin" }).click();
   await expect(page.getByRole("heading", { name: "Admin console" })).toBeVisible();
   await expect(page.getByText("Glow Aesthetics")).toBeVisible();
+});
+
+test("wrong password is rejected", async ({ request }) => {
+  await request.post("/api/auth/signup", { data: { email: "pw@example.com", name: "Pw", password: "right-password-1" } });
+  const bad = await request.post("/api/auth/login", { data: { email: "pw@example.com", password: "wrong-password-1" } });
+  expect(bad.status()).toBe(401);
+  const good = await request.post("/api/auth/login", { data: { email: "pw@example.com", password: "right-password-1" } });
+  expect(good.status()).toBe(200);
+  const nobody = await request.post("/api/auth/login", { data: { email: "nobody@example.com", password: "whatever-123" } });
+  expect(nobody.status()).toBe(401);
+});
+
+test("cross-site writes are blocked", async ({ request }) => {
+  const res = await request.post("/api/auth/login", { data: { email: "a@b.co", password: "x" }, headers: { origin: "https://evil.example" } });
+  expect(res.status()).toBe(403);
 });
 
 test("landing page free checkup works", async ({ page }) => {

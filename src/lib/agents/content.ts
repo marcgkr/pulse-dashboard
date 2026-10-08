@@ -19,6 +19,7 @@ import {
   type Platform,
   type Trend,
 } from "./content-demo";
+import { countryCode } from "./keywords-demo";
 
 type Input = ContentInput;
 
@@ -207,7 +208,11 @@ ${regulated ? "5. Any recent enforcement or guidance on social media advertising
 Write bullet-point notes under 900 words. For each point say which platform and where you saw it. If you could not confirm something, say so.`,
         maxSearches: input.more_like ? 3 : 6,
         effort: "medium",
-        country: /singapore|\bsg\b/i.test(location) || !ws.location ? "SG" : undefined,
+        country: countryCode(location),
+      }).catch((e) => {
+        // Trends are a bonus: if web search fails, still write the plan from the profile.
+        console.error("[content] trend research failed", e);
+        return { text: "Trend research was unavailable for this run. Write evergreen ideas and say trends could not be checked.", sources: [] };
       });
       notes = r.text;
       sources = r.sources;

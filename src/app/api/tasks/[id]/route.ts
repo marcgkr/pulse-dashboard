@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { apiWorkspace } from "@/lib/auth";
 import { db, now } from "@/lib/db";
 import { recordScore } from "@/lib/runs";
+import { errorResponse, readJson } from "@/lib/http";
 
 const STATUSES = ["todo", "doing", "done", "skipped"];
 
@@ -9,8 +10,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const auth = await apiWorkspace();
   if (!auth) return NextResponse.json({ error: "Log in first." }, { status: 401 });
   const { id } = await params;
-  const body = (await req.json().catch(() => ({}))) as { status?: string; notes?: string };
-  if (body.status && !STATUSES.includes(body.status)) return NextResponse.json({ error: "Unknown status." }, { status: 400 });
+  let body: { status?: unknown; notes?: unknown };
+  try {
+    body = await readJson(req);
+  } catch (e) {
+    return errorResponse(e);
+  }
+  if (body.status !== undefined && (typeof body.status !== "string" || !STATUSES.includes(body.status))) {
+    return NextResponse.json({ error: "Unknown status." }, { status: 400 });
+  }
+  if (body.notes !== undefined && typeof body.notes !== "string") return NextResponse.json({ error: "Notes must be text." }, { status: 400 });
+  if (typeof body.notes === "string") body.notes = body.notes.slice(0, 4000);
   const res = db()
     .prepare(
       `UPDATE tasks SET

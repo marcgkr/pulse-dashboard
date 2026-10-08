@@ -7,6 +7,7 @@ import { agentAllowed } from "@/lib/runs";
 import { AGENT_FORMS } from "@/components/forms";
 import { Badge, ButtonLink, Card, Label, PageHeader, scoreTone } from "@/components/ui";
 import type { AgentId } from "@/lib/agents/types";
+import { clientInput } from "@/lib/client-input";
 
 export async function generateMetadata({ params }: { params: Promise<{ agent: string }> }) {
   const { agent } = await params;
@@ -44,7 +45,7 @@ export default async function AgentPage({ params }: { params: Promise<{ agent: s
                 regulated: !!ws.regulated,
               }}
               windsorConnected={!!ws.windsor_api_key}
-              lastInput={lastInput ? JSON.parse(lastInput) : null}
+              lastInput={lastInput ? clientInput(agent.id, JSON.parse(lastInput)) : null}
             />
           ) : (
             <div>
@@ -69,7 +70,7 @@ export default async function AgentPage({ params }: { params: Promise<{ agent: s
                   {r.status === "error" && <Badge tone="red">Failed</Badge>}
                   {(r.status === "running" || r.status === "queued") && <Badge tone="amber">Working</Badge>}
                   {r.score != null && <Badge tone={scoreTone(r.score)}>{r.score}</Badge>}
-                  <span className="font-mono text-xs text-ink-3">{new Date(r.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short" })}</span>
+                  <span className="font-mono text-xs text-ink-3">{new Date(r.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short", timeZone: "Asia/Singapore" })}</span>
                 </Link>
               ))}
             </Card>

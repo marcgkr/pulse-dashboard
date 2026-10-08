@@ -121,9 +121,9 @@ function snapshot(url: string, status: number, ms: number, html: string): PageSn
   };
 }
 
-async function exists(url: string): Promise<boolean> {
+async function exists(url: string, signal?: AbortSignal): Promise<boolean> {
   try {
-    const r = await safeFetch(url, { timeoutMs: 8000, maxBytes: 200_000 });
+    const r = await safeFetch(url, { timeoutMs: 8000, maxBytes: 200_000, signal });
     if (!r.ok) return false;
     const type = r.headers.get("content-type") ?? "";
     // Some sites return their homepage with 200 for every path.
@@ -161,11 +161,15 @@ async function pageSpeed(url: string) {
   }
 }
 
-export async function auditSite(input: string, opts: { maxPages?: number; onProgress?: (m: string) => void } = {}): Promise<SiteAudit> {
+export async function auditSite(
+  input: string,
+  opts: { maxPages?: number; onProgress?: (m: string) => void; signal?: AbortSignal } = {},
+): Promise<SiteAudit> {
+  const signal = opts.signal;
   const progress = opts.onProgress ?? (() => {});
   const start = normalizeUrl(input);
   progress(`Opening ${start.hostname}`);
-  const res = await safeFetch(start);
+  const res = await safeFetch(start, { signal });
   if (!res.ok) throw new Error(`${start.hostname} returned an error (HTTP ${res.status}).`);
   const html = res.body;
   const final = new URL(res.finalUrl);
@@ -241,7 +245,7 @@ export async function auditSite(input: string, opts: { maxPages?: number; onProg
   await Promise.all(
     candidates.map(async (u) => {
       try {
-        const r = await safeFetch(u, { timeoutMs: 12000 });
+        const r = await safeFetch(u, { timeoutMs: 12000, signal });
         pages.push(snapshot(r.finalUrl, r.status, r.ms, r.body));
       } catch {
         pages.push({ url: u, status: 0, ms: 0, title: "", description: "", h1: [], h2: [], wordCount: 0, canonical: "", noindex: false, bytes: 0 });
@@ -252,9 +256,9 @@ export async function auditSite(input: string, opts: { maxPages?: number; onProg
   progress("Checking robots.txt, sitemap and llms.txt");
   const origin = final.origin;
   const [robotsTxt, sitemap, llmsTxt, psi] = await Promise.all([
-    exists(origin + "/robots.txt"),
-    exists(origin + "/sitemap.xml").then(async (ok) => ok || (await exists(origin + "/sitemap_index.xml"))),
-    exists(origin + "/llms.txt"),
+    exists(origin + "/robots.txt", signal),
+    exists(origin + "/sitemap.xml", signal).then(async (ok) => ok || (await exists(origin + "/sitemap_index.xml", signal))),
+    exists(origin + "/llms.txt", signal),
     (progress("Measuring mobile speed"), pageSpeed(res.finalUrl)),
   ]);
 

@@ -20,7 +20,7 @@ export default defineConfig({
       env: {
         DATABASE_PATH: "data/e2e.db",
         PULSERX_ALLOW_PRIVATE: "1",
-        ADMIN_EMAILS: "owner@example.com",
+        ADMIN_SETUP_TOKEN: "e2e-setup-token-1234567890",
         ANTHROPIC_API_KEY: "",
         NO_PROXY: "*",
       },

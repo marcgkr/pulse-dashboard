@@ -62,11 +62,15 @@ export function parseCsv(input: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";
+  // True while the current field holds only spaces/tabs, so an opening quote is still allowed.
+  // Tracked instead of calling field.trim() per character, which was quadratic on long fields.
+  let fieldBlank = true;
   let inQuotes = false;
   let i = 0;
   while (i < text.length) {
     const c = text[i];
     if (inQuotes) {
+      fieldBlank = false;
       if (c === '"') {
         if (text[i + 1] === '"') {
           field += '"';
@@ -81,7 +85,7 @@ export function parseCsv(input: string): string[][] {
       i++;
       continue;
     }
-    if (c === '"' && field.trim() === "") {
+    if (c === '"' && fieldBlank) {
       field = "";
       inQuotes = true;
       i++;
@@ -90,6 +94,7 @@ export function parseCsv(input: string): string[][] {
     if (c === delim) {
       row.push(field);
       field = "";
+      fieldBlank = true;
       i++;
       continue;
     }
@@ -98,11 +103,13 @@ export function parseCsv(input: string): string[][] {
       rows.push(row);
       row = [];
       field = "";
+      fieldBlank = true;
       if (c === "\r" && text[i + 1] === "\n") i++;
       i++;
       continue;
     }
     field += c;
+    if (c !== " " && c !== "\t") fieldBlank = false;
     i++;
   }
   if (field !== "" || row.length) {

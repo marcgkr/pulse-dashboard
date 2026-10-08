@@ -10,6 +10,9 @@ export async function POST(req: Request) {
   const { plan } = (await req.json().catch(() => ({}))) as { plan?: PlanId };
   const price = plan ? priceFor(plan) : null;
   if (!plan || !price) return NextResponse.json({ error: "That plan isn't available for online checkout." }, { status: 400 });
+  if (auth.ws.stripe_subscription_id) {
+    return NextResponse.json({ error: "You already have a subscription. Use Manage billing to switch plans." }, { status: 409 });
+  }
   const base = appUrl(req);
   const session = await stripe().checkout.sessions.create({
     mode: "subscription",

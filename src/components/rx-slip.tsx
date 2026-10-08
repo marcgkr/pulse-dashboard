@@ -16,7 +16,7 @@ export type SlipData = {
   effort: "quick" | "half-day" | "project";
   category: string;
   recheck_days: number;
-  status?: "todo" | "doing" | "done" | "skipped";
+  status?: "todo" | "doing" | "done" | "skipped" | "superseded";
   agentName?: string;
 };
 
@@ -100,7 +100,8 @@ export function RxSlip({ data, defaultOpen = false }: { data: SlipData; defaultO
             )}
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              {data.id && (
+              {status === "superseded" && <Badge>Replaced by a newer checkup</Badge>}
+              {data.id && status !== "superseded" && (
                 <>
                   {status !== "done" ? (
                     <button
