@@ -16,6 +16,10 @@ function open(): Database.Database {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   migrate(db);
+  // Runs execute in this process, so anything still marked as working was cut off by a restart.
+  db.prepare(
+    "UPDATE runs SET status = 'error', error = 'This run was interrupted by a server restart. Run it again.', finished_at = ? WHERE status IN ('queued','running')",
+  ).run(new Date().toISOString());
   return db;
 }
 
