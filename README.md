@@ -54,8 +54,25 @@ SQLite on one instance is fine for the first few hundred businesses. Agent runs 
 
 ```bash
 npm run build
-npx playwright test     # signs up, onboards, runs Site Doctor against a local fixture site, works a prescription
+npx playwright test     # signup, onboarding, Site Doctor on a local fixture site, prescriptions, chat, admin claim, auth and cross-site checks
+npm run test:live       # every specialist's live AI path against a local mock of the Claude API (tests/mock-anthropic)
 ```
+
+`test:live` checks request shapes, response handling and report rendering. It can't prove answer quality, so run one real checkup per specialist after adding the API key.
+
+## Demo account
+
+```bash
+SEED_SITE_URL=https://a-real-site.sg npm run seed   # prints the login for a sample clinic with one report per specialist
+```
+
+## Limits and safety
+
+- Plans set monthly agent runs and Ask PULSE messages (`src/lib/config.ts`). Failed runs don't count; deleting a report doesn't give the run back.
+- Two checkups can run at once per business, each with a 15-minute deadline.
+- Website fetching pins DNS and refuses private, loopback, link-local and cloud metadata addresses.
+- Login and signup are rate limited per IP and per email; cross-site writes are rejected.
+- Not built yet: email verification and password reset. Add both before opening signups widely.
 
 ## Code map
 
