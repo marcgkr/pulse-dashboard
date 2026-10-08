@@ -155,7 +155,7 @@ export function listItems(answer: string): string[] {
 /** Business name at the start of a list item, e.g. "Zion Aesthetics: known for..." -> "Zion Aesthetics". */
 function itemName(item: string): string {
   const cleaned = item.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
-  const name = cleaned.split(/\s+[-–—]\s+|:\s|\s\(|,\s/)[0] ?? "";
+  const name = cleaned.split(/\s+[-\u2013\u2014]\s+|:\s|\s\(|,\s/)[0] ?? "";
   return name.replace(/[*_`#]/g, "").trim().slice(0, 80);
 }
 

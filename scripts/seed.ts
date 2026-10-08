@@ -44,6 +44,22 @@ async function main() {
     )
     .run(ws);
 
+  // Sample inputs for specialists that need something to work on.
+  const sampleInputs: Record<string, unknown> = {
+    visibility: {
+      prompts: [
+        "best clinic for pico laser in Tampines",
+        "where to get a hydrafacial in Singapore",
+        "acne scar treatment clinic Singapore with low downtime",
+      ],
+    },
+    compliance: {
+      channel: "Meta ad",
+      category: "Aesthetic clinic",
+      text: "Singapore's best pico laser! Guaranteed clear skin in 1 session, painless with no downtime. Our patients say it changed their lives. See the before and after. Book this week only and get 50% off!",
+    },
+  };
+
   for (const agentId of AGENT_ORDER) {
     const agent = getAgent(agentId)!;
     if (agentId === "site" && !ws.website) {
@@ -52,7 +68,7 @@ async function main() {
     }
     let input: unknown;
     try {
-      input = agent.parseInput({}, ws);
+      input = agent.parseInput(sampleInputs[agentId] ?? {}, ws);
     } catch (e) {
       console.log(`- skipping ${agent.name}: ${(e as Error).message}`);
       continue;

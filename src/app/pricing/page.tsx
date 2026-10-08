@@ -8,7 +8,7 @@ import { Badge, Label, cx } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: `${BRAND.name} plans in Singapore dollars. Start with a free website checkup, then unlock every specialist from ${sgd(
+  description: `${BRAND.name} plans in Singapore dollars. Start with a free website checkup, then get every specialist from ${sgd(
     PLANS.find((p) => p.id === "starter")?.priceMonthly ?? 0,
   )} a month. Month to month, cancel any time.`,
 };
@@ -133,7 +133,7 @@ export default function PricingPage() {
                     <div className="flex flex-1 flex-col p-5">
                       <div className="flex items-center justify-between gap-2">
                         <h2 className="font-display text-xl font-semibold tracking-tight">{p.name}</h2>
-                        {rec && <Badge tone="green">Recommended if you run ads</Badge>}
+                        {rec && <Badge tone="green" className="whitespace-nowrap">For ad spenders</Badge>}
                       </div>
                       <p className="mt-4 font-mono text-4xl font-semibold tabular-nums tracking-tight">
                         {sgd(p.priceMonthly)}

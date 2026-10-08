@@ -128,9 +128,11 @@ export function Checkup({ intro }: { intro: ReactNode }) {
         <div className="min-w-0">
           {/* The chart card */}
           <div className="overflow-hidden rounded-lg border border-ink/80 bg-card shadow-[0_1px_0_rgb(14_26_36/0.04),0_12px_32px_-12px_rgb(14_26_36/0.18)]">
-            <div className="flex items-center justify-between border-b border-line px-4 py-2.5 md:px-5">
+            <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5 md:px-5">
               <Label className="text-ink">Patient chart</Label>
-              <Label>Site Doctor · free checkup</Label>
+              <Label>
+                <span className="hidden sm:inline">Site Doctor · </span>Free checkup
+              </Label>
             </div>
 
             <form onSubmit={submit} className="p-4 md:p-5" noValidate>

@@ -116,7 +116,7 @@ const SAMPLE_SLIPS: SlipData[] = [
     priority: "medium",
     impact: "medium",
     effort: "half-day",
-    category: "AI Visibility",
+    category: "AI search",
     recheck_days: 30,
     agentName: "AI Visibility",
   },
@@ -219,14 +219,14 @@ export default function LandingPage() {
               intro={
                 <div>
                   <Label className="mb-4 text-scrub">For Singapore business owners who do their own marketing</Label>
-                  <h1 className="font-display text-[2.6rem] font-semibold leading-[1.02] tracking-[-0.02em] sm:text-5xl lg:text-[3.6rem]">
+                  <h1 className="font-display text-[2.4rem] font-semibold leading-[1.02] tracking-[-0.02em] sm:text-5xl lg:text-[3.6rem]">
                     Your marketing, diagnosed. The fixes, prescribed.
                   </h1>
                   <p className="mt-5 max-w-xl text-lg leading-relaxed text-ink-2">
                     {BRAND.name} examines your website, search presence, AI visibility and ads, then hands you a prescription: each problem, why it matters, and the exact steps
                     to fix it yourself.
                   </p>
-                  <p className="mt-4 max-w-xl text-[15px] text-ink-2">
+                  <p className="mt-4 hidden max-w-xl text-[15px] text-ink-2 sm:block">
                     Try it now on your own website. You get a score and your first three prescriptions in under a minute.
                   </p>
                 </div>
@@ -242,7 +242,7 @@ export default function LandingPage() {
           </SectionHead>
           <ol className="grid gap-0 md:grid-cols-4">
             {SEQUENCE.map((s, i) => (
-              <li key={s.name} className="relative border-l border-line pb-8 pl-6 md:border-l-0 md:border-t md:pb-0 md:pl-0 md:pr-6 md:pt-6">
+              <li key={s.name} className="relative border-l border-line pb-8 pl-6 last:pb-0 md:border-l-0 md:border-t md:pb-0 md:pl-0 md:pr-6 md:pt-6">
                 <span
                   aria-hidden
                   className={cx(
@@ -250,7 +250,10 @@ export default function LandingPage() {
                     i === 2 ? "border-scrub bg-scrub" : "border-scrub bg-paper",
                   )}
                 />
-                <Label className="mb-2">Step {i + 1}</Label>
+                <Label className="mb-2">
+                  Step {i + 1}
+                  {i === 2 && <span className="text-scrub"> · your part</span>}
+                </Label>
                 <h3 className="font-display text-xl font-semibold tracking-tight">{s.name}</h3>
                 <p className="mt-2 text-[15px] leading-relaxed text-ink-2">{s.body}</p>
               </li>
