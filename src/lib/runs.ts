@@ -19,9 +19,14 @@ export function todaySgt(d = new Date()): string {
 }
 
 /** Counts from usage_events, not runs, so deleting a report doesn't hand back a run. */
+/** Usage this month across every business on the same login (Pro accounts share one allowance). */
 export function usedThisMonth(workspaceId: string, kind: "run" | "chat"): number {
   const row = db()
-    .prepare("SELECT COUNT(*) AS n FROM usage_events WHERE workspace_id = ? AND kind = ? AND created_at >= ?")
+    .prepare(
+      `SELECT COUNT(*) AS n FROM usage_events
+       WHERE workspace_id IN (SELECT id FROM workspaces WHERE owner_id = (SELECT owner_id FROM workspaces WHERE id = ?))
+         AND kind = ? AND created_at >= ?`,
+    )
     .get(workspaceId, kind, monthStartSgt()) as { n: number };
   return row.n;
 }
@@ -66,7 +71,7 @@ export function startRun(ws: WorkspaceRow, agentId: string, rawInput: unknown, p
   const live = aiEnabled();
   if (live) {
     const u = usage(ws);
-    if (u.left <= 0) throw new RunError(`You've used all ${u.limit} agent runs on the ${u.plan.name} plan this month.`, 402);
+    if (u.left <= 0) throw new RunError(`You've used all ${u.limit} reports on the ${u.plan.name} plan this month.`, 402);
   }
   const active = (db().prepare("SELECT COUNT(*) AS n FROM runs WHERE workspace_id = ? AND status IN ('queued','running')").get(ws.id) as { n: number }).n;
   if (active >= MAX_ACTIVE_RUNS) throw new RunError("You already have two checkups running. Wait for one to finish, then try again.", 429);

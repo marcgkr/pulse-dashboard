@@ -38,7 +38,8 @@ const INDUSTRIES = [
   "Other",
 ];
 
-export function ProfileForm({ mode, initial }: { mode: "create" | "edit"; initial: Profile }) {
+/** mode "add": another business on a Pro account. Same form as "create". */
+export function ProfileForm({ mode, initial }: { mode: "create" | "add" | "edit"; initial: Profile }) {
   const router = useRouter();
   const [p, setP] = useState<Profile>({ ...initial, country: marketFor(initial.country).code });
   const market = marketFor(p.country);
@@ -55,15 +56,16 @@ export function ProfileForm({ mode, initial }: { mode: "create" | "edit"; initia
     setPending(true);
     setError(null);
     const res = await fetch("/api/workspace", {
-      method: mode === "create" ? "POST" : "PATCH",
+      method: mode === "edit" ? "PATCH" : "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(p),
+      body: JSON.stringify(mode === "add" ? { ...p, add: true } : p),
     });
     const data = await res.json().catch(() => ({}));
     setPending(false);
     if (!res.ok) return setError(data.error || "Couldn't save.");
-    if (mode === "create") {
+    if (mode !== "edit") {
       router.push(data.firstRunId ? `/app/runs/${data.firstRunId}` : "/app?welcome=1");
+      router.refresh();
     } else {
       setSaved(true);
       router.refresh();
@@ -141,7 +143,7 @@ export function ProfileForm({ mode, initial }: { mode: "create" | "edit"; initia
       <FormError error={error} />
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving..." : mode === "create" ? "Save and open my dashboard" : "Save profile"}
+          {pending ? "Saving..." : mode === "create" ? "Save and open my dashboard" : mode === "add" ? "Add this business" : "Save profile"}
         </Button>
         {saved && <span className="text-sm text-scrub">Saved.</span>}
       </div>

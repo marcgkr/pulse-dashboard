@@ -64,6 +64,20 @@ export function PlanCard({
         {cta}
       </Link>
 
+      {plan.exclusives && (
+        <div className={cx("mt-5 rounded-2xl p-4", highlight ? "bg-white/15" : "bg-mint")}>
+          <p className={cx("text-xs font-bold", highlight ? "text-white" : "text-scrub-dark")}>Only on {plan.name}</p>
+          <ul className="mt-2 space-y-2">
+            {plan.exclusives.map((x) => (
+              <li key={x} className="flex gap-2 text-sm font-semibold leading-snug">
+                <Check size={16} className={cx("mt-0.5 shrink-0", highlight ? "text-white" : "text-scrub")} aria-hidden />
+                {x}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className={cx("mt-6 border-t pt-5", highlight ? "border-white/20" : "border-line")}>
         <p className={cx("text-xs font-bold", highlight ? "text-white/70" : "text-ink-3")}>{all ? "All six specialists" : "Specialists"}</p>
         <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Specialists included">
@@ -73,7 +87,7 @@ export function PlanCard({
             </li>
           ))}
         </ul>
-        <p className={cx("mt-4 text-sm font-semibold", highlight ? "text-white" : "text-ink")}>{runsInPlainWords(plan.runsPerMonth)}</p>
+        <p className={cx("mt-4 text-sm font-semibold", highlight ? "text-white" : "text-ink")}>{runsInPlainWords(plan)}</p>
         <p className={cx("text-xs", highlight ? "text-white/70" : "text-ink-3")}>One report from any specialist counts as one.</p>
 
         <ul className="mt-4 space-y-2.5">

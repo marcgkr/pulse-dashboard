@@ -156,8 +156,8 @@ function faq(m: Market) {
       q: "Is the checkup really free?",
       a: (
         <p>
-          Yes. The checkup at the top of this page needs no account. The free {PLANS[0].name} plan adds Site Doctor for one website and {PLANS[0].runsPerMonth} agent
-          runs a month, with no card needed.
+          Yes. The checkup at the top of this page needs no account. The free {PLANS[0].name} plan adds Site Doctor for one website and {PLANS[0].runsPerMonth} reports a
+          month, with no card needed.
         </p>
       ),
     },
@@ -400,8 +400,8 @@ export default async function LandingPage() {
                 market={market}
                 href={signupHref(market, { plan: p.id })}
                 cta={p.id === "free" ? "Start free" : `Choose ${p.name}`}
-                highlight={p.id === "growth"}
-                badge={p.id === "growth" ? "Recommended" : undefined}
+                highlight={p.id === "pro"}
+                badge={p.id === "pro" ? "Everything included" : undefined}
               />
             ))}
           </Reveal>

@@ -54,12 +54,20 @@ export type Plan = {
   forWho: string;
   /** Specialists the plan can use. */
   specialists: AgentKey[];
+  /** Businesses or locations one login can run. They share the plan's monthly reports. */
+  businesses: number;
+  /** Weekly Site Doctor and monthly AI Visibility re-checks run on their own (src/lib/autopilot.ts). */
+  autopilot: boolean;
+  /** What only this plan gets, called out at the top of its card. */
+  exclusives?: string[];
 };
 
 export type AgentKey = "site" | "keywords" | "visibility" | "content" | "ads" | "compliance";
 const ALL_SPECIALISTS: AgentKey[] = ["site", "keywords", "visibility", "content", "ads", "compliance"];
 
 // Placeholder pricing. Adjust before launch.
+// A "report" is one finished run of one specialist. Allowances are sized for real use (one business
+// using every specialist lands around 30 to 60 a month) so the AI bill stays predictable.
 export const PLANS: Plan[] = [
   {
     id: "free",
@@ -68,60 +76,64 @@ export const PLANS: Plan[] = [
     blurb: "See what's wrong before you pay anything.",
     runsPerMonth: 5,
     chatPerMonth: 0,
-    features: ["Site Doctor (1 site)", "5 agent runs a month", "Prescription board"],
+    features: ["Site Doctor (1 site)", "5 reports a month", "Prescription board"],
     forWho: "Try it on your own website before you pay anything.",
     specialists: ["site"],
+    businesses: 1,
+    autopilot: false,
   },
   {
     id: "starter",
     name: "Starter",
     priceMonthly: 99,
     blurb: "For owners who want a clear weekly to-do list.",
-    runsPerMonth: 40,
+    runsPerMonth: 30,
     chatPerMonth: 300,
-    features: [
-      "Every specialist included",
-      "40 agent runs a month",
-      "Ask PULSE strategist chat",
-      "Compliance check against your country's ad rules",
-    ],
+    features: ["Every specialist included", "30 reports a month", "Ask PULSE strategist chat", "Compliance check against your country's ad rules", "Download reports as PDF"],
     stripePriceEnv: "STRIPE_PRICE_STARTER",
     forWho: "Owners who do their own marketing and want a clear weekly to-do list.",
     specialists: ALL_SPECIALISTS,
+    businesses: 1,
+    autopilot: false,
   },
   {
     id: "growth",
     name: "Growth",
     priceMonthly: 249,
     blurb: "For businesses running Google and Meta ads every month.",
-    runsPerMonth: 150,
+    runsPerMonth: 100,
     chatPerMonth: 1000,
-    features: [
-      "Everything in Starter",
-      "150 agent runs a month",
-      "Ads Doctor with live ad sync",
-      "AI Visibility tracking",
-    ],
+    features: ["Everything in Starter", "100 reports a month", "Ads Doctor with live Google and Meta ad sync"],
     stripePriceEnv: "STRIPE_PRICE_GROWTH",
     forWho: "Businesses spending on Google or Meta ads every month.",
     specialists: ALL_SPECIALISTS,
+    businesses: 1,
+    autopilot: false,
   },
   {
     id: "pro",
     name: "Pro",
     priceMonthly: 499,
-    blurb: "For multi-outlet brands and in-house marketers.",
-    runsPerMonth: 500,
+    blurb: "For owners with more than one business or location.",
+    runsPerMonth: 300,
     chatPerMonth: 3000,
     features: [
       "Everything in Growth",
-      "500 agent runs a month",
-      "Monthly 30-min review call with PULSE",
+      "Up to 5 businesses or locations on one login",
+      "Autopilot: your website re-checked every week, your AI visibility every month",
+      "300 reports a month, shared across your businesses",
       "Priority support",
     ],
     stripePriceEnv: "STRIPE_PRICE_PRO",
-    forWho: "Multi-outlet brands and in-house marketers who want PULSE checking in.",
+    forWho: "Owners with several outlets or brands who want each one checked every week without having to remember.",
     specialists: ALL_SPECIALISTS,
+    businesses: 5,
+    autopilot: true,
+    exclusives: [
+      "Up to 5 businesses or locations on one login, switch in one click",
+      "Autopilot: your website re-checked every week and your AI visibility every month",
+      "Priority support",
+    ],
   },
 ];
 
@@ -146,22 +158,29 @@ export type PlanRow = { label: string; detail?: string; value: (p: Plan) => bool
 
 export const PLAN_ROWS: PlanRow[] = [
   {
-    label: "Agent runs a month",
-    detail: "One run is one report from any specialist, for example one Site Doctor checkup.",
+    label: "Reports a month",
+    detail: "A report is one finished piece of work from a specialist, for example one website checkup, one keyword plan or one 2-week content plan.",
     value: (p) => `${p.runsPerMonth}`,
   },
+  { label: "Businesses or locations on one login", value: (p) => (p.businesses > 1 ? `Up to ${p.businesses}` : "1") },
   { label: "Prescription board with re-check dates", value: () => true },
   { label: "Ask PULSE strategist chat", value: (p) => (p.chatPerMonth > 0 ? `${p.chatPerMonth.toLocaleString("en")} messages` : false) },
   { label: "Ads Doctor from Google and Meta exports", value: (p) => p.specialists.includes("ads") },
-  { label: "Live sync from your Google Ads and Meta Ads accounts", value: (p) => LIVE_SYNC_PLANS.includes(p.id) },
   { label: "Compliance Check for your country's ad rules", value: (p) => p.specialists.includes("compliance") },
-  { label: "Monthly 30-minute review call with PULSE", value: (p) => p.id === "pro" },
+  { label: "Download reports as PDF", value: (p) => p.id !== "free" },
+  { label: "Live sync from your Google Ads and Meta Ads accounts", value: (p) => LIVE_SYNC_PLANS.includes(p.id) },
+  {
+    label: "Autopilot re-checks",
+    detail: "Site Doctor re-checks your website every week and AI Visibility re-asks your questions every month, on their own. They use reports from your allowance.",
+    value: (p) => p.autopilot,
+  },
   { label: "Priority support", value: (p) => p.id === "pro" },
 ];
 
-/** Plain-language translation of a monthly run allowance. */
-export function runsInPlainWords(runs: number): string {
+/** Plain-language translation of a plan's monthly report allowance. */
+export function runsInPlainWords(plan: Pick<Plan, "runsPerMonth" | "businesses">): string {
+  const runs = plan.runsPerMonth;
+  if (plan.businesses > 1) return `${runs} reports a month, shared across up to ${plan.businesses} businesses`;
   if (runs <= 5) return `${runs} reports a month`;
-  const perWeek = Math.floor(runs / 4.3);
-  return `${runs} reports a month, about ${perWeek} a week`;
+  return `${runs} reports a month, about ${Math.floor(runs / 4.3)} a week`;
 }

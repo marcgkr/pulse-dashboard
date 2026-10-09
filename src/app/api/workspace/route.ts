@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { currentUser, workspaceFor } from "@/lib/auth";
+import { currentUser, ownedWorkspaces, workspaceFor } from "@/lib/auth";
+import { planById } from "@/lib/config";
 import { db, id, now } from "@/lib/db";
 import { errorResponse, readJson } from "@/lib/http";
 import { MARKETS } from "@/lib/markets";
@@ -20,12 +21,19 @@ function clean(body: Record<string, unknown>) {
 export async function POST(req: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Log in first." }, { status: 401 });
-  if (workspaceFor(user.id)) return NextResponse.json({ error: "You already have a business set up." }, { status: 409 });
   let body: Record<string, unknown>;
   try {
     body = await readJson(req);
   } catch (e) {
     return errorResponse(e);
+  }
+  // A first business, or (on Pro) another business or location on the same login.
+  const owned = ownedWorkspaces(user.id);
+  if (owned.length > 0) {
+    const allowed = planById(owned[0].plan).businesses;
+    if (body.add !== true) return NextResponse.json({ error: "You already have a business set up." }, { status: 409 });
+    if (allowed <= 1) return NextResponse.json({ error: "Running more than one business is part of the Pro plan. Upgrade in Settings." }, { status: 402 });
+    if (owned.length >= allowed) return NextResponse.json({ error: `Your plan covers ${allowed} businesses. Remove one in Settings to add another.` }, { status: 409 });
   }
   const f = clean(body);
   if (!f.name) return NextResponse.json({ error: "Enter your business name." }, { status: 400 });
@@ -53,11 +61,13 @@ export async function POST(req: Request) {
        VALUES (@id, @owner_id, @name, @website, @industry, @location, @country, @audience, @offers, @competitors, @goals, @monthly_budget, @tone, @regulated, @created_at)`,
     )
     .run(row);
+  if (owned.length > 0) db().prepare("UPDATE users SET current_workspace_id = ? WHERE id = ?").run(row.id, user.id);
   // Time to first value: start the first Site Doctor checkup straight away so the owner lands on a working report.
   let firstRunId: string | null = null;
   if (row.website) {
     try {
-      const ws = db().prepare("SELECT * FROM workspaces WHERE id = ?").get(row.id) as WorkspaceRow;
+      // workspaceFor gives an extra business the account's plan.
+      const ws = workspaceFor(user.id) ?? (db().prepare("SELECT * FROM workspaces WHERE id = ?").get(row.id) as WorkspaceRow);
       firstRunId = startRun(ws, "site", { url: row.website }).id;
     } catch (e) {
       console.warn("[onboarding] first checkup not started:", (e as Error).message);
@@ -92,6 +102,24 @@ export async function PATCH(req: Request) {
     sets.push("regulated = ?");
     vals.push(body.regulated ? 1 : 0);
   }
+  if (typeof body.autopilot === "boolean") {
+    sets.push("autopilot = ?");
+    vals.push(body.autopilot ? 1 : 0);
+  }
   if (sets.length) db().prepare(`UPDATE workspaces SET ${sets.join(", ")} WHERE id = ?`).run(...vals, ws.id);
+  return NextResponse.json({ ok: true });
+}
+
+/** Removes an extra business (never the first one, which holds the plan) and everything in it. */
+export async function DELETE(req: Request) {
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "Log in first." }, { status: 401 });
+  const id = new URL(req.url).searchParams.get("id");
+  const owned = ownedWorkspaces(user.id);
+  const target = owned.find((w) => w.id === id);
+  if (!target) return NextResponse.json({ error: "Business not found." }, { status: 404 });
+  if (target.id === owned[0].id) return NextResponse.json({ error: "Your first business holds your plan and billing, so it can't be removed here." }, { status: 400 });
+  db().prepare("DELETE FROM workspaces WHERE id = ? AND owner_id = ?").run(target.id, user.id);
+  db().prepare("UPDATE users SET current_workspace_id = NULL WHERE id = ? AND current_workspace_id = ?").run(user.id, target.id);
   return NextResponse.json({ ok: true });
 }

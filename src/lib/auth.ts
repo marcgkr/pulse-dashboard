@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { planById } from "./config";
 import { db, id, now, type UserRow, type WorkspaceRow } from "./db";
 
 const COOKIE = "prx_session";
@@ -69,11 +70,30 @@ export function isAdmin(user: Pick<UserRow, "is_admin"> | null): boolean {
   return Boolean(user?.is_admin);
 }
 
+/** Every business this login owns, oldest first. The first one holds the plan and billing. */
+export function ownedWorkspaces(userId: string): WorkspaceRow[] {
+  return db().prepare("SELECT * FROM workspaces WHERE owner_id = ? ORDER BY created_at, id").all(userId) as WorkspaceRow[];
+}
+
+/** The business that holds the plan and the Stripe subscription. */
+export function primaryWorkspace(userId: string): WorkspaceRow | null {
+  return ownedWorkspaces(userId)[0] ?? null;
+}
+
+/**
+ * The business the owner is looking at. Pro accounts can switch between up to five; every other
+ * plan always gets the first. Extra businesses take the plan and billing of the first one.
+ */
 export function workspaceFor(userId: string): WorkspaceRow | null {
-  const row = db()
-    .prepare("SELECT * FROM workspaces WHERE owner_id = ? ORDER BY created_at LIMIT 1")
-    .get(userId) as WorkspaceRow | undefined;
-  return row ?? null;
+  const all = ownedWorkspaces(userId);
+  const primary = all[0];
+  if (!primary) return null;
+  if (all.length === 1 || planById(primary.plan).businesses <= 1) return primary;
+  const pick = (db().prepare("SELECT current_workspace_id AS id FROM users WHERE id = ?").get(userId) as { id: string | null } | undefined)?.id;
+  const allowed = all.slice(0, planById(primary.plan).businesses);
+  const current = allowed.find((w) => w.id === pick) ?? primary;
+  if (current.id === primary.id) return primary;
+  return { ...current, plan: primary.plan, stripe_customer_id: primary.stripe_customer_id, stripe_subscription_id: primary.stripe_subscription_id };
 }
 
 /** For server components/pages: requires a logged-in user with a workspace. */

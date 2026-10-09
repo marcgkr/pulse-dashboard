@@ -366,6 +366,45 @@ async function main() {
     fail("memory", e);
   }
 
+  // Pro autopilot: weekly Site Doctor, monthly AI Visibility from the owner's last questions,
+  // only for businesses the plan covers, and nothing twice.
+  console.log("\nautopilot (Pro re-checks)");
+  try {
+    const { runAutopilot } = await import("../src/lib/autopilot");
+    const owner = id("u_");
+    db().prepare("INSERT INTO users (id, email, name, password_hash, created_at) VALUES (?, ?, 'Auto', 'x', ?)").run(owner, `${owner}@example.com`, now());
+    const mk = (name: string, plan: string, created: string, extra = "") => {
+      const wid = id("w_");
+      db()
+        .prepare("INSERT INTO workspaces (id, owner_id, name, website, plan, country, created_at, autopilot) VALUES (?, ?, ?, ?, ?, 'SG', ?, ?)")
+        .run(wid, owner, name, SITE_URL, plan, created, extra === "off" ? 0 : 1);
+      return wid;
+    };
+    const a = mk("Auto One", "pro", "2026-01-01T00:00:00.000Z");
+    const b = mk("Auto Two", "free", "2026-01-02T00:00:00.000Z"); // plan comes from the first business
+    const off = mk("Auto Off", "free", "2026-01-03T00:00:00.000Z", "off");
+    const visInput = getAgent("visibility")!.parseInput(cases.find((c) => c.agent === "visibility")!.raw, ws);
+    db()
+      .prepare("INSERT INTO runs (id, workspace_id, agent, title, input_json, status, progress, demo, created_at) VALUES (?, ?, 'visibility', 'old', ?, 'done', '', 0, ?)")
+      .run(id("r_"), a, JSON.stringify(visInput), new Date(Date.now() - 40 * 86400000).toISOString());
+    const started = runAutopilot();
+    const rows = db().prepare(`SELECT workspace_id, agent, title FROM runs WHERE id IN (${started.map(() => "?").join(",")})`).all(...started) as { workspace_id: string; agent: string; title: string }[];
+    const got = rows.map((r) => `${r.workspace_id === a ? "one" : r.workspace_id === b ? "two" : "off"}:${r.agent}`).sort();
+    assert.deepEqual(got, ["one:site", "one:visibility", "two:site"], `started ${got.join(", ")}`);
+    assert.ok(rows.every((r) => r.title.startsWith("Autopilot: ")), "autopilot titles");
+    assert.ok(!rows.some((r) => r.workspace_id === off), "switched-off business was re-checked");
+    assert.equal(runAutopilot().length, 0, "started the same re-checks twice");
+    // Let the started runs finish before the next checks use the mock.
+    for (let i = 0; i < 120; i++) {
+      const left = (db().prepare(`SELECT COUNT(*) AS n FROM runs WHERE id IN (${started.map(() => "?").join(",")}) AND status IN ('queued','running')`).get(...started) as { n: number }).n;
+      if (!left) break;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    pass("Pro business and its extra business re-checked, switched-off business skipped, no repeats");
+  } catch (e) {
+    fail("autopilot", e);
+  }
+
   console.log("\nstructured() edge cases");
   const Tiny = z.object({ answer: z.string(), items: z.array(z.string()) });
   try {

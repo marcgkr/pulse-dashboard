@@ -167,3 +167,26 @@ button.pillbox:hover {
   font-weight: 650;
   margin-top: 0.75rem;
 }
+
+/* Download as PDF (the browser's print to PDF): the report only, in its colours. */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  html,
+  body {
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  button,
+  textarea,
+  [role="switch"] {
+    display: none !important;
+  }
+  section,
+  article,
+  li {
+    break-inside: avoid-page;
+  }
+}

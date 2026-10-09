@@ -179,6 +179,10 @@ function migrate(db: Database.Database) {
     CREATE UNIQUE INDEX IF NOT EXISTS feedback_item ON feedback(workspace_id, run_id, item);
   `);
   addColumn(db, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
+  // Pro accounts can run several businesses; this is the one the owner is looking at.
+  addColumn(db, "users", "current_workspace_id", "TEXT");
+  // Pro: weekly Site Doctor and monthly AI Visibility re-checks (src/lib/autopilot.ts). On unless switched off.
+  addColumn(db, "workspaces", "autopilot", "INTEGER NOT NULL DEFAULT 1");
   addColumn(db, "workspaces", "stripe_subscription_id", "TEXT");
   addColumn(db, "workspaces", "country", "TEXT NOT NULL DEFAULT 'SG'");
   addColumn(db, "connections", "last_sync_at", "TEXT");
@@ -201,7 +205,15 @@ function addColumn(db: Database.Database, table: string, column: string, type: s
 
 // ---------- Row types ----------
 
-export type UserRow = { id: string; email: string; name: string; password_hash: string; is_admin: number; created_at: string };
+export type UserRow = {
+  id: string;
+  email: string;
+  name: string;
+  password_hash: string;
+  is_admin: number;
+  current_workspace_id?: string | null;
+  created_at: string;
+};
 
 export type WorkspaceRow = {
   id: string;
@@ -218,7 +230,9 @@ export type WorkspaceRow = {
   monthly_budget: string;
   tone: string;
   regulated: number;
+  /** The account's plan. For an extra business on a Pro account this is copied from the first one. */
   plan: string;
+  autopilot?: number;
   stripe_customer_id: string | null;
   stripe_subscription_id?: string | null;
   windsor_api_key: string | null;

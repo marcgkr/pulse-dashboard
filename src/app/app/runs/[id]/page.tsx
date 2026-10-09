@@ -12,6 +12,7 @@ import { AGENT_REPORTS } from "@/components/reports";
 import { RunProgress } from "@/components/run-agent";
 import { RxSlip } from "@/components/rx-slip";
 import { ReportNotes } from "@/components/feedback-bar";
+import { PdfButton } from "@/components/pdf-button";
 import { ScoreDial } from "@/components/brand";
 import { Badge, ButtonLink, Card, Label } from "@/components/ui";
 import { agentColor } from "@/lib/agent-colors";
@@ -96,7 +97,8 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
             </p>
           )}
         </div>
-        <div className="shrink-0">
+        <div className="flex shrink-0 flex-wrap gap-2 print:hidden">
+          {ws.plan !== "free" && <PdfButton />}
           <RerunButton agent={run.agent} rerunOf={run.id} label="Re-check" />
         </div>
       </Card>
@@ -115,7 +117,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
 
       <div style={{ "--rx-accent": agentColor(run.agent).accent } as CSSProperties}>
         {Report && <Report result={result} run={{ id: run.id, agent: run.agent, title: run.title, created_at: run.created_at, input }} feedback={feedback} />}
-        <div className="mt-12">
+        <div className="mt-12 print:hidden">
           <ReportNotes runId={run.id} agentName={getAgent(run.agent)?.name ?? "This specialist"} initial={feedback[""]} />
         </div>
       </div>

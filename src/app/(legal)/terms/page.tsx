@@ -50,7 +50,7 @@ export default function TermsPage() {
         </li>
         <li>Plans renew each month until you cancel. You can cancel any time from your billing page and keep access until the end of the period you have paid for.</li>
         <li>Fees already paid are not refundable except where required by law [refund policy to be confirmed].</li>
-        <li>Each plan includes a number of agent runs a month. Unused runs do not carry over [to be confirmed].</li>
+        <li>Each plan includes a number of reports a month. A report is one finished run of one specialist. Unused reports do not carry over [to be confirmed].</li>
         <li>We will give you at least [30] days&apos; notice of any price change to your plan.</li>
       </ul>
 

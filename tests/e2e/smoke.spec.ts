@@ -131,3 +131,40 @@ test("sample Content Studio shows feedback buttons and reference posts", async (
   await idea.getByRole("button", { name: "Save comment" }).click();
   await expect(idea.getByText("Rejected. Content Studio won't suggest this again.")).toBeVisible();
 });
+
+test("Pro accounts can add, switch between and remove businesses", async ({ page }) => {
+  const api = page.request;
+  expect((await api.post("/api/auth/signup", { data: { email: "pro@example.com", name: "Pro Owner", password: "pro-owner-pass-1" } })).ok()).toBeTruthy();
+  const first = await api.post("/api/workspace", { data: { name: "Outlet One", industry: "Reflexology", country: "SG" } });
+  expect(first.ok()).toBeTruthy();
+  const firstId = (await first.json()).id as string;
+
+  // Not on Pro yet: no second business.
+  const refused = await api.post("/api/workspace", { data: { name: "Outlet Two", add: true } });
+  expect(refused.status()).toBe(402);
+
+  expect((await api.post("/api/admin/claim", { data: { token: "e2e-setup-token-1234567890" } })).ok()).toBeTruthy();
+  expect((await api.post("/api/admin/plan", { data: { workspaceId: firstId, plan: "pro" } })).ok()).toBeTruthy();
+
+  await page.goto("/app");
+  await page.getByRole("link", { name: "+ Add a business" }).first().click();
+  await expect(page.getByRole("heading", { name: "Add another business or location" })).toBeVisible();
+  await page.getByLabel("Business name").fill("Outlet Two");
+  await page.getByLabel("Industry").selectOption({ index: 1 });
+  await page.getByRole("button", { name: "Add this business" }).click();
+  await expect(page).toHaveURL(/\/app/);
+
+  const switcher = page.getByLabel("Your business").first();
+  await expect(switcher).toHaveValue(/.+/);
+  await expect(switcher.locator("option:checked")).toHaveText("Outlet Two");
+  await switcher.selectOption({ label: "Outlet One" });
+  await expect(page.getByLabel("Your business").first().locator("option:checked")).toHaveText("Outlet One");
+
+  await page.goto("/app/settings#businesses");
+  const list = page.locator("#businesses");
+  await expect(list.getByText("Outlet Two")).toBeVisible();
+  await expect(page.locator("#autopilot").getByRole("switch")).toHaveAttribute("aria-checked", "true");
+  page.once("dialog", (d) => d.accept());
+  await list.getByRole("button", { name: "Remove" }).click();
+  await expect(list.getByText("Outlet Two")).toHaveCount(0);
+});

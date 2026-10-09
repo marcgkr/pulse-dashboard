@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
-import { apiWorkspace } from "@/lib/auth";
+import { apiWorkspace, primaryWorkspace } from "@/lib/auth";
 import { appUrl, priceFor, stripe, stripeEnabled } from "@/lib/billing";
 import type { PlanId } from "@/lib/config";
 import { marketFor } from "@/lib/markets";
 
 export async function POST(req: Request) {
-  const auth = await apiWorkspace();
-  if (!auth) return NextResponse.json({ error: "Log in first." }, { status: 401 });
+  const found = await apiWorkspace();
+  if (!found) return NextResponse.json({ error: "Log in first." }, { status: 401 });
+  // Billing lives on the account's first business, whichever business is open.
+  const auth = { user: found.user, ws: primaryWorkspace(found.user.id) ?? found.ws };
   if (!stripeEnabled()) return NextResponse.json({ error: "Online payment isn't switched on yet. Email us to upgrade." }, { status: 503 });
   const { plan } = (await req.json().catch(() => ({}))) as { plan?: PlanId };
   const price = plan ? priceFor(plan, marketFor(auth.ws.country).currency) : null;

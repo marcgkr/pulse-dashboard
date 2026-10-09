@@ -36,6 +36,10 @@ export type NavProps = {
   agents: { id: string; name: string }[];
   openTasks: number;
   businessName: string;
+  /** Pro: every business on the login, the open one, and whether another can be added. */
+  businesses: { id: string; name: string }[];
+  currentId: string;
+  canAdd: boolean;
   plan: string;
   used: number;
   limit: number;
@@ -77,6 +81,13 @@ function Item({
 }
 
 export function AppNav(props: NavProps) {
+  const [switching, setSwitching] = useState(false);
+  async function switchTo(id: string) {
+    setSwitching(true);
+    const res = await fetch("/api/workspace/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    if (res.ok) window.location.assign("/app");
+    else setSwitching(false);
+  }
   const [open, setOpen] = useState(false);
   const nav = (
     <nav className="flex h-full flex-col gap-6 overflow-y-auto px-3 py-5">
@@ -91,8 +102,33 @@ export function AppNav(props: NavProps) {
 
       <div className="px-1">
         <div className="rounded-2xl bg-white/[0.07] px-3.5 py-3">
-          <div className="text-[11px] font-semibold text-white/50">Your business</div>
-          <div className="truncate font-display text-[15px] font-bold text-white">{props.businessName}</div>
+          {props.businesses.length > 1 ? (
+            <label className="block">
+              <span className="text-xs font-semibold text-white/60">Your business</span>
+              <select
+                value={props.currentId}
+                disabled={switching}
+                onChange={(e) => switchTo(e.target.value)}
+                className="mt-0.5 w-full truncate rounded-lg bg-transparent font-display text-[15px] font-bold text-white outline-none focus-visible:ring-2 focus-visible:ring-lilac [&>option]:text-ink"
+              >
+                {props.businesses.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <>
+              <div className="text-xs font-semibold text-white/60">Your business</div>
+              <div className="truncate font-display text-[15px] font-bold text-white">{props.businessName}</div>
+            </>
+          )}
+          {props.canAdd && (
+            <Link href="/onboarding?add=1" className="mt-1.5 inline-block text-[13px] font-semibold text-lilac hover:text-white">
+              + Add a business
+            </Link>
+          )}
         </div>
       </div>
 
@@ -122,7 +158,7 @@ export function AppNav(props: NavProps) {
           <div className="flex justify-between text-[12px] font-semibold text-white/50">
             <span>{props.plan} plan</span>
             <span>
-              {props.used}/{props.limit} runs
+              {props.used}/{props.limit} reports
             </span>
           </div>
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
@@ -142,7 +178,7 @@ export function AppNav(props: NavProps) {
 
   return (
     <>
-      <div className="sticky top-0 z-30 flex items-center justify-between bg-ink px-4 py-3 lg:hidden">
+      <div className="sticky top-0 z-30 flex items-center justify-between bg-ink px-4 py-3 lg:hidden print:hidden">
         <Link href="/app" className="font-display text-lg font-bold text-white">
           Marketing<span className="text-pulse">Rx</span>
         </Link>
@@ -161,7 +197,7 @@ export function AppNav(props: NavProps) {
           </div>
         </div>
       )}
-      <aside className="fixed inset-y-0 left-0 hidden w-64 bg-ink lg:block">{nav}</aside>
+      <aside className="fixed inset-y-0 left-0 hidden w-64 bg-ink lg:block print:hidden">{nav}</aside>
     </>
   );
 }

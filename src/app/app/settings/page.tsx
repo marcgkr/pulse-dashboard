@@ -1,4 +1,4 @@
-import { requireWorkspace } from "@/lib/auth";
+import { ownedWorkspaces, requireWorkspace } from "@/lib/auth";
 import { PLANS, BRAND, planPrice } from "@/lib/config";
 import { formatPrice, marketFor } from "@/lib/markets";
 import { stripeEnabled } from "@/lib/billing";
@@ -10,12 +10,13 @@ import { clientConnections } from "@/lib/connectors/store";
 import { feedbackForWorkspace } from "@/lib/memory";
 import { getAgent } from "@/lib/agents";
 import { MemoryList } from "@/components/memory-list";
+import { AutopilotToggle, BusinessList } from "@/components/settings-pro";
 
 export const metadata = { title: "Settings" };
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ upgraded?: string }> }) {
   const sp = await searchParams;
-  const { ws } = await requireWorkspace();
+  const { user, ws } = await requireWorkspace();
   const u = usage(ws);
   const market = marketFor(ws.country);
   const conns = clientConnections(ws.id);
@@ -31,6 +32,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     comment: f.comment,
     when: new Date(f.updated_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: market.timeZone }),
   }));
+  const owned = ownedWorkspaces(user.id).slice(0, u.plan.businesses);
   return (
     <div className="space-y-10">
       <PageHeader eyebrow="Settings" title="Your business" />
@@ -75,6 +77,28 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </Card>
       </section>
 
+      {u.plan.businesses > 1 && (
+        <section id="businesses">
+          <Label className="mb-2">Your businesses</Label>
+          <Card className="overflow-hidden">
+            <BusinessList
+              businesses={owned.map((w, i) => ({ id: w.id, name: w.name, website: w.website, primary: i === 0 }))}
+              currentId={ws.id}
+              max={u.plan.businesses}
+            />
+          </Card>
+        </section>
+      )}
+
+      {u.plan.autopilot && (
+        <section id="autopilot">
+          <Label className="mb-2">Autopilot</Label>
+          <Card>
+            <AutopilotToggle on={ws.autopilot !== 0} businessName={ws.name} />
+          </Card>
+        </section>
+      )}
+
       <section id="memory">
         <Label className="mb-2">What your specialists remember</Label>
         <Card className="overflow-hidden">
@@ -90,7 +114,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         {sp.upgraded && <p className="mb-3 rounded-md border border-scrub/30 bg-mint px-3 py-2 text-sm text-scrub-dark">Payment received. Your plan updates within a minute.</p>}
         <Card className="p-5 md:p-6">
           <p className="text-sm text-ink-2">
-            Prices in {market.currency}. You&apos;re on <strong>{u.plan.name}</strong>. {u.used} of {u.limit} agent runs used this month (sample runs in demo mode don&apos;t count).
+            Prices in {market.currency}. You&apos;re on <strong>{u.plan.name}</strong>. {u.used} of {u.limit} reports used this month{u.plan.businesses > 1 ? ", across all your businesses" : ""} (sample reports in demo mode don&apos;t count).
           </p>
           <div className="mt-5 grid gap-3 md:grid-cols-4">
             {PLANS.map((p) => (

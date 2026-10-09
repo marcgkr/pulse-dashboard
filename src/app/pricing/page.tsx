@@ -24,7 +24,8 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-const RECOMMENDED: PlanId = "growth";
+// The plan the page leads with: everything included.
+const RECOMMENDED: PlanId = "pro";
 
 type Cell = boolean | string;
 
@@ -56,19 +57,38 @@ function billingFaq(m: Market) {
       a: <p>By card, through Stripe. We never see or store your full card number.</p>,
     },
     {
-      q: "What counts as an agent run?",
+      q: "What counts as a report?",
       a: (
         <p>
-          One run is one specialist examining one thing and writing prescriptions: a Site Doctor checkup of your website, a Keyword Lab study of one service, an Ads Doctor
-          review of a period of campaigns. Re-checking a fix is a run too.
+          One report is one finished piece of work from one specialist: a Site Doctor checkup of your website, a Keyword Lab plan for one service, a 2-week content
+          plan, an Ads Doctor review of a period of campaigns. Re-checking after a fix is a report too, and so is each autopilot re-check on Pro. Failed reports
+          don&apos;t count.
         </p>
       ),
     },
     {
-      q: "What happens if I run out of runs?",
+      q: "How many reports will I use?",
       a: (
         <p>
-          Your board and past reports stay available. You can upgrade straight away, or wait until your runs refresh at the start of your next billing month.
+          It depends how often you re-check. A business that runs each specialist once or twice a month uses well under the {PLANS[1].name} allowance. Pick{" "}
+          {PLANS[3].name} for the extra businesses and autopilot, not for the number.
+        </p>
+      ),
+    },
+    {
+      q: "Can I run more than one business or location?",
+      a: (
+        <p>
+          On {PLANS[3].name}, yes: up to {PLANS[3].businesses} on one login, each with its own profile, reports, prescription board and connected accounts. You switch
+          between them from the sidebar, and they share the plan&apos;s {PLANS[3].runsPerMonth} reports a month.
+        </p>
+      ),
+    },
+    {
+      q: "What happens if I run out of reports?",
+      a: (
+        <p>
+          Your board and past reports stay available. You can upgrade straight away, or wait until your reports refresh at the start of next month.
         </p>
       ),
     },
@@ -157,7 +177,7 @@ export default async function PricingPage() {
               Start with a free checkup. Move up when you want every specialist working on your marketing. Month to month, no contract.
             </p>
 
-            <div className="rise mt-10 grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 min-[1360px]:grid-cols-5" style={{ animationDelay: "240ms" }}>
+            <div className="rise mt-10 grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4" style={{ animationDelay: "240ms" }}>
               {PLANS.map((p) => (
                 <PlanCard
                   key={p.id}
@@ -166,20 +186,22 @@ export default async function PricingPage() {
                   href={signupHref(market, { plan: p.id })}
                   cta={p.id === "free" ? "Start free" : `Choose ${p.name}`}
                   highlight={p.id === RECOMMENDED}
-                  badge={p.id === RECOMMENDED ? "Recommended" : undefined}
+                  badge={p.id === RECOMMENDED ? "Everything included" : undefined}
                 />
               ))}
 
               {/* Top tier: the agency does it. No price on the page; it anchors the DIY plans. */}
-              <article className="flex flex-col rounded-[1.75rem] bg-ink p-6 text-white shadow-[var(--shadow-lift)] sm:col-span-2 md:p-7 lg:col-span-1 min-[1360px]:col-span-1">
-                <div className="flex min-h-7 items-center justify-between gap-2">
-                  <h2 className="font-display text-2xl font-extrabold leading-[1.05] tracking-[-0.02em]">Done for you</h2>
-                  <RxTag light />
+              <article className="grid gap-6 rounded-[1.75rem] bg-ink p-6 text-white shadow-[var(--shadow-lift)] sm:col-span-2 md:p-8 lg:grid-cols-[0.9fr_1.4fr] lg:gap-10 xl:col-span-4">
+                <div className="flex flex-col">
+                  <div className="flex min-h-7 items-center justify-between gap-2">
+                    <h2 className="font-display text-2xl font-extrabold leading-[1.05] tracking-[-0.02em]">Done for you</h2>
+                    <RxTag light />
+                  </div>
+                  <p className="mt-5 font-display text-[2.6rem] font-extrabold leading-none tracking-[-0.03em]">Custom</p>
+                  <p className="mt-4 text-[15px] leading-relaxed text-white/80">By {BRAND.parent}, priced on your ad spend. For owners who want the work done, not a to-do list.</p>
+                  <StrategyCallButton tone="white" size="sm" label="Book a strategy call" className="mt-6 w-full sm:w-fit sm:px-6" />
                 </div>
-                <p className="mt-5 font-display text-[2.6rem] font-extrabold leading-none tracking-[-0.03em]">Custom</p>
-                <p className="mt-4 text-sm text-white/80">By {BRAND.parent}, priced on your ad spend. For owners who want the work done, not a to-do list.</p>
-                <StrategyCallButton tone="white" size="sm" label="Book a strategy call" className="mt-5 w-full" />
-                <div className="mt-6 flex-1 border-t border-white/15 pt-5">
+                <div className="border-t border-white/15 pt-5 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0">
                   <p className="text-xs font-bold text-white/70">What {BRAND.parent} does for you</p>
                   <DoneForYouServices variant="compact" className="mt-3" />
                 </div>
