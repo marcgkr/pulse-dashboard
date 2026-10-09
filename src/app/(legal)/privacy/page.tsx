@@ -33,8 +33,8 @@ export default function PrivacyPage() {
           of websites you ask us to check.
         </li>
         <li>
-          <strong>Connected accounts:</strong> if you connect an ads or analytics account (for example through Windsor.ai), we receive performance data such as
-          campaigns, spend and results. We do not make changes in those accounts.
+          <strong>Connected accounts:</strong> if you connect your Google or Meta accounts, we read your ad and search performance data, such as campaigns, spend,
+          results and search queries, to write your reports. We do not make changes in those accounts, and you can disconnect at any time.
         </li>
         <li>
           <strong>Chats and results:</strong> your questions to Ask PULSE, the reports our specialists produce, and the status of your prescriptions.
@@ -71,7 +71,7 @@ export default function PrivacyPage() {
 
       <h2>Who we share it with</h2>
       <p>
-        We share personal data only with service providers that help us run {BRAND.name}, such as hosting, payments (Stripe), data connections (Windsor.ai), AI
+        We share personal data only with service providers that help us run {BRAND.name}, such as hosting, payments (Stripe), AI
         processing (Anthropic) and email delivery, and only for that purpose. We may also disclose data where Singapore law requires it.
       </p>
 

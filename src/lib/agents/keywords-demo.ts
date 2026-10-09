@@ -46,6 +46,8 @@ export type DataRow = {
   /** Raw searches text when it is a range like "1K - 10K". */
   searches_label: string | null;
   competition: string | null;
+  /** Page that gets the most clicks for this query (connected Search Console only). */
+  page?: string;
 };
 
 export type DataColumn = "clicks" | "impressions" | "ctr" | "position" | "searches" | "competition";
@@ -69,6 +71,8 @@ export type KeywordsInput = {
   expand: string;
   /** Raw pasted CSV / text from Search Console or Keyword Planner. */
   data: string;
+  /** Read the connected Search Console property (last 90 days) at run time instead of pasted data. */
+  gsc?: boolean;
 };
 
 // ---------- Small text helpers ----------
@@ -347,6 +351,12 @@ export function parsePastedData(text: string): ParsedData | null {
       competition: (get(r, "competition") ?? "").trim() || null,
     });
   }
+  return toParsedData(out, skipped);
+}
+
+/** Sorts rows, works out the source and Search Console totals, and caps the rows. Shared by pasted and connected data. */
+export function toParsedData(rows: DataRow[], skipped = 0): ParsedData | null {
+  let out = rows;
   if (!out.length) return null;
 
   const columns = (["clicks", "impressions", "ctr", "position", "searches", "competition"] as DataColumn[]).filter((c) =>
@@ -355,7 +365,7 @@ export function parsePastedData(text: string): ParsedData | null {
   const isGsc = columns.includes("impressions") || columns.includes("clicks") || columns.includes("position");
   const source: ParsedData["source"] = isGsc ? "search_console" : columns.includes("searches") ? "keyword_planner" : "list";
 
-  out.sort((a, b) => (b.impressions ?? -1) - (a.impressions ?? -1) || (b.searches ?? -1) - (a.searches ?? -1) || (b.clicks ?? -1) - (a.clicks ?? -1));
+  out = [...out].sort((a, b) => (b.impressions ?? -1) - (a.impressions ?? -1) || (b.searches ?? -1) - (a.searches ?? -1) || (b.clicks ?? -1) - (a.clicks ?? -1));
 
   let totals: ParsedData["totals"] = null;
   if (isGsc) {
@@ -390,7 +400,7 @@ export function dataQuickWins(data: ParsedData | null, limit = 6): string[] {
     out.push(
       `"${r.query}" sits at position ${r.position}${r.impressions != null ? ` with ${fmt(r.impressions)} impressions` : ""}${
         r.clicks != null ? ` and ${fmt(r.clicks)} clicks` : ""
-      }. Strengthen the page that ranks for it: put the phrase in the title and H1, answer the question directly in the first paragraph, and link to it from your homepage.`,
+      }. Strengthen the page that ranks for it${r.page ? ` (${r.page})` : ""}: put the phrase in the title and H1, answer the question directly in the first paragraph, and link to it from your homepage.`,
     );
   }
   const avgCtr = data.totals?.ctr;
@@ -400,7 +410,7 @@ export function dataQuickWins(data: ParsedData | null, limit = 6): string[] {
       .slice(0, 3);
     for (const r of lowCtr)
       out.push(
-        `"${r.query}" already ranks at position ${r.position} but only ${r.ctr}% of searchers click, against ${avgCtr}% across your pasted queries. Rewrite that page's title tag and meta description so they match the search and give a reason to click.`,
+        `"${r.query}" already ranks at position ${r.position} but only ${r.ctr}% of searchers click, against ${avgCtr}% across all your queries. Rewrite that page's title tag and meta description so they match the search and give a reason to click.`,
       );
   }
   return out;
@@ -421,7 +431,7 @@ export function visibilityScore(data: ParsedData | null): { score: number; note:
     Math.round((100 * rows.filter((r) => r.position! > lo && r.position! <= hi).reduce((n, r) => n + r.impressions!, 0)) / total);
   return {
     score,
-    note: `Visibility score ${score}/100, worked out from the ${rows.length} queries you pasted. Each impression counts in full when the query ranks in the top 3, 60% at positions 4 to 10, 25% at 11 to 20 and 5% below that. Right now ${share(0, 3)}% of your impressions are top 3, ${share(3, 10)}% are positions 4 to 10 and ${share(10, 1000)}% are below page one.`,
+    note: `Visibility score ${score}/100, worked out from the ${rows.length} queries in your Search Console data. Each impression counts in full when the query ranks in the top 3, 60% at positions 4 to 10, 25% at 11 to 20 and 5% below that. Right now ${share(0, 3)}% of your impressions are top 3, ${share(3, 10)}% are positions 4 to 10 and ${share(10, 1000)}% are below page one.`,
   };
 }
 

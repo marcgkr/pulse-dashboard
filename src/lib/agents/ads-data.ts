@@ -1,4 +1,5 @@
-// Ads Doctor data layer: CSV parsing, Windsor.ai fetch, and the deterministic metrics + flags.
+// Ads Doctor data layer: CSV parsing and the deterministic metrics + flags.
+// Live Google Ads / Meta rows come from src/lib/connectors in this same AdRow shape.
 // Pure module (no db / server-only imports) so the client form can reuse the report detector.
 
 export type Platform = "google" | "meta";
@@ -388,77 +389,11 @@ export function describeReport(input: ReportInput): { ok: boolean; text: string 
 }
 
 // ---------------------------------------------------------------------------
-// Windsor.ai (best effort)
+// Where rows came from (shown on the report)
 // ---------------------------------------------------------------------------
-// BEST EFFORT: field names below follow Windsor's documented connector fields but should be confirmed against
-// the owner's account (Windsor field names vary by connector version). Kept deliberately conservative.
-// Never log or echo the API key: errors are scrubbed before they leave this function.
 
-export type SourceInfo = { source: "upload" | "windsor" | "sample"; label: string; platform: Platform | null; level: Level | null; rows: number; ok: boolean; error?: string };
-
-const WINDSOR_FIELDS: Record<"google_ads" | "facebook", string> = {
-  google_ads: "account_name,campaign,clicks,impressions,spend,conversions",
-  facebook: "account_name,campaign,adset_name,ad_name,clicks,impressions,spend,reach,frequency,actions_lead,actions_purchase",
-};
-
-export async function fetchWindsor(apiKey: string, days: number): Promise<{ rows: AdRow[]; sources: SourceInfo[] }> {
-  const rows: AdRow[] = [];
-  const sources: SourceInfo[] = [];
-  const scrub = (s: string) => (apiKey ? s.split(apiKey).join("***") : s);
-
-  for (const connector of ["google_ads", "facebook"] as const) {
-    const platform: Platform = connector === "google_ads" ? "google" : "meta";
-    const info: SourceInfo = { source: "windsor", label: `Windsor.ai ${label(platform)}`, platform, level: connector === "google_ads" ? "campaign" : "ad", rows: 0, ok: false };
-    try {
-      const url = new URL(`https://connectors.windsor.ai/${connector}`);
-      url.searchParams.set("api_key", apiKey);
-      url.searchParams.set("date_preset", `last_${days}d`);
-      url.searchParams.set("fields", WINDSOR_FIELDS[connector]);
-      const res = await fetch(url, { signal: AbortSignal.timeout(30_000), headers: { accept: "application/json" } });
-      if (!res.ok) {
-        const body = scrub((await res.text().catch(() => "")).slice(0, 160));
-        throw new Error(`HTTP ${res.status}${body ? `: ${body}` : ""}`);
-      }
-      const json = (await res.json()) as { data?: Record<string, unknown>[]; error?: unknown };
-      if (!Array.isArray(json.data)) throw new Error(json.error ? scrub(String(json.error)).slice(0, 160) : "Unexpected response (no data array).");
-      for (const d of json.data) {
-        const s = (k: string) => (d[k] == null ? "" : String(d[k]).trim());
-        const n = (k: string) => parseNum(d[k] as string | number | null) ?? 0;
-        if (connector === "google_ads") {
-          const name = s("campaign");
-          if (!name) continue;
-          rows.push({ platform, level: "campaign", name, parent: "", campaign: name, spend: n("spend"), impressions: n("impressions"), clicks: n("clicks"), conversions: n("conversions"), conv_value: 0, reach: null, frequency: null, conv_known: true });
-        } else {
-          const name = s("ad_name") || s("adset_name") || s("campaign");
-          if (!name) continue;
-          rows.push({
-            platform,
-            level: s("ad_name") ? "ad" : s("adset_name") ? "adset" : "campaign",
-            name,
-            parent: s("ad_name") ? s("adset_name") : s("adset_name") ? s("campaign") : "",
-            campaign: s("campaign"),
-            spend: n("spend"),
-            impressions: n("impressions"),
-            clicks: n("clicks"),
-            conversions: n("actions_lead") + n("actions_purchase"),
-            conv_value: 0,
-            reach: parseNum(d.reach as string | number | null),
-            frequency: parseNum(d.frequency as string | number | null),
-            conv_known: true,
-          });
-        }
-        info.rows++;
-      }
-      info.ok = true;
-      if (info.rows === 0) info.error = "Connected but returned no rows for this period.";
-    } catch (e) {
-      const err = e as Error;
-      info.error = err.name === "TimeoutError" || err.name === "AbortError" ? "Timed out after 30 seconds." : scrub(err.message || "Request failed.");
-    }
-    sources.push(info);
-  }
-  return { rows, sources };
-}
+/** "windsor" only appears in reports saved before native connections; new live reports use "live". */
+export type SourceInfo = { source: "upload" | "live" | "windsor" | "sample"; label: string; platform: Platform | null; level: Level | null; rows: number; ok: boolean; error?: string };
 
 // ---------------------------------------------------------------------------
 // Metrics and flags

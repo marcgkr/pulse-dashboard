@@ -142,10 +142,38 @@ function migrate(db: Database.Database) {
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS leads_created ON leads(created_at);
+    CREATE TABLE IF NOT EXISTS connections (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      provider TEXT NOT NULL,
+      external_user TEXT NOT NULL DEFAULT '',
+      scopes TEXT NOT NULL DEFAULT '',
+      access_token_enc TEXT,
+      refresh_token_enc TEXT,
+      expires_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE (workspace_id, provider)
+    );
+    CREATE TABLE IF NOT EXISTS connection_accounts (
+      connection_id TEXT NOT NULL REFERENCES connections(id) ON DELETE CASCADE,
+      provider_account_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT '',
+      currency TEXT,
+      selected INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (connection_id, kind, provider_account_id)
+    );
   `);
   addColumn(db, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
   addColumn(db, "workspaces", "stripe_subscription_id", "TEXT");
   addColumn(db, "workspaces", "country", "TEXT NOT NULL DEFAULT 'SG'");
+  addColumn(db, "connections", "last_sync_at", "TEXT");
+  addColumn(db, "connections", "last_error", "TEXT");
+  // Google Ads accounts reached through a manager account need the manager's id on every request.
+  addColumn(db, "connection_accounts", "login_customer_id", "TEXT");
+  // Ad sync used to name its data supplier in run titles; keep old titles white-labelled.
+  db.exec("UPDATE runs SET title = REPLACE(title, 'Windsor.ai, ', 'live sync, ') WHERE agent = 'ads' AND title LIKE '%Windsor.ai, %'");
 }
 
 function addColumn(db: Database.Database, table: string, column: string, type: string) {
@@ -177,6 +205,31 @@ export type WorkspaceRow = {
   stripe_subscription_id?: string | null;
   windsor_api_key: string | null;
   created_at: string;
+};
+
+export type ConnectionRow = {
+  id: string;
+  workspace_id: string;
+  provider: "google" | "meta";
+  external_user: string;
+  scopes: string;
+  access_token_enc: string | null;
+  refresh_token_enc: string | null;
+  expires_at: string | null;
+  last_sync_at: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ConnectionAccountRow = {
+  connection_id: string;
+  provider_account_id: string;
+  kind: "google_ads" | "meta_ads" | "search_console";
+  name: string;
+  currency: string | null;
+  selected: number;
+  login_customer_id: string | null;
 };
 
 export type RunRow = {
