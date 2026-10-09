@@ -5,6 +5,7 @@ import { Radar, Wand2 } from "lucide-react";
 import { Button, Field, Input, Textarea } from "../ui";
 import { FormError, useRunAgent } from "../run-agent";
 import type { FormProps } from "./types";
+import { marketFor } from "@/lib/markets";
 
 const MAX_PROMPTS = 8;
 
@@ -23,8 +24,10 @@ function firstItems(s: string, n: number): string[] {
 
 /** Template-based prompt ideas from the business profile. No AI call. */
 export function suggestPrompts(profile: FormProps["profile"]): string[] {
-  const loc = profile.location.split(",")[0]?.trim() || "Singapore";
-  const country = /singapore/i.test(profile.location) || !profile.location ? "Singapore" : loc;
+  const m = marketFor(profile.country);
+  const home = m.code === "SG" ? "Singapore" : m.code === "INTL" ? "my area" : m.inPhrase;
+  const loc = profile.location.split(",")[0]?.trim() || home;
+  const country = m.code === "SG" ? (/singapore/i.test(profile.location) || !profile.location ? "Singapore" : loc) : m.code === "INTL" ? loc : m.inPhrase;
   const industry = (profile.industry || "").trim().toLowerCase() || "business";
   const services = firstItems(profile.offers, 3);
   const s1 = services[0] || industry;
@@ -44,6 +47,7 @@ export function VisibilityForm({ profile, lastInput }: FormProps) {
   const domainDefault = profile.website.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] ?? "";
   const [prompts, setPrompts] = useState(asText(lastInput?.prompts) || suggestPrompts(profile).join("\n"));
   const [brand, setBrand] = useState((lastInput?.brand as string) || profile.name);
+  const market = marketFor(profile.country);
   const [aliases, setAliases] = useState(asText(lastInput?.aliases).replace(/\n/g, ", "));
   const [domain, setDomain] = useState((lastInput?.domain as string) || domainDefault);
   const [competitors, setCompetitors] = useState(asText(lastInput?.competitors).replace(/\n/g, ", ") || profile.competitors);
@@ -65,7 +69,13 @@ export function VisibilityForm({ profile, lastInput }: FormProps) {
           value={prompts}
           onChange={(e) => setPrompts(e.target.value)}
           rows={6}
-          placeholder={"best lash extension salon in Orchard\nwhere to get hydrafacial in Singapore"}
+          placeholder={
+            market.code === "SG"
+              ? "best lash extension salon in Orchard\nwhere to get hydrafacial in Singapore"
+              : market.code === "INTL"
+                ? "best lash extension salon near me\nwhere to get hydrafacial in my city"
+                : `best lash extension salon in ${market.exampleArea}\nwhere to get hydrafacial in ${market.inPhrase}`
+          }
           required
         />
       </Field>
@@ -83,7 +93,7 @@ export function VisibilityForm({ profile, lastInput }: FormProps) {
           <Input value={brand} onChange={(e) => setBrand(e.target.value)} required />
         </Field>
         <Field label="Website domain" hint="Used to check if AI cites your site.">
-          <Input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="yourbusiness.com.sg" />
+          <Input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder={market.code === "SG" ? "yourbusiness.com.sg" : "yourbusiness.com"} />
         </Field>
       </div>
       <Field label="Other names for your brand" hint="Comma separated. Short names, old names, spellings customers use.">

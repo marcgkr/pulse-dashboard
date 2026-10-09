@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { normalizeUrl, safeFetch } from "../safe-fetch";
+import { marketFor, type Market, type MarketCode } from "../markets";
 
 // Deterministic website checkup. Runs without AI, so it powers the free public checkup too.
 
@@ -45,6 +46,12 @@ export type SiteAudit = {
     internalLinks: number;
     phoneLinks: number;
     whatsappLinks: number;
+    /** sms: links (tap-to-text). */
+    smsLinks: number;
+    /** m.me / messenger.com links. */
+    messengerLinks: number;
+    /** line.me links. */
+    lineLinks: number;
     emailLinks: number;
     forms: number;
     bookingWidget: string;
@@ -57,6 +64,8 @@ export type SiteAudit = {
   llmsTxt: boolean;
   https: boolean;
   pageSpeed: { performance: number | null; lcp: string | null; cls: string | null } | null;
+  /** Market the checks were judged for (messaging habits differ by country). */
+  market: MarketCode;
   checks: Check[];
   score: number;
   groupScores: Record<CheckGroup, number>;
@@ -163,8 +172,15 @@ async function pageSpeed(url: string) {
 
 export async function auditSite(
   input: string,
-  opts: { maxPages?: number; onProgress?: (m: string) => void; signal?: AbortSignal } = {},
+  opts: {
+    maxPages?: number;
+    onProgress?: (m: string) => void;
+    signal?: AbortSignal;
+    /** Market or country code (default SG). Sets which messaging app the contact checks look for. */
+    market?: Market | string | null;
+  } = {},
 ): Promise<SiteAudit> {
+  const market = typeof opts.market === "object" && opts.market ? opts.market : marketFor(opts.market);
   const signal = opts.signal;
   const progress = opts.onProgress ?? (() => {});
   const start = normalizeUrl(input);
@@ -227,6 +243,9 @@ export async function auditSite(
     internalLinks: internal.size,
     phoneLinks: links.filter((h) => h.startsWith("tel:")).length,
     whatsappLinks: links.filter((h) => /wa\.me|api\.whatsapp\.com|whatsapp:\/\//i.test(h)).length,
+    smsLinks: links.filter((h) => /^sms:/i.test(h)).length,
+    messengerLinks: links.filter((h) => /^(?:https?:)?\/\/(?:www\.)?(?:m\.me|messenger\.com)\//i.test(h)).length,
+    lineLinks: links.filter((h) => /^(?:https?:)?\/\/(?:[\w-]+\.)?(?:line\.me|lin\.ee)\//i.test(h)).length,
     emailLinks: links.filter((h) => h.startsWith("mailto:")).length,
     forms: $("form").length,
     bookingWidget: detectBooking(html),
@@ -263,7 +282,7 @@ export async function auditSite(
   ]);
 
   const platform = detectPlatform(html, res.headers);
-  const checks = buildChecks({ home: homeFull, pages, robotsTxt, sitemap, llmsTxt, https: final.protocol === "https:", psi, redirects: res.redirects });
+  const checks = buildChecks({ home: homeFull, pages, robotsTxt, sitemap, llmsTxt, https: final.protocol === "https:", psi, redirects: res.redirects }, market);
   const { score, groupScores } = scoreChecks(checks);
 
   return {
@@ -278,6 +297,7 @@ export async function auditSite(
     llmsTxt,
     https: final.protocol === "https:",
     pageSpeed: psi,
+    market: market.code,
     checks,
     score,
     groupScores,
@@ -293,7 +313,7 @@ function buildChecks(a: {
   https: boolean;
   psi: SiteAudit["pageSpeed"];
   redirects: string[];
-}): Check[] {
+}, market: Market): Check[] {
   const c: Check[] = [];
   const add = (id: string, group: CheckGroup, label: string, status: CheckStatus, detail: string, weight = 1) =>
     c.push({ id, group, label, status, detail, weight });
@@ -396,27 +416,21 @@ function buildChecks(a: {
     `${dupTitles} duplicate title(s), ${missingMeta} page(s) missing a meta description, out of ${a.pages.length} checked.`,
     2,
   );
-  add("og", "On-page", "Social share preview", h.ogTitle && h.ogImage ? "pass" : "warn", h.ogTitle && h.ogImage ? "Open Graph title and image set." : "Links shared on WhatsApp and Facebook won't show a proper preview.", 1);
+  add("og", "On-page", "Social share preview", h.ogTitle && h.ogImage ? "pass" : "warn", h.ogTitle && h.ogImage ? "Open Graph title and image set." : `Links shared on ${market.messaging === "WhatsApp" ? "WhatsApp" : "messaging apps"} and Facebook won't show a proper preview.`, 1);
   add("canonical", "On-page", "Canonical tag", h.canonical ? "pass" : "warn", h.canonical ? "Set." : "No canonical tag on the homepage.", 1);
 
   // Conversion
-  const contactPaths = h.phoneLinks + h.whatsappLinks + h.forms + (h.bookingWidget ? 1 : 0);
+  const chat = messagingCheck(h, market);
+  const contactPaths = h.phoneLinks + h.whatsappLinks + chat.extraLinks + h.forms + (h.bookingWidget ? 1 : 0);
   add(
     "contact",
     "Conversion",
     "Easy ways to get in touch",
     contactPaths >= 2 ? "pass" : contactPaths === 1 ? "warn" : "fail",
-    `Tap-to-call links: ${h.phoneLinks}, WhatsApp links: ${h.whatsappLinks}, forms: ${h.forms}${h.bookingWidget ? `, booking: ${h.bookingWidget}` : ""}.`,
+    `Tap-to-call links: ${h.phoneLinks}, ${chat.countLabel}${h.forms}${h.bookingWidget ? `, booking: ${h.bookingWidget}` : ""}.`,
     4,
   );
-  add(
-    "whatsapp",
-    "Conversion",
-    "WhatsApp click-to-chat",
-    h.whatsappLinks > 0 ? "pass" : "warn",
-    h.whatsappLinks > 0 ? "WhatsApp link found." : "No WhatsApp link. In Singapore this is often the fastest way customers enquire.",
-    2,
-  );
+  add(chat.id, "Conversion", chat.label, chat.ok ? "pass" : "warn", chat.detail, 2);
   add(
     "booking",
     "Conversion",
@@ -441,6 +455,56 @@ function buildChecks(a: {
   add("llms", "AI search", "llms.txt file", a.llmsTxt ? "pass" : "warn", a.llmsTxt ? "Found." : "No /llms.txt. It's a simple file that tells AI assistants what your business does.", 1);
 
   return c;
+}
+
+/** The click-to-chat check for the market's usual messaging habit (WhatsApp, Messenger, LINE or calls and texts). */
+function messagingCheck(h: SiteAudit["home"], m: Market) {
+  const where = m.code === "INTL" ? "For many customers" : `In ${m.inPhrase}`;
+  // Optional fields: audits saved before these counts existed read as zero.
+  const sms = h.smsLinks ?? 0;
+  const messenger = h.messengerLinks ?? 0;
+  const line = h.lineLinks ?? 0;
+  switch (m.messaging) {
+    case "SMS":
+      return {
+        id: "messaging",
+        label: "Tap-to-text or click-to-call",
+        ok: h.phoneLinks + sms > 0,
+        extraLinks: sms,
+        countLabel: `WhatsApp links: ${h.whatsappLinks}, text (sms:) links: ${sms}, forms: `,
+        detail:
+          h.phoneLinks + sms > 0
+            ? `Tap-to-call links: ${h.phoneLinks}, tap-to-text links: ${sms}.`
+            : `No tap-to-call or tap-to-text link. ${where} many customers call or text a local business straight from their phone.`,
+      };
+    case "Messenger":
+      return {
+        id: "messaging",
+        label: "Messenger click-to-chat",
+        ok: messenger > 0,
+        extraLinks: messenger,
+        countLabel: `Messenger links: ${messenger}, WhatsApp links: ${h.whatsappLinks}, forms: `,
+        detail: messenger > 0 ? "Messenger (m.me) link found." : `No Messenger (m.me) link. ${where} this is often the fastest way customers enquire.`,
+      };
+    case "LINE":
+      return {
+        id: "messaging",
+        label: "LINE click-to-chat",
+        ok: line > 0,
+        extraLinks: line,
+        countLabel: `LINE links: ${line}, WhatsApp links: ${h.whatsappLinks}, forms: `,
+        detail: line > 0 ? "LINE link found." : `No LINE link. ${where} this is often the fastest way customers enquire.`,
+      };
+    default:
+      return {
+        id: "whatsapp",
+        label: "WhatsApp click-to-chat",
+        ok: h.whatsappLinks > 0,
+        extraLinks: 0,
+        countLabel: `WhatsApp links: ${h.whatsappLinks}, forms: `,
+        detail: h.whatsappLinks > 0 ? "WhatsApp link found." : `No WhatsApp link. ${where} this is often the fastest way customers enquire.`,
+      };
+  }
 }
 
 export function scoreChecks(checks: Check[]) {

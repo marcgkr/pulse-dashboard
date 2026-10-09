@@ -3,6 +3,7 @@ import { businessContext, normalizePrescription, PrescriptionSchema, structured,
 import type { AgentDef } from "./types";
 import { auditSite, type Check, type SiteAudit } from "./site-audit";
 import { normalizeUrl } from "../safe-fetch";
+import { marketFor, type Market } from "../markets";
 
 type Input = { url: string };
 
@@ -52,7 +53,7 @@ export const siteAgent: AgentDef<Input> = {
   runTitle: (input) => `Site checkup: ${new URL(input.url).hostname}`,
 
   async run(input, ctx) {
-    const audit = await auditSite(input.url, { onProgress: ctx.progress });
+    const audit = await auditSite(input.url, { onProgress: ctx.progress, market: ctx.ws.country });
     ctx.progress("Writing your prescriptions");
     const failing = audit.checks.filter((c) => c.status !== "pass");
     const ai = await structured({
@@ -105,7 +106,7 @@ Write the report. Prescriptions must cover the failed checks that matter most fo
 
   async demo(input, ctx) {
     // The crawl is real. Only the writing is rules-based.
-    const audit = await auditSite(input.url, { onProgress: ctx.progress });
+    const audit = await auditSite(input.url, { onProgress: ctx.progress, market: ctx.ws.country });
     const prescriptions = rulePrescriptions(audit);
     const worst = audit.checks.filter((c) => c.status === "fail").sort((a, b) => b.weight - a.weight)[0];
     return {
@@ -130,8 +131,76 @@ function where(platform: string, wp: string, shopify: string, wix: string, other
   return platform === "WordPress" ? wp : platform === "Shopify" ? shopify : platform === "Wix" ? wix : other;
 }
 
+/** Wording for the market's usual way of messaging a business. */
+function chatWords(m: Market) {
+  const num = m.code === "SG" ? "65XXXXXXXX" : "<your number with country code>";
+  switch (m.messaging) {
+    case "SMS":
+      return { button: "'Call or text to book'", heard: "by text or on the phone", tracked: "calls, text-link clicks and form submits", share: "in text messages and on Facebook", num };
+    case "Messenger":
+      return { button: "'Message us to book'", heard: "on Messenger or the phone", tracked: "Messenger clicks, form submits and calls", share: "on Messenger and Facebook", num };
+    case "LINE":
+      return { button: "'Message us on LINE to book'", heard: "on LINE or the phone", tracked: "LINE clicks, form submits and calls", share: "on LINE and Facebook", num };
+    default:
+      return { button: "'WhatsApp us to book'", heard: "on WhatsApp or the phone", tracked: "WhatsApp clicks, form submits and calls", share: "on WhatsApp and Facebook", num };
+  }
+}
+
+function contactPrescription(m: Market, p: string, num: string): Pick<Prescription, "title" | "steps" | "where"> {
+  const tel = m.code === "SG" ? "+65XXXXXXXX" : "+<your number with country code>";
+  switch (m.messaging) {
+    case "SMS":
+      return {
+        title: "Add tap-to-call and tap-to-text links on every page",
+        steps: [
+          `Make your phone number a link: <a href="tel:${tel}">Call us</a>.`,
+          `Add a text button next to it: <a href="sms:${tel}">Text us</a>. It opens the messages app on a phone.`,
+          "Put both in your header or a sticky bar so they show on every page on mobile.",
+          "If you take bookings online, add a 'Book now' button beside them.",
+        ],
+        where: where(p, "WordPress > Appearance > Customize > Header", "Online Store > Themes > Customize > Header", "Wix > Add > Contact & Forms", "Site header and footer"),
+      };
+    case "Messenger":
+      return {
+        title: "Add a Messenger button and tap-to-call link on every page",
+        steps: [
+          "Find your Messenger link: https://m.me/ followed by your Facebook Page username (the name in your Page's web address).",
+          "Add a sticky 'Message us' button that opens that link and shows on every page.",
+          `Make your phone number a link: <a href="tel:${tel}">.`,
+          "Test the button on your phone to check it opens a chat with your Page.",
+        ],
+        where: where(p, "WordPress > Plugins > Add New", "Shopify > Apps", "Wix > Add > Contact & Forms", "Site header and footer"),
+      };
+    case "LINE":
+      return {
+        title: "Add a LINE chat button and tap-to-call link on every page",
+        steps: [
+          "Copy your LINE Official Account link from LINE Official Account Manager.",
+          "Add a sticky 'Chat on LINE' button that opens that link and shows on every page.",
+          `Make your phone number a link: <a href="tel:${tel}">.`,
+          "Test the button on your phone to check it opens a chat with your account.",
+        ],
+        where: where(p, "WordPress > Plugins > Add New", "Shopify > Apps", "Wix > Add > Contact & Forms", "Site header and footer"),
+      };
+    default:
+      return {
+        title: "Add a WhatsApp button and tap-to-call link on every page",
+        steps: [
+          `Create your WhatsApp link: https://wa.me/${num} (${m.code === "SG" ? "your number with country code, " : ""}no + or spaces).`,
+          "Add a sticky WhatsApp button that shows on every page" + (p === "WordPress" ? " (the free 'Click to Chat' plugin does this)." : p === "Shopify" ? " (search the Shopify App Store for 'WhatsApp chat button')." : "."),
+          `Make your phone number a link: <a href="tel:${tel}">.`,
+          `Add a pre-filled message, e.g. https://wa.me/${num}?text=Hi%2C%20I%27d%20like%20to%20book`,
+        ],
+        where: where(p, "WordPress > Plugins > Add New", "Shopify > Apps", "Wix > Add > Contact & Forms", "Site header and footer"),
+      };
+  }
+}
+
 export function rulePrescriptions(audit: SiteAudit): Prescription[] {
   const p = audit.platform;
+  const m = marketFor(audit.market);
+  const chat = chatWords(m);
+  const area = m.code === "INTL" ? "[your area]" : m.exampleArea;
   const out: Prescription[] = [];
   const failed = (id: string) => audit.checks.find((c) => c.id === id && c.status !== "pass") as Check | undefined;
   const pr = (c: Check): Prescription["priority"] => (c.status === "fail" && c.weight >= 3 ? "urgent" : c.status === "fail" ? "high" : "medium");
@@ -190,25 +259,18 @@ export function rulePrescriptions(audit: SiteAudit): Prescription[] {
       title: "Say clearly what you do, for whom, and where, at the top of the homepage",
       diagnosis: c.detail + " Google and visitors both decide in seconds whether you match what they searched for.",
       steps: [
-        "Use exactly one H1 headline that names your main service and area, e.g. 'Aesthetic treatments in Tampines'.",
+        `Use exactly one H1 headline that names your main service and area, e.g. 'Aesthetic treatments in ${area}'.`,
         "Under it, add 2 to 3 sentences: who it's for, the result they get, and why choose you.",
         "Add a short section for each main service with a link to its own page. Aim for 400+ words on the homepage.",
-        "Finish with a clear button: 'WhatsApp us to book'.",
+        `Finish with a clear button: ${chat.button}.`,
       ],
       where: where(p, "WordPress > Pages > Home", "Online Store > Themes > Customize", "Wix Editor > Home", "Homepage"),
       priority: c.status === "fail" ? "high" : "medium", impact: "high", effort: "half-day", category: "Content", recheck_days: 21,
     });
-  if ((c = failed("contact")) || (c = failed("whatsapp")))
+  if ((c = failed("contact")) || (c = failed("whatsapp")) || (c = failed("messaging")))
     out.push({
-      title: "Add a WhatsApp button and tap-to-call link on every page",
+      ...contactPrescription(m, p, chat.num),
       diagnosis: c.detail + " Visitors on mobile want one tap to reach you.",
-      steps: [
-        "Create your WhatsApp link: https://wa.me/65XXXXXXXX (your number with country code, no + or spaces).",
-        "Add a sticky WhatsApp button that shows on every page" + (p === "WordPress" ? " (the free 'Click to Chat' plugin does this)." : p === "Shopify" ? " (search the Shopify App Store for 'WhatsApp chat button')." : "."),
-        "Make your phone number a link: <a href=\"tel:+65XXXXXXXX\">.",
-        "Add a pre-filled message, e.g. https://wa.me/65XXXXXXXX?text=Hi%2C%20I%27d%20like%20to%20book",
-      ],
-      where: where(p, "WordPress > Plugins > Add New", "Shopify > Apps", "Wix > Add > Contact & Forms", "Site header and footer"),
       priority: pr(c), impact: "high", effort: "quick", category: "Conversion", recheck_days: 7,
     });
   if ((c = failed("analytics")))
@@ -230,7 +292,7 @@ export function rulePrescriptions(audit: SiteAudit): Prescription[] {
       title: "Rewrite your homepage title and meta description for Google",
       diagnosis: `${t.detail} ${audit.checks.find((x) => x.id === "description")?.detail ?? ""} These two lines are your ad in Google results.`,
       steps: [
-        "Title: put your main service + area first, brand last. Example: 'Lash Extensions in Orchard | Your Brand'. Keep it 30 to 60 characters.",
+        `Title: put your main service + area first, brand last. Example: 'Lash Extensions in ${m.code === "SG" ? "Orchard" : area} | Your Brand'. Keep it 30 to 60 characters.`,
         "Meta description: one sentence on what you do, one reason to choose you, one call to action. 120 to 155 characters.",
         "Save and request indexing in Google Search Console (URL Inspection > Request indexing).",
       ],
@@ -256,7 +318,7 @@ export function rulePrescriptions(audit: SiteAudit): Prescription[] {
       title: "Add an FAQ section answering the questions customers ask before booking",
       diagnosis: c.detail,
       steps: [
-        "List the 6 questions you hear most on WhatsApp or the phone (price range, downtime, how long it takes, who it suits).",
+        `List the 6 questions you hear most ${chat.heard} (price range, downtime, how long it takes, who it suits).`,
         "Answer each in 2 to 4 plain sentences on the relevant service page.",
         "Mark it up as FAQPage schema (most SEO plugins have an FAQ block that does this).",
       ],
@@ -292,7 +354,7 @@ export function rulePrescriptions(audit: SiteAudit): Prescription[] {
       diagnosis: c.detail,
       steps: [
         "Meta: Events Manager > Connect data sources > Web > Meta Pixel. Use the partner integration for your platform.",
-        "Google Ads: Goals > Conversions > New > Website. Track WhatsApp clicks, form submits and calls.",
+        `Google Ads: Goals > Conversions > New > Website. Track ${chat.tracked}.`,
         "Use the Meta Pixel Helper and Google Tag Assistant browser extensions to confirm both fire.",
       ],
       where: "Meta Events Manager and Google Ads > Goals",
@@ -302,7 +364,7 @@ export function rulePrescriptions(audit: SiteAudit): Prescription[] {
     out.push({
       title: "Describe your images with alt text",
       diagnosis: c.detail,
-      steps: ["Open each image in your media library.", "Write what the image shows in a few words, including the service where it's natural (e.g. 'Hydrafacial treatment room at our Tampines clinic')."],
+      steps: ["Open each image in your media library.", `Write what the image shows in a few words, including the service where it's natural (e.g. 'Hydrafacial treatment room at our ${area} clinic').`],
       where: where(p, "WordPress > Media", "Shopify > Content > Files", "Wix > image settings", "Media library"),
       priority: "low", impact: "low", effort: "quick", category: "On-page SEO", recheck_days: 30,
     });
@@ -320,7 +382,7 @@ export function rulePrescriptions(audit: SiteAudit): Prescription[] {
     });
   if ((c = failed("og")))
     out.push({
-      title: "Set a share image so links look good on WhatsApp and Facebook",
+      title: `Set a share image so links look good ${chat.share}`,
       diagnosis: c.detail,
       steps: ["Make a 1200 x 630 image with your logo and main offer.", "Set it as the social share / Open Graph image in your SEO settings."],
       where: where(p, "Yoast/Rank Math > Social", "Online Store > Preferences > Social sharing image", "Wix > SEO > Social share", "SEO settings"),

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { businessContext, normalizePrescription, pick, PrescriptionSchema, research, structured } from "../ai";
 import type { AgentDef, AgentResult } from "./types";
+import { marketFor } from "../markets";
 import {
   type AeoQuestion,
   type ContentBrief,
@@ -8,7 +9,6 @@ import {
   type KeywordsInput,
   type ParsedData,
   cleanKeyword,
-  countryCode,
   dataForPrompt,
   dataQuickWins,
   normalizeSlug,
@@ -16,6 +16,7 @@ import {
   sampleBriefs,
   sampleClusters,
   samplePrescriptions,
+  searchCountryFor,
   sampleQuestions,
   sampleQuickWins,
   splitSeeds,
@@ -44,7 +45,7 @@ const MAX_DATA_CHARS = 120_000;
 // ---------- Structured output schema (loose; normalised below) ----------
 
 const ClusterAI = z.object({
-  name: z.string().describe("Short cluster name the owner understands, e.g. 'Hydrafacial prices' or 'Lash extensions in Tampines'"),
+  name: z.string().describe("Short cluster name the owner understands, e.g. 'Hydrafacial prices' or 'Lash extensions in [area]'"),
   intent: z.string().describe("Exactly one of: buy, compare, learn, local"),
   priority: z.string().describe("Exactly one of: high, medium, low. How much this cluster matters for getting enquiries soon"),
   relative_demand: z
@@ -57,7 +58,7 @@ const ClusterAI = z.object({
   target_page: z.object({
     action: z.string().describe("Exactly one of: optimise (an existing page), create (a new page)"),
     page: z.string().describe("Which page: an existing page name, or the title of the new page to create"),
-    slug: z.string().describe("Suggested URL path starting with /, lowercase words joined by hyphens, e.g. /hydrafacial-tampines"),
+    slug: z.string().describe("Suggested URL path starting with /, lowercase words joined by hyphens, e.g. /hydrafacial-[area]"),
   }),
   why: z.string().describe("1-2 sentences on why this cluster matters for this business. Mention what currently ranks if the research shows it."),
 });
@@ -152,7 +153,8 @@ export const keywordsAgent: AgentDef<Input> = {
     if (!seeds.length && expand) seeds = [expand];
     if (!seeds.length) throw new Error("Add at least one service or topic to research.");
     const focus = expand ? "expand" : "discover";
-    const location = String(r.location ?? "").trim().slice(0, 120) || ws.location?.trim() || "Singapore";
+    const m = marketFor(ws.country);
+    const location = String(r.location ?? "").trim().slice(0, 120) || ws.location?.trim() || (m.code === "INTL" ? "your area" : m.name);
     let data = typeof r.data === "string" ? r.data : "";
     if (data.length > MAX_DATA_CHARS) data = data.slice(0, MAX_DATA_CHARS);
     return { seeds, location, focus, expand, data };
@@ -185,12 +187,12 @@ ${focusLine}
 Research ${expanding ? "this keyword" : "these topics"} as searched in ${input.location}:
 1. Search the main ${expanding ? "keyword and its common variations (price, near me, best, reviews, vs)" : "seed topics with the location"}. Who ranks on page one? Note local competitors, directories, review sites, marketplaces and media. What type of page ranks (service page, price page, listicle, directory, forum)?
 2. List "People also ask" style questions and related searches you see, word for word where possible.
-3. Note what people ask on forums and community sites (Reddit, HardwareZone, Facebook groups, Xiaohongshu) about ${expanding ? "it" : "these topics"}.
+3. Note what people ask on forums and community sites (${["SG", "MY"].includes(marketFor(ctx.ws.country).code) ? "Reddit, HardwareZone, Facebook groups, Xiaohongshu" : "Reddit, Facebook groups and popular local forums"}) about ${expanding ? "it" : "these topics"}.
 4. Note any AI-style answers or featured snippets and which sites they cite.
 5. Note modifiers people attach: price, cost, near me, best, reviews, vs, for <type of person>, neighbourhood names.
 Finish with a plain list of every keyword phrase and question you saw.`,
         maxSearches: expanding ? 5 : 6,
-        country: countryCode(input.location),
+        country: searchCountryFor(ctx.ws.country, input.location),
       });
       notes = r.text;
       sources = r.sources.slice(0, 20);

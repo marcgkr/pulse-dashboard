@@ -15,9 +15,12 @@ type ComplianceResult = {
   issues: Issue[];
   rewritten_copy: string;
   checklist: string[];
+  /** Names the official guidance for the business's country. */
+  disclaimer?: string;
   demo?: boolean;
 };
 
+// Fallback for results saved before the disclaimer followed the business's country (all Singapore).
 const DISCLAIMER =
   "This is an automated pre-check, not legal advice. For anything you're unsure about, check the official MOH and ASAS guidance or ask a professional.";
 
@@ -165,7 +168,7 @@ export function ComplianceReport({ result }: { result: ComplianceResult }) {
         </details>
       )}
 
-      <p className="border-t border-line pt-4 text-xs text-ink-3">{DISCLAIMER}</p>
+      <p className="border-t border-line pt-4 text-xs text-ink-3">{r.disclaimer || DISCLAIMER}</p>
     </div>
   );
 }

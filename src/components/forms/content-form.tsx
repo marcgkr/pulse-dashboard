@@ -5,6 +5,7 @@ import { Clapperboard } from "lucide-react";
 import { Button, Field, Input, Select, Textarea, cx } from "../ui";
 import { FormError, useRunAgent } from "../run-agent";
 import type { FormProps } from "./types";
+import { marketFor } from "@/lib/markets";
 
 // Kept in sync with PLATFORMS and GOALS in src/lib/agents/content-demo.ts (not imported to keep server code out of the client bundle).
 const PLATFORMS = ["Instagram", "TikTok", "Facebook", "LinkedIn", "Xiaohongshu", "YouTube Shorts"];
@@ -18,6 +19,7 @@ const GOALS = [
 export function ContentForm({ profile, lastInput }: FormProps) {
   const last = lastInput ?? {};
   const defaultNiche = [profile.industry, profile.offers].filter(Boolean).join(": ");
+  const market = marketFor(profile.country);
   const [platforms, setPlatforms] = useState<string[]>(
     Array.isArray(last.platforms) && last.platforms.length ? (last.platforms as string[]).filter((p) => PLATFORMS.includes(p)) : ["Instagram", "TikTok"],
   );
@@ -107,7 +109,7 @@ export function ContentForm({ profile, lastInput }: FormProps) {
       </Field>
 
       <Field label="What's working for you (optional)" hint="Posts that got enquiries, formats your customers respond to.">
-        <Textarea value={working} onChange={(e) => setWorking(e.target.value)} className="min-h-20" placeholder="e.g. Our price explainer Reel got lots of WhatsApp messages" />
+        <Textarea value={working} onChange={(e) => setWorking(e.target.value)} className="min-h-20" placeholder={`e.g. Our price explainer Reel got lots of ${market.messaging === "SMS" ? "calls and DMs" : `${market.messaging} messages`}`} />
       </Field>
 
       <Field label="Avoid (optional)" hint="Topics, formats or things you won't do, e.g. dancing, showing faces.">
@@ -118,7 +120,7 @@ export function ContentForm({ profile, lastInput }: FormProps) {
         <input type="checkbox" className="mt-0.5 accent-[var(--color-scrub)]" checked={trends} onChange={(e) => setTrends(e.target.checked)} />
         <span>
           <span className="block text-sm font-semibold text-ink">Include this month's trends</span>
-          <span className="block text-xs text-ink-3">Searches for current formats, sounds and Singapore calendar moments for your niche. Takes a little longer.</span>
+          <span className="block text-xs text-ink-3">Searches for current formats, sounds and {market.code === "SG" ? "Singapore" : "local"} calendar moments for your niche. Takes a little longer.</span>
         </span>
       </label>
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { businessContext, normalizePrescription, pick, PrescriptionSchema, structured, type Prescription } from "../ai";
 import { normalizeUrl, safeFetch } from "../safe-fetch";
 import type { WorkspaceRow } from "../db";
+import { marketFor, type Market } from "../markets";
 import type { AgentContext, AgentDef, AgentResult } from "./types";
 
 // ---------- Types ----------
@@ -72,6 +73,15 @@ export type ComplianceResult = AgentResult & {
 export const DISCLAIMER =
   "This is an automated pre-check, not legal advice. For anything you're unsure about, check the official MOH and ASAS guidance or ask a professional.";
 
+/** Disclaimer naming the official guidance for the business's market. */
+export function disclaimerFor(m: Market): string {
+  if (m.code === "SG") return DISCLAIMER;
+  const who = m.code === "INTL" ? "your local health regulator and advertising standards body" : `the health regulator and advertising standards body in ${m.inPhrase}`;
+  return `This is an automated pre-check, not legal advice. For anything you're unsure about, check the official guidance from ${who} or ask a professional.`;
+}
+
+const SG_MARKET = marketFor("SG");
+
 const MEDICAL: Category[] = ["Medical clinic", "Aesthetic clinic", "Dental"];
 const isMedical = (c: Category) => MEDICAL.includes(c);
 const isMetaChannel = (ch: Channel) => ch === "Meta ad" || ch === "Instagram post";
@@ -98,7 +108,8 @@ type Rule = {
   id: string;
   family: Family;
   re: RegExp;
-  why: string;
+  /** A function when the wording depends on the market. */
+  why: string | ((m: Market) => string);
   severity: (cat: Category, ch: Channel) => Severity | null; // null = rule does not apply
 };
 
@@ -112,7 +123,10 @@ const RULES: Rule[] = [
     id: "superlative",
     family: "Superlative",
     re: /\b(?:the\s+)?(?:best|no\.?\s?1|number\s+one|#\s?1|leading|top[- ](?:rated|notch)|finest|premier|world[- ]class|most\s+(?:trusted|experienced|advanced|popular|effective)|unrivall?ed|unmatched|award[- ]winning|first\s+and\s+only)\b|#1\b|(?<!\bon\s)\btop(?![- ]?up\b)(?=\s+\w)/gi,
-    why: "Superlatives and ranking claims ('best', 'No. 1', 'leading') can't be proven and are not allowed in healthcare or legal advertising in Singapore. For other businesses they still need proof under the advertising code.",
+    why: (m) =>
+      m.code === "SG"
+        ? "Superlatives and ranking claims ('best', 'No. 1', 'leading') can't be proven and are not allowed in healthcare or legal advertising in Singapore. For other businesses they still need proof under the advertising code."
+        : `Superlatives and ranking claims ('best', 'No. 1', 'leading') can't be proven. Healthcare and legal advertising rules in many countries don't allow them, so check what applies in ${m.inPhrase}. Other businesses still need proof under the advertising code.`,
     severity: (cat) => sevMedHigh(cat),
   },
   {
@@ -126,7 +140,10 @@ const RULES: Rule[] = [
     id: "testimonial",
     family: "Testimonial / endorsement",
     re: /\b(?:testimonials?|reviews|review\s+(?:from|by)|google\s+review|rated\s+\d(?:\.\d)?\s*stars?|\d(?:\.\d)?\s*stars?|5[- ]star|our\s+(?:clients|patients|customers)\s+(?:say|love|rave)|as\s+seen\s+on|recommended\s+by|endorsed\s+by|celebrity|influencers?|loved\s+by\s+[\d,]+|trusted\s+by\s+[\d,]+|[\d,]+\+?\s+(?:happy|satisfied)\s+(?:clients|patients|customers))\b/gi,
-    why: "Healthcare advertising in Singapore should not use patient testimonials, reviews or endorsements. Other businesses can use them only if they are genuine and typical.",
+    why: (m) =>
+      m.code === "SG"
+        ? "Healthcare advertising in Singapore should not use patient testimonials, reviews or endorsements. Other businesses can use them only if they are genuine and typical."
+        : `Healthcare advertising rules often restrict patient testimonials, reviews and endorsements, so check what applies in ${m.inPhrase}. Other businesses can use them only if they are genuine and typical.`,
     severity: (cat) => (isMedical(cat) ? "high" : cat === "Legal" ? "medium" : "low"),
   },
   {
@@ -196,7 +213,7 @@ function snippetAround(text: string, index: number, length: number): string {
 }
 
 /** Regex pre-scan. Runs in demo and live. */
-export function preScan(text: string, category: Category, channel: Channel): Flag[] {
+export function preScan(text: string, category: Category, channel: Channel, market: Market = SG_MARKET): Flag[] {
   const flags: Flag[] = [];
   const seen = new Map<string, number>();
   for (const rule of RULES) {
@@ -220,7 +237,7 @@ export function preScan(text: string, category: Category, channel: Channel): Fla
         snippet: snippetAround(text, idx, m[0].length),
         sentence: sentenceAround(text, idx, m[0].length).slice(0, 400),
         severity: sev,
-        why: rule.why,
+        why: typeof rule.why === "function" ? rule.why(market) : rule.why,
       });
       if (flags.length >= 60) return flags;
     }
@@ -333,14 +350,22 @@ function verdictFrom(issues: { severity: Severity }[]): Verdict {
   return "looks fine";
 }
 
-function frameworkFor(family: Family, category: Category, channel: Channel): string {
+/** Framework badge labels. Singapore names its bodies; other markets get neutral labels. */
+function frameworkLabels(m: Market) {
+  return m.code === "SG"
+    ? { health: "MOH / HCSA", legal: "Legal Profession (Publicity) Rules", financial: "MAS / financial", products: "HSA", general: "ASAS (SCAP)", extra: ["SMC Ethical Code"] }
+    : { health: "Health ad rules", legal: "Legal advertising rules", financial: "Financial ad rules", products: "Health product rules", general: "Advertising standards", extra: [] as string[] };
+}
+
+function frameworkFor(family: Family, category: Category, channel: Channel, m: Market): string {
+  const L = frameworkLabels(m);
   if (family === "Personal attributes") return isMetaChannel(channel) ? "Meta ads policy" : channel === "TikTok" ? "TikTok ads policy" : "Meta ads policy";
   if (family === "Before and after" && !isMedical(category) && isMetaChannel(channel)) return "Meta ads policy";
-  if (isMedical(category)) return "MOH / HCSA";
-  if (category === "Legal") return "Legal Profession (Publicity) Rules";
-  if (category === "Financial") return "MAS / financial";
-  if (category === "Health supplements" && family === "Unsupported health claim") return "HSA";
-  return "ASAS (SCAP)";
+  if (isMedical(category)) return L.health;
+  if (category === "Legal") return L.legal;
+  if (category === "Financial") return L.financial;
+  if (category === "Health supplements" && family === "Unsupported health claim") return L.products;
+  return L.general;
 }
 
 // ---------- Page fetch ----------
@@ -392,20 +417,35 @@ async function gatherText(input: Input, ctx: AgentContext) {
   return { text, url, image_notes };
 }
 
-function baseChecklist(category: Category, channel: Channel, image_notes: string[]): string[] {
+function baseChecklist(category: Category, channel: Channel, image_notes: string[], m: Market): string[] {
+  const sg = m.code === "SG";
   const out: string[] = [];
   if (image_notes.length) out.push(`Check the images we spotted that look like before-and-after or results photos: ${image_notes.slice(0, 3).join("; ")}.`);
   out.push("Check every image and video in the ad or page. This check only reads text.");
   if (isMedical(category)) {
     out.push("Make sure no images show before-and-after results, patients' faces or bodies as proof of results, or doctors endorsing products.");
-    out.push("Confirm doctors' names, qualifications and titles match what is registered with the SMC (or SDC for dentists).");
+    out.push(
+      sg
+        ? "Confirm doctors' names, qualifications and titles match what is registered with the SMC (or SDC for dentists)."
+        : "Confirm practitioners' names, qualifications and titles match their official registration.",
+    );
     out.push("Check your Google reviews widget, Instagram highlights and website for patient testimonials. Those count as advertising too.");
     out.push("Make sure prices shown are accurate and not framed as a promotion.");
   }
   if (category === "Beauty salon / non-medical") out.push("Make sure you don't describe treatments in medical terms (e.g. 'treats acne', 'medical-grade') unless a licensed practitioner does them.");
-  if (category === "Health supplements") out.push("Check product claims against what HSA allows for health supplements: no claims to treat, cure or prevent disease.");
+  if (category === "Health supplements")
+    out.push(
+      sg
+        ? "Check product claims against what HSA allows for health supplements: no claims to treat, cure or prevent disease."
+        : "Check product claims against what your health products regulator allows: no claims to treat, cure or prevent disease unless the product is approved for it.",
+    );
   if (category === "Legal") out.push("Check that any mention of past cases, results or awards is accurate and doesn't suggest you are better than other firms.");
-  if (category === "Financial") out.push("Check returns, rates and risk wording against the MAS rules for your product type. Include the required risk warnings.");
+  if (category === "Financial")
+    out.push(
+      sg
+        ? "Check returns, rates and risk wording against the MAS rules for your product type. Include the required risk warnings."
+        : "Check returns, rates and risk wording against your financial regulator's rules for your product type. Include any required risk warnings.",
+    );
   if (isMetaChannel(channel)) out.push("In Meta, check the image doesn't zoom in on body parts or show weight or skin 'problems' in a negative way.");
   if (channel === "Google ad") out.push("Check Google Ads policy status in Ads Manager after you submit. Some healthcare terms need certification.");
   out.push("If the landing page and the ad say different things, fix both. Platforms and regulators look at the page the ad sends people to.");
@@ -414,7 +454,12 @@ function baseChecklist(category: Category, channel: Channel, image_notes: string
 
 // ---------- Live run ----------
 
-const FRAMEWORKS = `FRAMEWORKS (describe them only at this level; do not cite section, regulation or paragraph numbers unless you are certain they are correct)
+const PLATFORM_RULES = `Platforms:
+- Meta Advertising Standards: personal attributes policy (ads must not assert or imply a person's health, weight, medical condition, financial status and other personal attributes, e.g. "Are you overweight?", "your acne"); restrictions on before-and-after images and on content that promotes negative body image for health, cosmetic and weight-loss ads; health claims must not be misleading.
+- Google Ads healthcare and medicines policy, plus misrepresentation policy (no unrealistic or misleading claims).
+- TikTok advertising policies are similar to Meta's for health, weight and cosmetic claims.`;
+
+const SG_FRAMEWORKS = `FRAMEWORKS (describe them only at this level; do not cite section, regulation or paragraph numbers unless you are certain they are correct)
 
 Singapore healthcare (medical clinics, aesthetic clinics, dental):
 - Healthcare Services Act (HCSA) and its advertising regulations, plus MOH guidance for licensed healthcare services. Advertising must be factual, accurate, verifiable and not sensational or exaggerated. No testimonials or endorsements (including patient reviews and celebrity or influencer endorsements). No superlatives ("best", "No. 1", "leading") and no comparisons with other providers. Before-and-after images are restricted: treat them as high risk in public ads. No misleading claims about results, safety or pain. No inducements such as discounts, free treatments, gifts or time-limited offers that encourage people to undergo treatment.
@@ -429,12 +474,31 @@ Legal services: Legal Profession (Publicity) Rules in Singapore. Publicity must 
 
 Financial: MAS rules and guidelines on advertising financial products. Ads must be fair, balanced and not misleading, with prominent risk disclosure.
 
-Platforms:
-- Meta Advertising Standards: personal attributes policy (ads must not assert or imply a person's health, weight, medical condition, financial status and other personal attributes, e.g. "Are you overweight?", "your acne"); restrictions on before-and-after images and on content that promotes negative body image for health, cosmetic and weight-loss ads; health claims must not be misleading.
-- Google Ads healthcare and medicines policy, plus misrepresentation policy (no unrealistic or misleading claims).
-- TikTok advertising policies are similar to Meta's for health, weight and cosmetic claims.`;
+${PLATFORM_RULES}`;
 
-const ComplianceAI = z.object({
+/** Regulatory framing for the business's market. Singapore keeps its detailed notes; other markets are described only at the level markets.ts gives. */
+function frameworksFor(m: Market): string {
+  if (m.code === "SG") return SG_FRAMEWORKS;
+  const where = m.code === "INTL" ? "the business's country" : m.inPhrase;
+  return `FRAMEWORKS (describe them only at this level; do not cite section, regulation or paragraph numbers unless you are certain they are correct)
+
+Healthcare in ${where} (medical clinics, aesthetic clinics, dental):
+- ${m.healthAdRules[0].toUpperCase() + m.healthAdRules.slice(1)}.
+- Healthcare advertising is generally expected to be factual, accurate and not misleading. Many countries also restrict testimonials and reviews, superlatives, before-and-after images, comparisons with other providers and offers that push people into treatment. If you are not sure how ${where} treats one of these, flag the line as a risk to check (not a definite breach) and point the owner to the official source.
+
+Everyone in ${where}:
+- ${m.adStandards[0].toUpperCase() + m.adStandards.slice(1)}. Ads must be honest and not misleading, and claims must be backed up.
+
+Health supplements and health products: the health products regulator's rules in ${where}. Products should not claim to treat, cure or prevent disease unless approved to.
+
+Legal services: the professional conduct and publicity rules for lawyers in ${where}. Publicity must not be false or misleading.
+
+Financial: the financial regulator's advertising rules in ${where}. Ads must be fair, balanced and not misleading, with clear risk information.
+
+${PLATFORM_RULES}`;
+}
+
+const complianceSchema = (m: Market) => z.object({
   summary: z.string().describe("2-4 sentence verdict for the owner. Lead with the biggest risk. Plain language."),
   verdict: z.string().describe("Exactly one of: looks fine, needs edits, high risk"),
   issues: z
@@ -445,7 +509,7 @@ const ComplianceAI = z.object({
         framework: z
           .string()
           .describe(
-            "Exactly one of: MOH / HCSA, SMC Ethical Code, ASAS (SCAP), HSA, Legal Profession (Publicity) Rules, MAS / financial, Meta ads policy, Google Ads policy, TikTok ads policy",
+            `Exactly one of: ${frameworkList(m)}`,
           ),
         why: z.string().describe("1-2 sentences on why this is a problem, in plain words. No section numbers unless certain."),
         severity: z.string().describe("Exactly one of: high, medium, low"),
@@ -462,23 +526,45 @@ const ComplianceAI = z.object({
     .describe("3-6 fixes, most important first. Category 'Compliance'. Steps must say exactly where to change the copy (e.g. Meta Ads Manager > Ad > Primary text)."),
 });
 
+function frameworkList(m: Market): string {
+  const L = frameworkLabels(m);
+  return [L.health, ...L.extra, L.general, L.products, L.legal, L.financial, "Meta ads policy", "Google Ads policy", "TikTok ads policy"].join(", ");
+}
+
+function systemFor(m: Market): string {
+  const sg = m.code === "SG";
+  const forWhom = sg
+    ? "Singapore small businesses"
+    : m.code === "INTL"
+      ? "small businesses anywhere (use the rules of the country in the business profile; if it is unclear, keep to principles that apply almost everywhere)"
+      : `small businesses in ${m.inPhrase}`;
+  const generalRules = sg ? "ASAS" : "the general advertising standards";
+  const checkSource = sg
+    ? `say "check the current MOH (or ASAS) guidance"`
+    : m.code === "INTL"
+      ? `say "check the current guidance from your local health regulator or advertising standards body"`
+      : `say "check the current official guidance" and name the body (${m.healthAdRules}; ${m.adStandards})`;
+  return `You are Compliance Check, an advertising compliance reviewer for ${forWhom}, strongest in healthcare and aesthetics. You review ad copy and landing page text before it goes live and rewrite it so it is compliant but still persuasive.
+
+${frameworksFor(m)}
+
+How to work:
+- Apply the healthcare rules only when the category is a medical clinic, aesthetic clinic or dental practice. A non-medical beauty salon follows ${generalRules} and platform rules, but flag any wording that makes it sound like a medical treatment.
+- Apply platform rules for the channel given.
+- Quote problem text exactly as it appears.
+- Never cite specific section or regulation numbers unless you are certain. When a point depends on detail you are not sure of, ${checkSource}.
+- Be practical: don't flag ordinary, factual statements (services, address, opening hours, qualifications, neutral price lists).`;
+}
+
 async function runLive(input: Input, ctx: AgentContext): Promise<ComplianceResult> {
+  const m = marketFor(ctx.ws.country);
   const { text, url, image_notes } = await gatherText(input, ctx);
   ctx.progress("Scanning for risky phrases");
-  const flags = preScan(text, input.category, input.channel);
+  const flags = preScan(text, input.category, input.channel, m);
 
   ctx.progress("Reviewing against the advertising rules");
   const ai = await structured({
-    system: `You are Compliance Check, an advertising compliance reviewer for Singapore small businesses, strongest in healthcare and aesthetics. You review ad copy and landing page text before it goes live and rewrite it so it is compliant but still persuasive.
-
-${FRAMEWORKS}
-
-How to work:
-- Apply the healthcare rules only when the category is a medical clinic, aesthetic clinic or dental practice. A non-medical beauty salon follows ASAS and platform rules, but flag any wording that makes it sound like a medical treatment.
-- Apply platform rules for the channel given.
-- Quote problem text exactly as it appears.
-- Never cite specific section or regulation numbers unless you are certain. When a point depends on detail you are not sure of, say "check the current MOH (or ASAS) guidance".
-- Be practical: don't flag ordinary, factual statements (services, address, opening hours, qualifications, neutral price lists).`,
+    system: systemFor(m),
     prompt: `BUSINESS PROFILE
 ${businessContext(ctx.ws)}
 
@@ -494,7 +580,7 @@ ${text}
 """
 
 Review the copy and return the verdict, issues, full rewritten copy, human checklist and prescriptions.`,
-    schema: ComplianceAI,
+    schema: complianceSchema(m),
     effort: "medium",
   });
 
@@ -528,14 +614,14 @@ Review the copy and return the verdict, issues, full rewritten copy, human check
     issues,
     rewritten_copy: ai.rewritten_copy.trim(),
     checklist: ai.checklist,
-    disclaimer: DISCLAIMER,
+    disclaimer: disclaimerFor(m),
     prescriptions: ai.prescriptions.map(normalizePrescription),
   };
 }
 
 // ---------- Demo ----------
 
-function issuesFromFlags(flags: Flag[], category: Category, channel: Channel): ComplianceIssue[] {
+function issuesFromFlags(flags: Flag[], category: Category, channel: Channel, m: Market): ComplianceIssue[] {
   const bySentence = new Map<string, ComplianceIssue>();
   const order: Severity[] = ["high", "medium", "low"];
   for (const f of flags) {
@@ -546,7 +632,7 @@ function issuesFromFlags(flags: Flag[], category: Category, channel: Channel): C
       quote: f.sentence,
       highlight: f.phrase,
       rule: f.family,
-      framework: frameworkFor(f.family, category, channel),
+      framework: frameworkFor(f.family, category, channel, m),
       why: f.why,
       severity: f.severity,
       fix: rewritten && rewritten !== f.sentence ? rewritten : "",
@@ -555,7 +641,7 @@ function issuesFromFlags(flags: Flag[], category: Category, channel: Channel): C
   return [...bySentence.values()].sort((a, b) => order.indexOf(a.severity) - order.indexOf(b.severity)).slice(0, 25);
 }
 
-const FAMILY_FIX: Record<Family, { title: string; steps: string[] }> = {
+const familyFix = (m: Market): Record<Family, { title: string; steps: string[] }> => ({
   Superlative: {
     title: "Remove 'best', 'No. 1' and other ranking words",
     steps: ["Delete superlatives and ranking claims from the copy.", "Replace them with facts you can prove: years in practice, qualifications, the exact treatments you offer."],
@@ -586,15 +672,16 @@ const FAMILY_FIX: Record<Family, { title: string; steps: string[] }> = {
   },
   "Personal attributes": {
     title: "Rewrite lines that talk about the viewer's body or condition",
-    steps: ["Change 'Are you overweight?' or 'your acne' into lines about the service, e.g. 'Acne treatment in Tampines'.", "Re-read every sentence that starts with 'you' or 'your' before publishing."],
+    steps: [`Change 'Are you overweight?' or 'your acne' into lines about the service, e.g. 'Acne treatment in ${m.code === "INTL" ? "[your area]" : m.exampleArea}'.`, "Re-read every sentence that starts with 'you' or 'your' before publishing."],
   },
   "Unsupported health claim": {
     title: "Back up or remove health and results claims",
     steps: ["Remove 'cure', 'miracle', 'instant results' and 'clinically proven' unless you hold the evidence.", "Describe what the treatment is and who it may suit instead."],
   },
-};
+});
 
-function demoPrescriptions(issues: ComplianceIssue[], input: Input): Prescription[] {
+function demoPrescriptions(issues: ComplianceIssue[], input: Input, m: Market): Prescription[] {
+  const FAMILY_FIX = familyFix(m);
   const where =
     input.channel === "Meta ad" ? "Meta Ads Manager > Ad > Primary text and headline" :
     input.channel === "Google ad" ? "Google Ads > Ads & assets > Edit ad" :
@@ -620,10 +707,14 @@ function demoPrescriptions(issues: ComplianceIssue[], input: Input): Prescriptio
   });
   if (isMedical(input.category))
     out.push({
-      title: "Check your images and landing page against MOH advertising guidance",
+      title: m.code === "SG" ? "Check your images and landing page against MOH advertising guidance" : "Check your images and landing page against the health advertising rules",
       diagnosis: "This check only reads text. Images, videos and pages linked from the ad count as advertising too.",
       steps: [
-        "Open the official MOH guidance on advertising for licensed healthcare services and read the section on content.",
+        m.code === "SG"
+          ? "Open the official MOH guidance on advertising for licensed healthcare services and read the section on content."
+          : m.code === "INTL"
+            ? "Open your local health regulator's official advertising guidance and read the section on content."
+            : `Open the official guidance on health advertising in ${m.inPhrase} and read the section on content. The main rules are: ${m.healthAdRules}.`,
         "Go through every image, video and review widget in the ad and on the landing page.",
         "Remove anything that shows results, testimonials or promotions.",
       ],
@@ -634,10 +725,11 @@ function demoPrescriptions(issues: ComplianceIssue[], input: Input): Prescriptio
 }
 
 async function runDemo(input: Input, ctx: AgentContext): Promise<ComplianceResult> {
+  const m = marketFor(ctx.ws.country);
   const { text, url, image_notes } = await gatherText(input, ctx);
   ctx.progress("Scanning for risky phrases");
-  const flags = preScan(text, input.category, input.channel);
-  const issues = issuesFromFlags(flags, input.category, input.channel);
+  const flags = preScan(text, input.category, input.channel, m);
+  const issues = issuesFromFlags(flags, input.category, input.channel, m);
   const verdict = verdictFrom(issues);
   const score = complianceScore(issues);
   const high = issues.filter((i) => i.severity === "high").length;
@@ -656,9 +748,9 @@ async function runDemo(input: Input, ctx: AgentContext): Promise<ComplianceResul
     flags,
     issues,
     rewritten_copy: issues.length ? naiveRewrite(text, input.category) : text,
-    checklist: baseChecklist(input.category, input.channel, image_notes),
-    disclaimer: DISCLAIMER,
-    prescriptions: demoPrescriptions(issues, input),
+    checklist: baseChecklist(input.category, input.channel, image_notes, m),
+    disclaimer: disclaimerFor(m),
+    prescriptions: demoPrescriptions(issues, input, m),
     demo: true,
   };
 }
@@ -686,9 +778,9 @@ function parse(raw: unknown, ws: WorkspaceRow): Input {
 export const complianceAgent: AgentDef<Input> = {
   id: "compliance",
   name: "Compliance Check",
-  blurb: "Checks your ad or page copy against Singapore advertising rules before it goes live.",
+  blurb: "Checks your ad or page copy against your country's advertising rules before it goes live.",
   description:
-    "Paste an ad, caption or landing page (or give a URL). We flag risky lines for your category and channel, like superlatives, testimonials, before-and-after claims, inducements and Meta's personal attributes rules, explain why, and give you a compliant rewrite to paste. Strongest for Singapore healthcare and aesthetics.",
+    "Paste an ad, caption or landing page (or give a URL). We flag risky lines for your category and channel, like superlatives, testimonials, before-and-after claims, inducements and Meta's personal attributes rules, explain why, and give you a compliant rewrite to paste. Strongest for healthcare and aesthetics.",
   parseInput: parse,
   runTitle: (input) => runTitle(input),
   run: runLive,

@@ -10,6 +10,8 @@ export type FormProps = {
     competitors: string;
     goals: string;
     regulated: boolean;
+    /** Market code from the workspace (e.g. "SG", "GB"). Sets placeholders and examples. */
+    country: string;
   };
   windsorConnected: boolean;
   /** Last input used for this agent, to prefill the form. */

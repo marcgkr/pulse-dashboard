@@ -277,19 +277,48 @@ async function main() {
     }
   }
 
-  // Content Studio for a business outside Singapore must search from that country, not Singapore.
-  console.log("\ncontent research location (non-SG business)");
-  try {
-    const agent = getAgent("content")!;
-    const wsKL = { ...ws, location: "Kuala Lumpur, Malaysia" };
-    await agent.run(agent.parseInput({ platforms: ["Instagram"], count: 6 }, wsKL), { ws: wsKL, runId: "live-test", progress: () => {} });
-    const reqs = (await (await fetch(`${MOCK_URL}/__requests`)).json()) as { tools?: { type: string; user_location?: { country?: string } }[] }[];
+  // The workspace's country (not the location text) sets where web searches run from.
+  type MockRequest = { system?: { type: string; text: string }[]; tools?: { type: string; user_location?: { country?: string } }[] };
+  const lastSearchCountry = async () => {
+    const reqs = (await (await fetch(`${MOCK_URL}/__requests`)).json()) as MockRequest[];
     const search = reqs.filter((r) => r.tools?.some((t) => t.type.startsWith("web_search"))).at(-1)!;
-    const loc = search.tools!.find((t) => t.type.startsWith("web_search"))!.user_location;
-    assert.equal(loc?.country, "MY", `web search was located in ${loc?.country}`);
-    pass("web search located in Malaysia");
+    return search.tools!.find((t) => t.type.startsWith("web_search"))!.user_location?.country;
+  };
+  for (const [label, country, location] of [
+    ["Malaysia", "MY", "Kuala Lumpur, Malaysia"],
+    ["Australia", "AU", "Surry Hills"],
+  ] as const) {
+    console.log(`\ncontent research location (${label} business)`);
+    try {
+      const agent = getAgent("content")!;
+      const wsX = { ...ws, country, location };
+      await agent.run(agent.parseInput({ platforms: ["Instagram"], count: 6 }, wsX), { ws: wsX, runId: "live-test", progress: () => {} });
+      const got = await lastSearchCountry();
+      assert.equal(got, country, `web search was located in ${got}`);
+      pass(`web search located in ${country}`);
+    } catch (e) {
+      fail(`content research location (${label})`, e);
+    }
+  }
+
+  // Compliance Check for a UK business reviews against UK rules, not Singapore's.
+  console.log("\ncompliance rules (UK business)");
+  try {
+    const agent = getAgent("compliance")!;
+    const wsGB = { ...ws, country: "GB", location: "Shoreditch, London" };
+    const raw = cases.find((c) => c.agent === "compliance")!.raw;
+    const r = (await agent.run(agent.parseInput(raw, wsGB), { ws: wsGB, runId: "live-test", progress: () => {} })) as Record<string, unknown>;
+    const reqs = (await (await fetch(`${MOCK_URL}/__requests`)).json()) as MockRequest[];
+    const req = reqs.filter((x) => x.system?.some((b) => b.text.includes("You are Compliance Check"))).at(-1);
+    assert.ok(req, "no compliance request recorded");
+    // The agent's own block (the house rules block before it mentions Singapore as PULSE Digital's home).
+    const system = req!.system!.find((b) => b.text.includes("You are Compliance Check"))!.text;
+    assert.ok(system.includes("CAP Code") && system.includes("MHRA"), "compliance prompt does not mention the UK rules");
+    assert.ok(!/HCSA|ASAS|Singapore/.test(system), "compliance prompt still mentions Singapore rules");
+    assert.ok(/the UK/.test(r.disclaimer as string), `disclaimer: ${r.disclaimer}`);
+    pass("prompt uses UK rules (MHRA, CAP Code) and the disclaimer names the UK");
   } catch (e) {
-    fail("content research location", e);
+    fail("compliance rules (UK business)", e);
   }
 
   // The real pipeline: run row -> execute -> result_json + tasks.

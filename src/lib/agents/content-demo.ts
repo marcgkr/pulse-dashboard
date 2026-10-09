@@ -1,5 +1,6 @@
 import type { Prescription } from "../ai";
 import type { WorkspaceRow } from "../db";
+import { marketFor, type Market, type MarketCode } from "../markets";
 import type { AgentResult } from "./types";
 
 // ---------- Shared types and helpers (used by content.ts and the demo) ----------
@@ -140,25 +141,197 @@ const SG_MOMENTS: string[][] = [
   ["12.12 sales", "Christmas (25 Dec)", "Year-end school holidays", "New Year's Eve countdown"],
 ];
 
-/** Calendar moments for this month and next, plus the monthly payday window. */
-export function seasonalMoments(date: Date, location: string): { label: string; moments: string[] } {
+// Other markets: only well-known fixed dates or clearly recurring moments. Anything lunar, gazetted or
+// set by organisers each year says "check the date"; never add an exact date we can't be sure of.
+const OTHER_MOMENTS: Partial<Record<MarketCode, { months: string[][]; payday?: string }>> = {
+  MY: {
+    months: [
+      ["New Year's Day (1 Jan)", "Back to school", "Chinese New Year preparations (late Jan or Feb; check the date)"],
+      ["Chinese New Year (check the date)", "Valentine's Day (14 Feb)", "Ramadan may begin (check the date)"],
+      ["Ramadan and Hari Raya Aidilfitri (check the dates)", "International Women's Day (8 Mar)"],
+      ["Hari Raya Aidilfitri open houses (check the date)", "4.4 sales"],
+      ["Labour Day (1 May)", "Mother's Day (second Sunday of May)", "Wesak Day (check the date)", "Hari Raya Haji (May or June; check the date)", "5.5 sales"],
+      ["Father's Day (third Sunday of June)", "Hari Raya Haji (May or June; check the date)", "6.6 mid-year sales"],
+      ["7.7 sales", "Mid-year sales"],
+      ["Merdeka Day (31 Aug)", "8.8 sales"],
+      ["Malaysia Day (16 Sep)", "9.9 sales", "Mid-Autumn Festival (September or October; check the date)"],
+      ["10.10 sales", "Deepavali (October or November; check the date)", "Halloween (31 Oct)"],
+      ["11.11 sales", "Black Friday and Cyber Monday", "Deepavali (October or November; check the date)", "Year-end school holidays begin"],
+      ["12.12 sales", "Christmas (25 Dec)", "Year-end school holidays", "New Year's Eve countdown"],
+    ],
+    payday: "Every month: payday sales around the 25th to month end",
+  },
+  ID: {
+    months: [
+      ["New Year's Day (1 Jan)", "Imlek / Chinese New Year preparations (check the date)", "1.1 sales"],
+      ["Imlek / Chinese New Year (check the date)", "Valentine's Day (14 Feb)", "Ramadan may begin (check the date)", "2.2 sales"],
+      ["Ramadan and Lebaran / Idul Fitri (check the dates)", "3.3 sales"],
+      ["Lebaran / Idul Fitri holidays (check the date)", "Kartini Day (21 Apr)", "4.4 sales"],
+      ["Labour Day (1 May)", "Waisak (check the date)", "Idul Adha (May or June; check the date)", "5.5 sales"],
+      ["Idul Adha (May or June; check the date)", "School holidays (check your local dates)", "6.6 sales"],
+      ["New school year (check your local dates)", "7.7 sales"],
+      ["Independence Day (17 Aug)", "8.8 sales"],
+      ["9.9 sales"],
+      ["10.10 sales", "Halloween (31 Oct)"],
+      ["11.11 sales", "Black Friday"],
+      ["12.12 Harbolnas online shopping day", "Christmas (25 Dec)", "Year-end holidays", "New Year's Eve"],
+    ],
+    payday: "Every month: payday (gajian) sales around the 25th to month end",
+  },
+  PH: {
+    months: [
+      ["New Year's Day (1 Jan)", "Chinese New Year preparations (check the date)"],
+      ["Chinese New Year (check the date)", "Valentine's Day (14 Feb)"],
+      ["Summer season begins", "International Women's Day (8 Mar)", "Holy Week (March or April; check the date)"],
+      ["Holy Week (check the date)", "Summer trips and outings"],
+      ["Labour Day (1 May)", "Mother's Day (second Sunday of May)", "5.5 sales"],
+      ["Independence Day (12 Jun)", "Father's Day (third Sunday of June)", "Back to school (check your local dates)", "6.6 sales"],
+      ["7.7 sales", "Rainy season"],
+      ["National Heroes Day (last Monday of August)", "8.8 sales"],
+      ["Start of the 'ber months' Christmas season", "9.9 sales"],
+      ["10.10 sales", "Halloween (31 Oct)", "Undas preparations"],
+      ["All Saints' Day (1 Nov)", "11.11 sales", "Black Friday", "Christmas shopping"],
+      ["12.12 sales", "Simbang Gabi (16 to 24 Dec)", "Christmas (25 Dec)", "Rizal Day (30 Dec)", "New Year's Eve"],
+    ],
+    payday: "Every month: paydays around the 15th and the 30th, when many people book and buy",
+  },
+  HK: {
+    months: [
+      ["New Year's Day (1 Jan)", "Chinese New Year preparations (late Jan or Feb; check the date)"],
+      ["Chinese New Year (check the date)", "Valentine's Day (14 Feb)"],
+      ["International Women's Day (8 Mar)", "Easter (March or April; check the date)"],
+      ["Ching Ming Festival (check the date)", "Easter (check the date)"],
+      ["Labour Day (1 May)", "Mother's Day (second Sunday of May)", "Buddha's Birthday (check the date)"],
+      ["Tuen Ng / Dragon Boat Festival (check the date)", "Father's Day (third Sunday of June)"],
+      ["HKSAR Establishment Day (1 Jul)", "Summer sales", "Summer holidays"],
+      ["Summer holidays", "Back to school prep"],
+      ["Mid-Autumn Festival (September or October; check the date)", "Back to school"],
+      ["National Day (1 Oct)", "Chung Yeung Festival (check the date)", "Halloween (31 Oct)"],
+      ["11.11 sales", "Black Friday and Cyber Monday"],
+      ["12.12 sales", "Christmas (25 Dec)", "New Year's Eve"],
+    ],
+  },
+  AU: {
+    months: [
+      ["New Year's Day (1 Jan)", "Australia Day (26 Jan)", "Summer holidays", "Back to school (late Jan or early Feb)"],
+      ["Back to school", "Valentine's Day (14 Feb)"],
+      ["International Women's Day (8 Mar)", "Easter (March or April; check the date)"],
+      ["Easter (check the date)", "Anzac Day (25 Apr)", "School holidays (check your state's dates)"],
+      ["Mother's Day (second Sunday of May)", "EOFY sales start"],
+      ["End of financial year (EOFY) sales: the financial year ends 30 June"],
+      ["New financial year (1 Jul)", "Tax time", "School holidays (check your state's dates)"],
+      ["Tax time", "Father's Day coming up (first Sunday of September)"],
+      ["Father's Day (first Sunday of September)", "Spring starts (1 Sep)", "School holidays (check your state's dates)"],
+      ["Halloween (31 Oct)", "Spring racing season"],
+      ["Melbourne Cup (first Tuesday of November)", "Black Friday and Cyber Monday", "Click Frenzy (check the date)", "Christmas shopping"],
+      ["Christmas (25 Dec)", "Boxing Day sales (26 Dec)", "Summer holidays", "New Year's Eve"],
+    ],
+  },
+  NZ: {
+    months: [
+      ["New Year (1 and 2 Jan)", "Summer holidays"],
+      ["Waitangi Day (6 Feb)", "Valentine's Day (14 Feb)", "Back to school"],
+      ["Easter (March or April; check the date)"],
+      ["Easter (check the date)", "Anzac Day (25 Apr)", "School holidays (check the dates)"],
+      ["Mother's Day (second Sunday of May)"],
+      ["Matariki (June or July; check the date)"],
+      ["Matariki (June or July; check the date)", "School holidays (check the dates)", "Winter specials"],
+      ["Father's Day coming up (first Sunday of September)"],
+      ["Father's Day (first Sunday of September)", "Spring starts"],
+      ["Labour Day (fourth Monday of October)", "Halloween (31 Oct)"],
+      ["Black Friday and Cyber Monday", "Christmas shopping"],
+      ["Christmas (25 Dec)", "Boxing Day sales (26 Dec)", "Summer holidays", "New Year's Eve"],
+    ],
+  },
+  GB: {
+    months: [
+      ["New Year's Day (1 Jan)", "January sales", "New Year resolutions"],
+      ["Valentine's Day (14 Feb)", "February half-term (check your local dates)"],
+      ["Mother's Day / Mothering Sunday (March or early April; check the date)", "International Women's Day (8 Mar)", "Easter (March or April; check the date)"],
+      ["Easter (check the date)", "Easter school holidays"],
+      ["Early May bank holiday (usually the first Monday of May)", "Spring bank holiday (usually the last Monday of May)", "May half-term"],
+      ["Father's Day (third Sunday of June)", "Summer starts"],
+      ["Summer holidays begin (check your local dates)", "Summer sales"],
+      ["Summer bank holiday (last Monday of August in England and Wales)", "Back to school prep"],
+      ["Back to school", "Autumn starts"],
+      ["Halloween (31 Oct)", "October half-term (check your local dates)"],
+      ["Bonfire Night (5 Nov)", "Black Friday and Cyber Monday", "Christmas shopping"],
+      ["Christmas (25 Dec)", "Boxing Day sales (26 Dec)", "New Year's Eve"],
+    ],
+    payday: "Every month: payday at month end, when many people book and buy",
+  },
+  US: {
+    months: [
+      ["New Year's Day (1 Jan)", "New Year resolutions", "Martin Luther King Jr. Day (third Monday of January)"],
+      ["Valentine's Day (14 Feb)", "Presidents' Day (third Monday of February)", "Super Bowl weekend (check the date)"],
+      ["St. Patrick's Day (17 Mar)", "Spring break (check your local dates)", "Easter (March or April; check the date)"],
+      ["Easter (check the date)", "Tax Day (check the date)"],
+      ["Mother's Day (second Sunday of May)", "Memorial Day (last Monday of May)"],
+      ["Father's Day (third Sunday of June)", "Juneteenth (19 Jun)", "Summer starts"],
+      ["Independence Day / July 4th", "Summer sales"],
+      ["Back to school"],
+      ["Labor Day (first Monday of September)", "Fall starts"],
+      ["Halloween (31 Oct)"],
+      ["Thanksgiving (fourth Thursday of November)", "Black Friday", "Small Business Saturday", "Cyber Monday"],
+      ["Holiday gift shopping", "Christmas (25 Dec)", "New Year's Eve"],
+    ],
+  },
+  AE: {
+    months: [
+      ["New Year's Day (1 Jan)", "Dubai Shopping Festival (runs over Dec and Jan; check the dates)"],
+      ["Valentine's Day (14 Feb)", "Ramadan may begin (check the date)"],
+      ["Ramadan and Eid al-Fitr (check the dates)", "Mother's Day (21 Mar)"],
+      ["Eid al-Fitr (check the date)"],
+      ["Eid al-Adha may fall in May or June (check the date)"],
+      ["Eid al-Adha (check the date)", "Summer starts"],
+      ["Summer sales", "Dubai Summer Surprises (check the dates)"],
+      ["Back to school prep", "Dubai Summer Surprises (check the dates)"],
+      ["Back to school"],
+      ["Halloween (31 Oct)"],
+      ["11.11 sales", "White Friday / Black Friday sales (check the date)"],
+      ["UAE National Day (2 Dec)", "Christmas (25 Dec)", "New Year's Eve", "Dubai Shopping Festival (check the dates)"],
+    ],
+    payday: "Every month: payday at month end, when many people book and buy",
+  },
+};
+
+/** Calendar moments for this month and next in the business's market, plus the payday window where it is a habit. */
+export function seasonalMoments(date: Date, market: Market, location = ""): { label: string; moments: string[] } {
   const m = date.getMonth();
   const next = (m + 1) % 12;
-  const sg = !location || /singapore|\bsg\b/i.test(location);
   const label = `${MONTHS[m]} ${date.getFullYear()}`;
-  if (!sg) return { label, moments: [`Public holidays and shopping dates in ${location} for ${MONTHS[m]} and ${MONTHS[next]}`, "Payday at month end"] };
-  return {
-    label,
-    moments: [
-      ...SG_MOMENTS[m].map((x) => `${MONTHS[m]}: ${x}`),
-      ...SG_MOMENTS[next].map((x) => `${MONTHS[next]}: ${x}`),
-      "Every month: payday sales around the 25th to month end, when many people book and buy",
-    ],
-  };
+  const list = (months: string[][]) => [...months[m].map((x) => `${MONTHS[m]}: ${x}`), ...months[next].map((x) => `${MONTHS[next]}: ${x}`)];
+  if (market.code === "SG")
+    return { label, moments: [...list(SG_MOMENTS), "Every month: payday sales around the 25th to month end, when many people book and buy"] };
+  const other = OTHER_MOMENTS[market.code];
+  if (other) return { label, moments: [...list(other.months), ...(other.payday ? [other.payday] : [])] };
+  const where = location || "your area";
+  return { label, moments: [`Public holidays and shopping dates in ${where} for ${MONTHS[m]} and ${MONTHS[next]}`, "Payday at month end"] };
 }
 
 export const REGULATED_NOTE =
   "Regulated category: no testimonials or reviews, no before/after photos, no words like 'best', 'No.1' or 'guaranteed', and no promises of results. Keep claims factual and check with your licensee or the relevant Singapore advertising rules before posting.";
+
+/** The regulated-category note for the business's market. */
+export function regulatedNote(m: Market): string {
+  if (m.code === "SG") return REGULATED_NOTE;
+  return `Regulated category: no testimonials or reviews, no before/after photos, no words like 'best', 'No.1' or 'guaranteed', and no promises of results. Keep claims factual and check the advertising rules that apply in ${m.inPhrase} (or ask a professional) before posting.`;
+}
+
+/** How customers in this market usually message a business, worded for social posts. */
+type Chat = { us: string; Us: string; on: string; app: string; sticker: string; tap: string };
+function chatFor(m: Market): Chat {
+  switch (m.messaging) {
+    case "SMS":
+      return { us: "DM us", Us: "DM us", on: "by DM", app: "DM", sticker: "your booking page", tap: "Tap the link sticker to book" };
+    case "Messenger":
+      return { us: "message us", Us: "Message us", on: "on Messenger", app: "Messenger", sticker: "Messenger", tap: "Tap the link sticker to message us" };
+    case "LINE":
+      return { us: "message us on LINE", Us: "Message us on LINE", on: "on LINE", app: "LINE", sticker: "LINE", tap: "Tap the link sticker to message us on LINE" };
+    default:
+      return { us: "WhatsApp us", Us: "WhatsApp us", on: "on WhatsApp", app: "WhatsApp", sticker: "WhatsApp", tap: "Tap the link sticker to WhatsApp" };
+  }
+}
 
 // ---------- Demo (no API key) ----------
 
@@ -202,6 +375,11 @@ type Vars = {
   regulated: boolean;
   moment: string;
   month: string;
+  /** "Singapore", "the UK": the business's country as used in a sentence. */
+  country: string;
+  chat: Chat;
+  eventsTag: string;
+  market: Market;
 };
 
 type Template = {
@@ -246,11 +424,11 @@ const TEMPLATES: Template[] = [
         `Slide 4: "What happens if I'm not happy or something changes?"`,
         `Slide 5: "How long until I see the result / get it done?"`,
         `Slide 6: "What should I do (or avoid) before and after?"`,
-        `Slide 7: "We answer all 5 on WhatsApp before you book. Link in bio."`,
+        `Slide 7: "We answer all 5 ${v.chat.on} before you book. Link in bio."`,
       ],
-      caption: `Save this for when you're comparing ${v.industry} options in ${v.loc}.\n\nA good provider will happily answer all 5. If they dodge one, that tells you something.\n\nWant our answers? WhatsApp us, link in bio.`,
+      caption: `Save this for when you're comparing ${v.industry} options in ${v.loc}.\n\nA good provider will happily answer all 5. If they dodge one, that tells you something.\n\nWant our answers? ${v.chat.Us}, link in bio.`,
       tags: ["tips", "beforeyoubook"],
-      cta: "Save this and WhatsApp us for our answers",
+      cta: `Save this and ${v.chat.us} for our answers`,
       why: "Checklists get saved and shared with friends who are also comparing. It positions you as the honest option before they have even contacted anyone.",
     }),
   },
@@ -267,11 +445,11 @@ const TEMPLATES: Template[] = [
         "6-14s: The chat or consult. What we check and why.",
         `14-22s: The ${v.offer} itself, shown in 2 or 3 quick cuts (no faces of customers unless you have written consent).`,
         "22-28s: Wrap up: what you get to take home or next steps.",
-        `28-30s: End card: "Questions? WhatsApp us."`,
+        `28-30s: End card: "Questions? ${v.chat.Us}."`,
       ],
       caption: `First time is always the most nerve-wracking. So here's the whole thing, start to finish, so there are no surprises.\n\nAnything we missed that you want to know? Ask below.`,
       tags: ["behindthescenes", "firstvisit"],
-      cta: "Ask any question in the comments or WhatsApp us",
+      cta: `Ask any question in the comments or ${v.chat.us}`,
       why: "Fear of the unknown is one of the biggest reasons people delay booking. Showing the process removes it.",
     }),
   },
@@ -284,7 +462,7 @@ const TEMPLATES: Template[] = [
       hook: `POV: you finally found ${an(v.industry)} in ${v.loc} that tells you everything before you pay.`,
       script: [
         "0-2s: Relatable face to camera (relieved, surprised). Hook as text overlay. Use a trending sound from the TikTok/Instagram audio library.",
-        "2-6s: Quick cut: phone screen showing a clear WhatsApp reply (blur the customer's name and number).",
+        `2-6s: Quick cut: phone screen showing a clear ${v.chat.app} reply (blur the customer's name and number).`,
         "6-10s: Cut to your space, calm and tidy.",
         `10-12s: Text: "This is the standard at ${v.name}."`,
       ],
@@ -304,11 +482,11 @@ const TEMPLATES: Template[] = [
       script: [
         `Image: a clean photo of your space or your team doing ${v.offer}. Text overlay: "${v.month} slots open".`,
         "Second line on the image: the days and times you have availability.",
-        `Bottom: "WhatsApp to book" and your handle.`,
+        `Bottom: "${v.chat.app} to book" and your handle.`,
       ],
-      caption: `${v.month} slots for ${v.offer} are open now.\n\nHow to book:\n1. WhatsApp us (link in bio)\n2. Tell us the day that suits you\n3. We confirm within the day\n\nWeekend slots usually go first.`,
+      caption: `${v.month} slots for ${v.offer} are open now.\n\nHow to book:\n1. ${v.chat.Us} (link in bio)\n2. Tell us the day that suits you\n3. We confirm within the day\n\nWeekend slots usually go first.`,
       tags: ["booknow", "appointments"],
-      cta: "WhatsApp us to book (link in bio)",
+      cta: `${v.chat.Us} to book (link in bio)`,
       why: "People who already follow you need a clear, low-friction reason to act now. Simple booking posts convert warm followers.",
     }),
   },
@@ -324,11 +502,11 @@ const TEMPLATES: Template[] = [
         "3-10s: Factor 1: who does it (experience, qualifications).",
         "10-17s: Factor 2: what's included (materials, follow-ups, aftercare).",
         "17-24s: Factor 3: time spent per customer.",
-        `24-30s: "Ask us for our price on WhatsApp. We'll tell you exactly what's in it."`,
+        `24-30s: "Ask us for our price ${v.chat.on}. We'll tell you exactly what's in it."`,
       ],
-      caption: `Price is the first thing everyone asks, so let's talk about it openly. Cheaper isn't always worse and pricier isn't always better. Here's how to tell the difference.\n\nWant our price breakdown? WhatsApp us.`,
+      caption: `Price is the first thing everyone asks, so let's talk about it openly. Cheaper isn't always worse and pricier isn't always better. Here's how to tell the difference.\n\nWant our price breakdown? ${v.chat.Us}.`,
       tags: ["pricing", "thingstoknow"],
-      cta: "WhatsApp us for a price breakdown",
+      cta: `${v.chat.Us} for a price breakdown`,
       why: "Price questions are the biggest pre-booking worry. Answering them openly builds trust and pre-qualifies enquiries.",
     }),
   },
@@ -363,11 +541,11 @@ const TEMPLATES: Template[] = [
               "Slide 3: What they tried before.",
               `Slide 4: What happened with ${v.offer} at ${v.name}.`,
               "Slide 5: Their honest one-line review (quote it exactly).",
-              `Slide 6: "Your turn? WhatsApp us."`,
+              `Slide 6: "Your turn? ${v.chat.Us}."`,
             ],
             caption: `Real story, shared with permission. We love hearing from customers who almost didn't come in.\n\nGot a worry like this? Ask us, no pressure.`,
             tags: ["customerstory", "realreviews"],
-            cta: "WhatsApp us with your question",
+            cta: `${v.chat.Us} with your question`,
             why: "Stories from real customers answer objections better than you can. Get written permission and quote them exactly.",
           },
   },
@@ -401,11 +579,11 @@ const TEMPLATES: Template[] = [
       script: [
         "Frame 1: Poll sticker with the hook question.",
         `Frame 2: "We're opening more slots for ${v.offer} based on your answers."`,
-        `Frame 3: Link sticker to WhatsApp: "Want first pick? Tap here."`,
+        `Frame 3: Link sticker to ${v.chat.sticker}: "Want first pick? Tap here."`,
       ],
       caption: "(Stories have no caption. Use the text on each frame.)",
       tags: [],
-      cta: "Tap the link sticker to WhatsApp",
+      cta: v.chat.tap,
       why: "Polls are a one-tap action that tells the algorithm people care, and the follow-up frame turns voters into bookings.",
     }),
   },
@@ -462,11 +640,11 @@ const TEMPLATES: Template[] = [
         "3-12s: Why timing matters for this (busy periods, recovery or lead time, bookings filling up).",
         "12-22s: The ideal timeline: when to book, when to come in.",
         "22-28s: What we're doing for this period (slots, hours, any offer you actually have).",
-        `28-30s: "WhatsApp us to lock in your date."`,
+        `28-30s: "${v.chat.Us} to lock in your date."`,
       ],
       caption: `${v.moment} sneaks up every year. If ${v.offer} is on your list, here's the timeline that works.\n\nSend this to the friend who always leaves it to the last minute.`,
-      tags: ["planahead", "sgevents"],
-      cta: "WhatsApp us to lock in a date",
+      tags: ["planahead", v.eventsTag],
+      cta: `${v.chat.Us} to lock in a date`,
       why: "Seasonal content rides what people are already thinking about and creates natural urgency without discounts.",
     }),
   },
@@ -480,7 +658,7 @@ const TEMPLATES: Template[] = [
       script: [
         "Slide 1: Hook in big text.",
         "Slides 2-7: One term per slide. Term in bold, one-line plain explanation under it.",
-        "Pick the terms customers ask about most on WhatsApp.",
+        `Pick the terms customers ask about most ${v.chat.on}.`,
         `Last slide: "Still confused? Ask us anything."`,
       ],
       caption: `Save this before your next appointment so you know what everyone's talking about.\n\nWhich word confused you the most? Tell us and we'll add it to part 2.`,
@@ -539,11 +717,11 @@ const TEMPLATES: Template[] = [
         "0-2s: Hook to camera, serious face.",
         "2-12s: 2 types of people it's NOT right for, and what they should do instead.",
         "12-22s: 2 types of people it IS right for.",
-        `22-27s: "If that's you, WhatsApp us and we'll check together."`,
+        `22-27s: "If that's you, ${v.chat.us} and we'll check together."`,
       ],
       caption: `We'd rather say no than sell you something that isn't right for you.\n\nNot sure which side you're on? Ask us.`,
       tags: ["isitforyou", "honestadvice"],
-      cta: "WhatsApp us to check if it suits you",
+      cta: `${v.chat.Us} to check if it suits you`,
       why: "Telling people who should NOT buy is a scroll-stopper and builds trust with the people who should.",
     }),
   },
@@ -557,7 +735,7 @@ const TEMPLATES: Template[] = [
       script: [
         "3 days before: post a Story with a question sticker to collect questions.",
         "Live (20-30 min): intro (1 min), answer the collected questions, then live comments.",
-        "Pin a comment with your WhatsApp link during the Live.",
+        `Pin a comment with your ${v.chat.sticker} link during the Live.`,
         "After: save the replay and cut the 3 best answers into short clips.",
       ],
       caption: `Going live to answer your questions about ${v.offer}. Drop your question below and we'll get to as many as we can.`,
@@ -576,7 +754,7 @@ const TEMPLATES: Template[] = [
       script: [
         "0-2s: Stitch or green-screen a popular piece of advice (credit the creator). Say the hook.",
         "2-12s: What's right about it.",
-        "12-22s: What's missing or wrong for people in Singapore.",
+        `12-22s: What's missing or wrong for people in ${v.country}.`,
         `22-26s: "Ask us before you try it."`,
       ],
       caption: `Not all advice online fits everyone. Here's our take as ${an(v.industry)} in ${v.loc}.\n\nWhat advice should we check next?`,
@@ -606,17 +784,37 @@ function splitList(s: string): string[] {
     .filter(Boolean);
 }
 
-function baseTags(ws: WorkspaceRow, niche: string, loc: string): string[] {
-  const sg = /singapore|\bsg\b/i.test(loc) || !loc;
+// Country hashtags for markets other than Singapore.
+const COUNTRY_TAGS: Partial<Record<MarketCode, string[]>> = {
+  MY: ["malaysia"],
+  ID: ["indonesia"],
+  PH: ["philippines"],
+  HK: ["hongkong"],
+  AU: ["australia"],
+  NZ: ["newzealand", "nz"],
+  GB: ["uk"],
+  US: ["usa"],
+  AE: ["uae"],
+};
+
+function baseTags(ws: WorkspaceRow, niche: string, loc: string, m: Market): string[] {
+  const sg = m.code === "SG";
   const area = loc.split(",")[0].trim();
   const nicheWords = [...new Set([...splitList(ws.industry), ...splitList(ws.offers), ...splitList(niche)].map(slug).filter((w) => w.length > 2 && w.length < 25))].slice(0, 2);
-  const local = sg ? ["singapore", "sg"] : [slug(area)];
-  if (sg && area && !/singapore/i.test(area)) local.push(slug(area));
-  const nicheTags = nicheWords.flatMap((w) => (sg ? [w, `${w}sg`, `${w}singapore`] : [w, `${w}${slug(area)}`]));
+  if (sg) {
+    const local = ["singapore", "sg"];
+    if (area && !/singapore/i.test(area)) local.push(slug(area));
+    const nicheTags = nicheWords.flatMap((w) => [w, `${w}sg`, `${w}singapore`]);
+    return [...local, ...nicheTags, slug(ws.name)].filter((t) => t.length > 1);
+  }
+  const country = COUNTRY_TAGS[m.code] ?? [];
+  const local = [...new Set([slug(area), ...country])].filter(Boolean);
+  const place = slug(area) || country[0] || "";
+  const nicheTags = nicheWords.flatMap((w) => (place ? [w, `${w}${place}`] : [w]));
   return [...local, ...nicheTags, slug(ws.name)].filter((t) => t.length > 1);
 }
 
-function pillarsFor(goal: Goal, regulated: boolean): { key: PillarKey; name: string; percent: number; description: string }[] {
+function pillarsFor(goal: Goal, regulated: boolean, m: Market): { key: PillarKey; name: string; percent: number; description: string }[] {
   const P: Record<PillarKey, { name: string; description: string }> = {
     educate: { name: "Answer the questions", description: "Myths, prices, mistakes and the questions customers ask before booking." },
     behind: { name: "Behind the scenes", description: "Your people, your space and how you work. Builds familiarity." },
@@ -624,7 +822,7 @@ function pillarsFor(goal: Goal, regulated: boolean): { key: PillarKey; name: str
       ? { name: "Standards and process", description: "How you keep customers safe and what they can expect. No testimonials or before/afters." }
       : { name: "Proof", description: "Customer stories (with permission), real questions answered, results explained honestly." },
     offer: { name: "Book with us", description: "Clear, low-pressure posts that tell people how to book and why now." },
-    local: { name: "Local and timely", description: "Trends, seasonal moments and Singapore-relatable content that reaches new people." },
+    local: { name: "Local and timely", description: `Trends, seasonal moments and ${m.code === "SG" ? "Singapore-relatable" : "locally relatable"} content that reaches new people.` },
   };
   const mix: Record<Goal, [PillarKey, number][]> = {
     enquiries: [["educate", 35], ["proof", 25], ["behind", 20], ["offer", 20]],
@@ -635,13 +833,19 @@ function pillarsFor(goal: Goal, regulated: boolean): { key: PillarKey; name: str
   return mix[goal].map(([key, percent]) => ({ key, percent, ...P[key] }));
 }
 
-function vars(input: ContentInput, ws: WorkspaceRow, now: Date): Vars {
+/** The business's own place for sample copy: profile location first, else the country. */
+function homePlace(ws: WorkspaceRow, m: Market): string {
+  const fallback = m.code === "SG" ? "Singapore" : m.code === "INTL" ? "your area" : m.inPhrase;
+  return (ws.location || fallback).split(",")[0].trim() || fallback;
+}
+
+function vars(input: ContentInput, ws: WorkspaceRow, now: Date, m: Market): Vars {
   const offers = splitList(ws.offers);
   const nicheParts = splitList(input.niche);
   const nicheOffer = nicheParts.find((p) => p.toLowerCase() !== ws.industry.toLowerCase());
   const offer = offers[0] || nicheOffer || (ws.industry ? `${ws.industry.toLowerCase()} services` : "our services");
-  const loc = (ws.location || "Singapore").split(",")[0].trim() || "Singapore";
-  const moments = seasonalMoments(now, ws.location || "Singapore").moments;
+  const loc = homePlace(ws, m);
+  const moments = seasonalMoments(now, m, ws.location).moments;
   // Prefer next month's moment for planning content (gives lead time).
   const nextMonth = MONTHS[(now.getMonth() + 1) % 12];
   const notSale = (m: string) => !/sale|black friday/i.test(m);
@@ -658,12 +862,16 @@ function vars(input: ContentInput, ws: WorkspaceRow, now: Date): Vars {
     regulated: Boolean(ws.regulated),
     moment,
     month: MONTHS[now.getMonth()],
+    country: m.code === "INTL" ? "your area" : m.inPhrase,
+    chat: chatFor(m),
+    eventsTag: m.code === "SG" ? "sgevents" : `${COUNTRY_TAGS[m.code]?.[0] ?? "local"}events`,
+    market: m,
   };
 }
 
 function toIdea(t: Template, platform: Platform, v: Vars, input: ContentInput, ws: WorkspaceRow, pillarName: (k: PillarKey) => string): Idea {
   const b = t.build(v);
-  const tags = t.kind === "story" ? [] : cleanHashtags([...b.tags, ...baseTags(ws, input.niche, ws.location || "Singapore")]);
+  const tags = t.kind === "story" ? [] : cleanHashtags([...b.tags, ...baseTags(ws, input.niche, ws.location, v.market)]);
   return {
     title: b.title,
     platform,
@@ -676,7 +884,7 @@ function toIdea(t: Template, platform: Platform, v: Vars, input: ContentInput, w
     cta: b.cta,
     why_it_works: b.why,
     effort: t.effort,
-    compliance_note: v.regulated ? REGULATED_NOTE : "",
+    compliance_note: v.regulated ? regulatedNote(v.market) : "",
   };
 }
 
@@ -709,8 +917,8 @@ function variationsOf(base: Idea, input: ContentInput, ws: WorkspaceRow, v: Vars
   const carousel = input.platforms.find((p) => SUPPORTS[p].includes("carousel")) || video;
   const story = input.platforms.find((p) => SUPPORTS[p].includes("story")) || video;
   const live = input.platforms.find((p) => SUPPORTS[p].includes("live")) || video;
-  const tags = cleanHashtags([...base.hashtags, ...baseTags(ws, input.niche, ws.location || "Singapore")]);
-  const note = v.regulated ? REGULATED_NOTE : "";
+  const tags = cleanHashtags([...base.hashtags, ...baseTags(ws, input.niche, ws.location, v.market)]);
+  const note = v.regulated ? regulatedNote(v.market) : "";
   const angles: Idea[] = [
     {
       ...base,
@@ -755,7 +963,7 @@ function variationsOf(base: Idea, input: ContentInput, ws: WorkspaceRow, v: Vars
       platform: story,
       format: formatLabel(SUPPORTS[story].includes("story") ? "story" : "video", story),
       hook: `Did you know this before today? Yes / No`,
-      script_or_outline: ["Frame 1: Poll sticker with the hook.", "Frame 2: Share the original post.", "Frame 3: Link sticker to WhatsApp."],
+      script_or_outline: ["Frame 1: Poll sticker with the hook.", "Frame 2: Share the original post.", `Frame 3: Link sticker to ${v.chat.sticker}.`],
       caption: "(Stories have no caption. Use the text on each frame.)",
       hashtags: [],
       effort: "quick",
@@ -808,7 +1016,42 @@ function buildCalendar(ideas: Idea[], perWeek: number): CalendarSlot[] {
   return out;
 }
 
-function demoPrescriptions(input: ContentInput, ws: WorkspaceRow): Prescription[] {
+/** The bio link prescription, worded for how customers in this market message a business. */
+function bioLink(ws: WorkspaceRow, m: Market): Pick<Prescription, "title" | "steps"> {
+  const line1 = `Line 1: what you do and where, e.g. "${ws.industry || "Your service"} in ${homePlace(ws, m)}".`;
+  const line2 = "Line 2: one reason to choose you (a fact, not a superlative).";
+  switch (m.messaging) {
+    case "SMS":
+      return {
+        title: "Put a booking link and one clear line in your bio",
+        steps: [line1, line2, "Line 3: \"Book online or call\" and point to the link.", "Set the link to your online booking page, and add your phone number as a contact button (Edit profile > Contact options) so people can call or text in one tap."],
+      };
+    case "Messenger":
+      return {
+        title: "Put a Messenger booking link and one clear line in your bio",
+        steps: [line1, line2, "Line 3: \"Message us to book\" and point to the link.", "Set the link to https://m.me/ followed by your Facebook Page username."],
+      };
+    case "LINE":
+      return {
+        title: "Put a LINE booking link and one clear line in your bio",
+        steps: [line1, line2, "Line 3: \"Message us on LINE to book\" and point to the link.", "Set the link to your LINE Official Account link from LINE Official Account Manager."],
+      };
+    default:
+      return {
+        title: "Put a WhatsApp booking link and one clear line in your bio",
+        steps: [
+          line1,
+          line2,
+          "Line 3: \"WhatsApp to book\" and point to the link.",
+          m.code === "SG"
+            ? "Set the link to https://wa.me/65XXXXXXXX?text=Hi%2C%20I%20saw%20your%20post (your number, no + or spaces)."
+            : "Set the link to https://wa.me/<your number with country code>?text=Hi%2C%20I%20saw%20your%20post (no + or spaces).",
+        ],
+      };
+  }
+}
+
+function demoPrescriptions(input: ContentInput, ws: WorkspaceRow, m: Market): Prescription[] {
   const out: Prescription[] = [
     {
       title: `Batch film ${Math.min(4, input.per_week + 1)} videos in one sitting every week`,
@@ -827,14 +1070,8 @@ function demoPrescriptions(input: ContentInput, ws: WorkspaceRow): Prescription[
       recheck_days: 14,
     },
     {
-      title: "Put a WhatsApp booking link and one clear line in your bio",
+      ...bioLink(ws, m),
       diagnosis: "Content only brings enquiries if the next step is obvious. Your bio should say what you do, where, and how to book in one tap.",
-      steps: [
-        `Line 1: what you do and where, e.g. "${ws.industry || "Your service"} in ${(ws.location || "Singapore").split(",")[0]}".`,
-        "Line 2: one reason to choose you (a fact, not a superlative).",
-        "Line 3: \"WhatsApp to book\" and point to the link.",
-        "Set the link to https://wa.me/65XXXXXXXX?text=Hi%2C%20I%20saw%20your%20post (your number, no + or spaces).",
-      ],
       where: "Instagram > Profile > Edit profile (and TikTok > Edit profile)",
       priority: "urgent",
       impact: "high",
@@ -893,8 +1130,9 @@ function demoPrescriptions(input: ContentInput, ws: WorkspaceRow): Prescription[
 }
 
 export function contentDemo(input: ContentInput, ws: WorkspaceRow, now = new Date()): ContentResult {
-  const v = vars(input, ws, now);
-  const pillars = pillarsFor(input.goal, Boolean(ws.regulated));
+  const m = marketFor(ws.country);
+  const v = vars(input, ws, now, m);
+  const pillars = pillarsFor(input.goal, Boolean(ws.regulated), m);
   const fallback: Record<PillarKey, PillarKey> = { educate: "educate", behind: "behind", proof: "educate", offer: "educate", local: "behind" };
   const pillarName = (k: PillarKey) => (pillars.find((p) => p.key === k) ?? pillars.find((p) => p.key === fallback[k]) ?? pillars[0]).name;
 
@@ -929,13 +1167,13 @@ export function contentDemo(input: ContentInput, ws: WorkspaceRow, now = new Dat
     more_like: input.more_like,
     trends: [],
     trends_note: input.trends
-      ? "Trend research needs the live AI. With it switched on, Content Studio searches for this month's formats, sounds and Singapore calendar moments for your niche."
+      ? `Trend research needs the live AI. With it switched on, Content Studio searches for this month's formats, sounds and ${m.code === "SG" ? "Singapore" : "local"} calendar moments for your niche.`
       : "",
     pillars: pillars.map(({ name, percent, description }) => ({ name, percent, description })),
     ideas,
     calendar: buildCalendar(ideas, input.per_week),
     sources: [],
-    prescriptions: input.more_like ? demoPrescriptions(input, ws).slice(0, 2) : demoPrescriptions(input, ws),
+    prescriptions: input.more_like ? demoPrescriptions(input, ws, m).slice(0, 2) : demoPrescriptions(input, ws, m),
     demo: true,
   };
 }

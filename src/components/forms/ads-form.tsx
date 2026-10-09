@@ -7,6 +7,7 @@ import { describeReport, type ReportInput } from "@/lib/agents/ads-data";
 import { Badge, Button, Card, Field, Label, Select, Textarea, cx } from "../ui";
 import { FormError, useRunAgent } from "../run-agent";
 import type { FormProps } from "./types";
+import { marketFor } from "@/lib/markets";
 
 type Source = "upload" | "windsor";
 type PlatformChoice = ReportInput["platform"];
@@ -30,7 +31,8 @@ function readFileText(file: File): Promise<string> {
   });
 }
 
-export function AdsForm({ windsorConnected, lastInput }: FormProps) {
+export function AdsForm({ profile, windsorConnected, lastInput }: FormProps) {
+  const messaging = marketFor(profile.country).messaging;
   const [source, setSource] = useState<Source>(lastInput?.source === "windsor" && windsorConnected ? "windsor" : "upload");
   const [days, setDays] = useState<number>(Number(lastInput?.days) || 30);
   const [notes, setNotes] = useState<string>((lastInput?.notes as string) || "");
@@ -219,7 +221,7 @@ export function AdsForm({ windsorConnected, lastInput }: FormProps) {
       )}
 
       <Field label="Anything we should know? (optional)" hint="Goals, what counts as a lead, recent changes.">
-        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. We only count WhatsApp enquiries. The laser campaign started mid-month." className="min-h-16" />
+        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={`e.g. We only count ${messaging === "SMS" ? "phone and form" : messaging} enquiries. The laser campaign started mid-month.`} className="min-h-16" />
       </Field>
 
       <FormError error={fileError ?? error} />

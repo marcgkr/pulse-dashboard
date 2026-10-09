@@ -16,6 +16,7 @@ import {
   type ReportInput,
   type SourceInfo,
 } from "./ads-data";
+import { marketFor, type Market } from "../markets";
 
 type Source = "upload" | "windsor" | "sample";
 type Input = { source: Source; reports: ReportInput[]; days: number; notes: string };
@@ -102,7 +103,40 @@ function serviceWord(ws: WorkspaceRow): string {
 
 function locationWord(ws: WorkspaceRow): string {
   const l = (ws.location || "").split(/[,\n;/|]+/)[0]?.trim();
-  return l && l.length <= 20 ? l : "Singapore";
+  const m = marketFor(ws.country);
+  return l && l.length <= 20 ? l : m.code === "INTL" ? "your area" : m.name;
+}
+
+/** Ad wording for how customers in this market usually contact a business. */
+function adsChat(m: Market) {
+  if (m.messaging === "SMS")
+    return {
+      button: "tap your call button",
+      via: "phone or text",
+      convo: "calls from ads and clicks on your call button",
+      objTitle: "Leads campaigns",
+      objStep: "choose the Leads objective",
+      location: "Instant forms, Calls or Website with your lead event",
+      click: "call button click",
+      heard: "on the phone",
+      headline: "Call or Text Us Today",
+      desc: "Call or text us to check a slot.",
+      cta: "'Call or text us to check a slot this week'",
+    };
+  const app = m.messaging;
+  return {
+    button: `tap your ${app} button`,
+    via: `${app} or phone`,
+    convo: `${app} button clicks and calls from ads`,
+    objTitle: `Leads or ${app} campaigns`,
+    objStep: `choose the Leads objective (or Engagement > Messaging for ${app})`,
+    location: `Instant forms, Messaging apps (${app}) or Website with your lead event`,
+    click: `${app} click`,
+    heard: `on ${app}`,
+    headline: `Message Us on ${app}`,
+    desc: `Message us on ${app} to check a slot.`,
+    cta: app === "WhatsApp" ? "'WhatsApp us to check a slot this week'" : `'Message us on ${app} to check a slot this week'`,
+  };
 }
 
 const COMMON_NAME_WORDS = new Set(["clinic", "clinics", "aesthetic", "aesthetics", "salon", "studio", "group", "medical", "dental", "beauty", "the", "and", "pte", "ltd", "law", "legal", "llc", "centre", "center", "spa", "skin", "hair", "singapore", "sg", "co"]);
@@ -151,7 +185,7 @@ async function gather(input: Input, ctx: AgentContext, opts: { fallbackToSample:
   };
 
   const sample = () => {
-    const s = fromReports(sampleReports({ service: serviceWord(ctx.ws), location: locationWord(ctx.ws), brand: ctx.ws.name }), "sample");
+    const s = fromReports(sampleReports({ service: serviceWord(ctx.ws), location: locationWord(ctx.ws), brand: ctx.ws.name, currency: marketFor(ctx.ws.country).currency }), "sample");
     return { ...s, period: [...periods].join(" / ") || "Sample month", currency, warnings, sample: true };
   };
 
@@ -257,6 +291,8 @@ function list(names: string[], n = 6) {
 
 export function rulePrescriptions(a: AdsAnalysis, ws: WorkspaceRow): Prescription[] {
   const out: Prescription[] = [];
+  const market = marketFor(ws.country);
+  const chat = adsChat(market);
   const regulated = Boolean(ws.regulated);
   const g = a.platforms.google;
   const m = a.platforms.meta;
@@ -269,8 +305,8 @@ export function rulePrescriptions(a: AdsAnalysis, ws: WorkspaceRow): Prescriptio
       steps: [
         "In Google Ads, go to Goals > Conversions > Summary.",
         "Look at the Status column for each Primary action. 'Inactive', 'Unverified' or 'No recent conversions' means the tag isn't firing.",
-        "Open tagassistant.google.com, connect your website, submit a test enquiry or tap your WhatsApp button, and confirm the conversion fires.",
-        "If most enquiries come by WhatsApp or phone, add conversion actions for WhatsApp button clicks and calls from ads (Goals > Conversions > + New conversion action).",
+        `Open tagassistant.google.com, connect your website, submit a test enquiry or ${chat.button}, and confirm the conversion fires.`,
+        `If most enquiries come by ${chat.via}, add conversion actions for ${chat.convo} (Goals > Conversions > + New conversion action).`,
         "Check each campaign uses these goals: Campaigns > (campaign) > Settings > Goals.",
       ],
       where: "Google Ads > Goals > Conversions > Summary",
@@ -292,11 +328,11 @@ export function rulePrescriptions(a: AdsAnalysis, ws: WorkspaceRow): Prescriptio
   if (m && has("meta", "objective")) {
     const f = a.flags.find((x) => x.platform === "meta" && x.type === "objective")!;
     out.push({
-      title: "Move Meta budget from Traffic campaigns to Leads or WhatsApp campaigns",
+      title: `Move Meta budget from Traffic campaigns to ${chat.objTitle}`,
       diagnosis: `${f.detail} Traffic campaigns find people who click, not people who book.`,
       steps: [
-        "In Meta Ads Manager, click + Create and choose the Leads objective (or Engagement > Messaging for WhatsApp).",
-        "Set the conversion location to Instant forms, Messaging apps (WhatsApp) or Website with your lead event.",
+        `In Meta Ads Manager, click + Create and ${chat.objStep}.`,
+        `Set the conversion location to ${chat.location}.`,
         "Copy your best-performing ads into the new campaign so you keep the creative that works.",
         "Shift budget across gradually over 1 to 2 weeks, then switch the Traffic campaign off on the Campaigns tab.",
       ],
@@ -310,7 +346,7 @@ export function rulePrescriptions(a: AdsAnalysis, ws: WorkspaceRow): Prescriptio
       diagnosis: "Google reports more conversions than clicks, which usually means several conversion actions count the same enquiry. Your CPA looks better than it is.",
       steps: [
         "Go to Goals > Conversions > Summary.",
-        "Keep only real enquiries (form submit, WhatsApp click, call) as Primary. Set page views and scroll goals to Secondary.",
+        `Keep only real enquiries (form submit, ${chat.click}, call) as Primary. Set page views and scroll goals to Secondary.`,
         "For lead actions, set Count to 'One' instead of 'Every' (open the action > Edit settings > Count).",
       ],
       where: "Google Ads > Goals > Conversions",
@@ -386,8 +422,8 @@ export function rulePrescriptions(a: AdsAnalysis, ws: WorkspaceRow): Prescriptio
       steps: [
         "In Ads Manager, open the ad set and click + Create (or duplicate an ad) to add 2 to 3 new ads with a different hook.",
         regulated
-          ? "Angles to try: a short what-to-expect walkthrough, a doctor or practitioner answering a common question, a clinic tour. Avoid before-and-after photos and testimonials (not allowed for healthcare advertising in Singapore)."
-          : "Angles to try: a before-and-after or process shot, an answer to the question you get most on WhatsApp, a short founder or staff video.",
+          ? `Angles to try: a short what-to-expect walkthrough, a doctor or practitioner answering a common question, a clinic tour. Avoid before-and-after photos and testimonials (${market.code === "SG" ? "not allowed for healthcare advertising in Singapore" : `often restricted for healthcare advertising; check the rules in ${market.inPhrase}`}).`
+          : `Angles to try: a before-and-after or process shot, an answer to the question you get most ${chat.heard}, a short founder or staff video.`,
         "Broaden the audience a little, or exclude people who engaged in the last 30 days for prospecting ad sets.",
         "Once the new ads have a week of data, switch off the old ads with the lowest CTR.",
       ],
@@ -464,12 +500,13 @@ export function templateCreative(a: AdsAnalysis, ws: WorkspaceRow): AdsCreative 
   const loc = titleCase(locationWord(ws));
   const brand = ws.name || "";
   const regulated = Boolean(ws.regulated);
+  const chat = adsChat(marketFor(ws.country));
   const headlines = a.platforms.google
-    ? uniq([`${svc} in ${loc}`, `Book ${svc} Online`, `${svc} Near You`, `Book a Consultation Today`, `Message Us on WhatsApp`, brand, `${brand} ${loc}`, `See Our ${svc} Prices`, `Talk to Our Team Today`]).filter((h) => h && h.length <= 30)
+    ? uniq([`${svc} in ${loc}`, `Book ${svc} Online`, `${svc} Near You`, `Book a Consultation Today`, chat.headline, brand, `${brand} ${loc}`, `See Our ${svc} Prices`, `Talk to Our Team Today`]).filter((h) => h && h.length <= 30)
     : [];
   const descriptions = a.platforms.google
     ? uniq([
-        `${svc} at ${brand || "our team"} in ${loc}. Message us on WhatsApp to check a slot.`,
+        `${svc} at ${brand || "our team"} in ${loc}. ${chat.desc}`,
         `Not sure if ${svc.toLowerCase()} suits you? Book a consultation and get a clear plan and price.`,
         `See prices, opening hours and directions, then book online in under a minute.`,
       ]).filter((d) => d.length <= 90)
@@ -478,13 +515,13 @@ export function templateCreative(a: AdsAnalysis, ws: WorkspaceRow): AdsCreative 
   if (a.platforms.meta) {
     const tired = a.flags.filter((f) => f.platform === "meta" && f.type === "high_frequency" && f.level !== "campaign");
     if (tired.length) meta.push(`Add new ads to ${list(tired.map((f) => f.name), 3)}: frequency is above 3, so the same people keep seeing the same creative.`);
-    meta.push("Open with the question you hear most on WhatsApp, answered in the first 3 seconds with captions on.");
+    meta.push(`Open with the question you hear most ${chat.heard}, answered in the first 3 seconds with captions on.`);
     meta.push(
       regulated
         ? "Test a 20-second video of your doctor or practitioner explaining who the treatment suits and what to expect. Skip before-and-after photos and testimonials."
         : "Test a real before-and-after or a behind-the-scenes clip from your team instead of polished stock images.",
     );
-    meta.push(`Test a clear next step in the ad itself: 'WhatsApp us to check a slot this week' gets more replies than a plain 'Learn more' button.`);
+    meta.push(`Test a clear next step in the ad itself: ${chat.cta} gets more replies than a plain 'Learn more' button.`);
     meta.push("Make vertical 9:16 versions for Reels and Stories; square images get cropped there.");
   }
   return { source: "template", google_headlines: headlines, google_descriptions: descriptions, meta };
@@ -521,7 +558,7 @@ function platformNames(a: AdsAnalysis) {
 
 function ruleSummary(g: Gathered, a: AdsAnalysis, ws: WorkspaceRow): string {
   const parts: string[] = [];
-  const cur = a.platforms.google?.currency ?? a.platforms.meta?.currency ?? "SGD";
+  const cur = a.platforms.google?.currency ?? a.platforms.meta?.currency ?? marketFor(ws.country).currency;
   if (g.sample) parts.push(`This is sample data, not ${ws.name ? ws.name + "'s" : "your"} account. Upload your Google Ads or Meta Ads export to see your own numbers.`);
   else parts.push("Rules-based review of your real numbers (AI writing is off).");
   parts.push(`${platformNames(a)} spent ${money(a.total_spend, cur)} in ${g.period.toLowerCase().startsWith("last") ? "the " + g.period.toLowerCase() : "this period"}, ads health ${a.score ?? "-"}/100.`);
@@ -583,7 +620,7 @@ export const adsAgent: AgentDef<Input> = {
   async run(input, ctx) {
     const g = await gather(input, ctx, { fallbackToSample: false });
     ctx.progress("Working out cost per result for every campaign");
-    const a = analyzeAds(g.rows, { currency: g.currency, brandTerms: brandTerms(ctx.ws) });
+    const a = analyzeAds(g.rows, { currency: g.currency, defaultCurrency: marketFor(ctx.ws.country).currency, brandTerms: brandTerms(ctx.ws) });
     ctx.progress("Writing your ads prescriptions");
 
     const ai = await structured({
@@ -604,7 +641,7 @@ RULES FOR THIS REPORT
 - If tracking looks broken (zero conversions with spend, or more conversions than clicks), make fixing tracking the first prescription and say the other numbers can't be trusted until it's fixed.
 - Frequency above 3 is a rule of thumb for fatigue, not a hard limit; retargeting can run higher.
 - Prescription steps need exact click paths, e.g. "Google Ads > Campaigns > Insights and reports > Search terms", "Google Ads > Tools > Shared library > Exclusion lists", "Meta Ads Manager > Ad sets > (ad set) > Edit > Budget", "Meta Events Manager > Data sources > Test events".
-- RSA headlines: 30 characters max each, descriptions 90 max. Count carefully.${ctx.ws.regulated ? "\n- Regulated business: no superlatives (best, top, No. 1), no guarantees of results, no testimonials or before-and-after claims in ad copy. Follow Singapore healthcare / professional advertising rules." : ""}`,
+- RSA headlines: 30 characters max each, descriptions 90 max. Count carefully.${ctx.ws.regulated ? `\n- Regulated business: no superlatives (best, top, No. 1), no guarantees of results, no testimonials or before-and-after claims in ad copy. ${marketFor(ctx.ws.country).code === "SG" ? "Follow Singapore healthcare / professional advertising rules." : `Follow the healthcare and professional advertising rules in ${marketFor(ctx.ws.country).inPhrase}.`}` : ""}`,
       schema: AdsAI,
       effort: "medium",
     });
@@ -645,7 +682,7 @@ RULES FOR THIS REPORT
     // Parsing, metrics, flags and prescriptions are all real. Only the free-text writing is rules-based.
     const g = await gather(input, ctx, { fallbackToSample: true });
     ctx.progress("Working out cost per result for every campaign");
-    const a = analyzeAds(g.rows, { currency: g.currency, brandTerms: brandTerms(ctx.ws) });
+    const a = analyzeAds(g.rows, { currency: g.currency, defaultCurrency: marketFor(ctx.ws.country).currency, brandTerms: brandTerms(ctx.ws) });
     return {
       title: `${g.sample ? "Sample ads checkup" : "Ads checkup"}: ${platformNames(a)}`,
       score: a.score,

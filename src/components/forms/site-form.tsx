@@ -5,6 +5,7 @@ import { Stethoscope } from "lucide-react";
 import { Button, Field, Input } from "../ui";
 import { FormError, useRunAgent } from "../run-agent";
 import type { FormProps } from "./types";
+import { marketFor } from "@/lib/markets";
 
 export function SiteForm({ profile, lastInput }: FormProps) {
   const [url, setUrl] = useState((lastInput?.url as string) || profile.website);
@@ -18,7 +19,7 @@ export function SiteForm({ profile, lastInput }: FormProps) {
       }}
     >
       <Field label="Website to check" hint="We read the homepage and up to 6 inner pages.">
-        <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="yourbusiness.com.sg" required />
+        <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={marketFor(profile.country).code === "SG" ? "yourbusiness.com.sg" : "yourbusiness.com"} required />
       </Field>
       <FormError error={error} />
       <Button type="submit" disabled={pending}>

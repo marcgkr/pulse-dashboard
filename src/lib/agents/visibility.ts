@@ -2,7 +2,8 @@ import { z } from "zod";
 import { businessContext, normalizePrescription, pick, PrescriptionSchema, research, structured, type Prescription } from "../ai";
 import type { WorkspaceRow } from "../db";
 import type { AgentContext, AgentDef, AgentResult } from "./types";
-import { countryCode } from "./keywords-demo";
+import { searchCountryFor } from "./keywords-demo";
+import { marketFor, type Market } from "../markets";
 
 // ---------- Types ----------
 
@@ -369,9 +370,15 @@ const VisAI = z.object({
     ),
 });
 
+/** Where the simulated customer is: the profile location, else the workspace's country. */
+function customerLocation(ws: WorkspaceRow): string {
+  const m = marketFor(ws.country);
+  return ws.location || (m.code === "INTL" ? "your area" : m.name);
+}
+
 async function runLive(input: Input, ctx: AgentContext): Promise<VisibilityResult> {
   const terms = brandTerms(input.brand, input.aliases, input.domain);
-  const location = ctx.ws.location || "Singapore";
+  const location = customerLocation(ctx.ws);
   const n = input.prompts.length;
   const raw = await pool(input.prompts, 2, async (prompt, i) => {
     ctx.progress(`Asking an AI assistant: "${prompt}" (${i + 1} of ${n})`);
@@ -381,7 +388,7 @@ async function runLive(input: Input, ctx: AgentContext): Promise<VisibilityResul
         prompt: `A customer in ${location} asks you:\n\n"${prompt}"\n\nSearch the web and answer them.`,
         maxSearches: 3,
         effort: "low",
-        country: countryCode(location),
+        country: searchCountryFor(ctx.ws.country, ctx.ws.location),
       });
       return { prompt, text: r.text, sources: r.sources.slice(0, 20), error: undefined as string | undefined };
     } catch (e) {
@@ -483,12 +490,19 @@ function sampleCompetitors(input: Input): string[] {
   return [...input.competitors, "Sample Competitor A", "Sample Competitor B", "Sample Competitor C"].slice(0, 4);
 }
 
-const SAMPLE_SOURCES: VisibilitySource[] = [
+const SG_SAMPLE_SOURCES: VisibilitySource[] = [
   { title: "Sample source: Google Maps listings", url: "https://www.google.com/maps" },
   { title: "Sample source: r/singapore threads", url: "https://www.reddit.com/r/singapore/" },
   { title: "Sample source: 'best of' listicle site", url: "https://thesmartlocal.com/" },
   { title: "Sample source: lifestyle guide", url: "https://www.honeycombers.com/singapore/" },
   { title: "Sample source: review site", url: "https://www.tripadvisor.com.sg/" },
+];
+
+const OTHER_SAMPLE_SOURCES: VisibilitySource[] = [
+  { title: "Sample source: Google Maps listings", url: "https://www.google.com/maps" },
+  { title: "Sample source: Reddit threads", url: "https://www.reddit.com/" },
+  { title: "Sample source: 'best of' listicle site", url: "https://www.timeout.com/" },
+  { title: "Sample source: review site", url: "https://www.tripadvisor.com/" },
 ];
 
 function sampleAnswer(prompt: string, names: string[], location: string): string {
@@ -509,7 +523,9 @@ Tips: compare recent Google reviews, check that prices are listed up front, and 
 
 async function runDemo(input: Input, ctx: AgentContext): Promise<VisibilityResult> {
   const terms = brandTerms(input.brand, input.aliases, input.domain);
-  const location = ctx.ws.location || "Singapore";
+  const location = customerLocation(ctx.ws);
+  const market = marketFor(ctx.ws.country);
+  const SAMPLE_SOURCES = market.code === "SG" ? SG_SAMPLE_SOURCES : OTHER_SAMPLE_SOURCES;
   const comps = sampleCompetitors(input);
   ctx.progress("Building sample answers");
 
@@ -558,12 +574,13 @@ async function runDemo(input: Input, ctx: AgentContext): Promise<VisibilityResul
       "Sample insight: Reddit threads are a common source. A business that real customers mention there gets picked up.",
       `Sample insight: ${input.domain || "your website"} was never used as a source, which usually means service pages do not answer the question directly (no FAQ, no prices, no location details).`,
     ],
-    prescriptions: demoPrescriptions(input, domains, location),
+    prescriptions: demoPrescriptions(input, domains, location, market),
     demo: true,
   };
 }
 
-function demoPrescriptions(input: Input, domains: { domain: string; kind: string }[], location: string): Prescription[] {
+function demoPrescriptions(input: Input, domains: { domain: string; kind: string }[], location: string, market: Market): Prescription[] {
+  const sendOn = market.messaging === "SMS" ? "by text or email" : `on ${market.messaging}`;
   const third = domains.filter((d) => !["Your website", "Business or other website"].includes(d.kind)).slice(0, 4).map((d) => d.domain);
   const site = input.domain || "your website";
   return [
@@ -584,7 +601,7 @@ function demoPrescriptions(input: Input, domains: { domain: string; kind: string
       diagnosis: "AI answers lean on Google Maps reviews. Reviews that mention the service and area help assistants match you to questions like these.",
       steps: [
         "In Google Business Profile, click 'Ask for reviews' and copy your review link.",
-        "Send it on WhatsApp after each visit: 'Thanks for coming in today! If you were happy with your [service], a short Google review would really help us.'",
+        `Send it ${sendOn} after each visit: 'Thanks for coming in today! If you were happy with your [service], a short Google review would really help us.'`,
         "Reply to every review within a few days.",
         "Check your categories and services in Google Business Profile match the questions you are tracking.",
       ],
@@ -638,7 +655,7 @@ export const visibilityAgent: AgentDef<Input> = {
   name: "AI Visibility",
   blurb: "Checks whether AI assistants recommend you, and who they name instead.",
   description:
-    "Asks an AI assistant with web search the questions your customers ask, like 'best lash extension salon in Orchard'. Checks whether your business is named, where it ranks, whether your website is a source, and which competitors show up. Then shows which sites the AI is reading so you know where to get listed.",
+    "Asks an AI assistant with web search the questions your customers ask, like 'best lash extension salon in [your area]'. Checks whether your business is named, where it ranks, whether your website is a source, and which competitors show up. Then shows which sites the AI is reading so you know where to get listed.",
   parseInput: parse,
   runTitle: (input) => runTitle(input),
   run: runLive,

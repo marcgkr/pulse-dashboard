@@ -9,7 +9,7 @@ import {
   matchPlatform,
   PLATFORMS,
   postingDays,
-  REGULATED_NOTE,
+  regulatedNote,
   seasonalMoments,
   type CalendarSlot,
   type ContentInput,
@@ -19,7 +19,8 @@ import {
   type Platform,
   type Trend,
 } from "./content-demo";
-import { countryCode } from "./keywords-demo";
+import { marketFor, type Market } from "../markets";
+import { searchCountryFor } from "./keywords-demo";
 
 type Input = ContentInput;
 
@@ -56,7 +57,7 @@ const ContentAI = z.object({
         .array(z.string())
         .describe("Shot-by-shot for video (prefix with timing like '0-2s:'), slide-by-slide for carousels ('Slide 1:'), paragraph-by-paragraph for text posts. 3-8 steps."),
       caption: z.string().describe("Ready-to-paste caption in the platform's native style and the owner's language mix. No hashtags in the caption."),
-      hashtags: z.array(z.string()).describe("8-15 hashtags (3-5 for LinkedIn): mix of Singapore/local and niche tags. No banned, spammy or overly broad tags like #fyp or #followforfollow."),
+      hashtags: z.array(z.string()).describe("8-15 hashtags (3-5 for LinkedIn): mix of local tags (the business's own city, area or country) and niche tags. No banned, spammy or overly broad tags like #fyp or #followforfollow."),
       cta: z.string().describe("The single call to action"),
       why_it_works: z.string().describe("1-2 sentences on why this works for this business and goal"),
       effort: z.string().describe("Exactly one of: quick, half-day, project"),
@@ -86,7 +87,7 @@ function str(v: unknown, max = 800): string {
 
 const SHELF = ["this week", "this month", "evergreen"] as const;
 
-function normaliseResult(ai: z.infer<typeof ContentAI>, input: Input, regulated: boolean) {
+function normaliseResult(ai: z.infer<typeof ContentAI>, input: Input, regulated: boolean, m: Market) {
   const chosen = input.platforms;
   const toPlatform = (p: unknown): string => {
     const m = matchPlatform(p);
@@ -121,7 +122,7 @@ function normaliseResult(ai: z.infer<typeof ContentAI>, input: Input, regulated:
       cta: i.cta.trim(),
       why_it_works: i.why_it_works.trim(),
       effort: pick(i.effort, ["quick", "half-day", "project"] as const, "quick"),
-      compliance_note: note || (regulated ? REGULATED_NOTE : ""),
+      compliance_note: note || (regulated ? regulatedNote(m) : ""),
     };
   });
 
@@ -148,7 +149,7 @@ export const contentAgent: AgentDef<Input> = {
   name: "Content Studio",
   blurb: "Ready-to-film social posts for your niche, with hooks, captions and a 2-week calendar.",
   description:
-    "Checks what is trending on your platforms this month for your niche in Singapore, then writes post ideas you can film today: the hook word for word, a shot-by-shot script or slide outline, a caption and hashtags to paste, and a 2-week calendar that fits how often you can post. Regulated businesses get ideas that stay inside the advertising rules.",
+    "Checks what is trending on your platforms this month for your niche in your country, then writes post ideas you can film today: the hook word for word, a shot-by-shot script or slide outline, a caption and hashtags to paste, and a 2-week calendar that fits how often you can post. Regulated businesses get ideas that stay inside the advertising rules.",
 
   parseInput(raw, ws) {
     const r = (raw ?? {}) as Record<string, unknown>;
@@ -179,8 +180,10 @@ export const contentAgent: AgentDef<Input> = {
     const ws = ctx.ws;
     const regulated = Boolean(ws.regulated);
     const today = new Date();
-    const location = ws.location || "Singapore";
-    const season = seasonalMoments(today, location);
+    const m = marketFor(ws.country);
+    const location = ws.location || (m.code === "INTL" ? "the owner's area" : m.name);
+    const season = seasonalMoments(today, m, ws.location);
+    const chat = m.messaging === "SMS" ? "booking or call link" : `${m.messaging} link`;
     const count = input.more_like ? Math.min(input.count, 6) : input.count;
 
     let notes = "";
@@ -189,7 +192,7 @@ export const contentAgent: AgentDef<Input> = {
       ctx.progress(`Checking what's trending on ${input.platforms.join(", ")} this month`);
       const r = await research({
         system:
-          "You are a social media trend researcher for small businesses in Singapore. You search the web for what is working on social platforms right now and write short factual notes. Only report what you found in your searches, with where you saw it. Do not invent view counts, growth percentages or dates.",
+          `You are a social media trend researcher for small businesses in ${m.code === "INTL" ? "the owner's country" : m.inPhrase}. You search the web for what is working on social platforms right now and write short factual notes. Only report what you found in your searches, with where you saw it. Do not invent view counts, growth percentages or dates.`,
         prompt: `Today is ${today.toDateString()}.
 
 BUSINESS PROFILE
@@ -202,13 +205,13 @@ LOCATION: ${location}
 Research what is working on these platforms right now (${season.label}) for this niche in ${location}:
 1. Trending formats and content styles in this niche (e.g. POV videos, green-screen replies, photo carousels, "day in the life", Xiaohongshu note styles).
 2. Trending sounds, memes or templates that a ${ws.industry || "small"} business could use, and roughly how long they have been going.
-3. Seasonal and calendar moments in the next 4-6 weeks that fit this niche. Singapore moments to check: ${season.moments.join("; ")}. Confirm actual dates for any lunar or gazetted holiday.
+3. Seasonal and calendar moments in the next 4-6 weeks that fit this niche. ${m.code === "SG" ? "Singapore moments" : "Moments"} to check: ${season.moments.join("; ")}. Confirm actual dates for any lunar or gazetted holiday.
 4. Recent platform features or changes worth using (for example Instagram Trial Reels, TikTok photo mode, LinkedIn document posts, YouTube Shorts features).
-${regulated ? "5. Any recent enforcement or guidance on social media advertising for this regulated category in Singapore.\n" : ""}
+${regulated ? `5. Any recent enforcement or guidance on social media advertising for this regulated category in ${m.code === "INTL" ? "the owner's country" : m.inPhrase}.\n` : ""}
 Write bullet-point notes under 900 words. For each point say which platform and where you saw it. If you could not confirm something, say so.`,
         maxSearches: input.more_like ? 3 : 6,
         effort: "medium",
-        country: countryCode(location),
+        country: searchCountryFor(ws.country, ws.location),
       }).catch((e) => {
         // Trends are a bonus: if web search fails, still write the plan from the profile.
         console.error("[content] trend research failed", e);
@@ -222,24 +225,24 @@ Write bullet-point notes under 900 words. For each point say which platform and 
     const days = postingDays(input.per_week);
     const slots = input.per_week * 2;
 
-    const system = `You are Content Studio, a social media strategist for Singapore small businesses. You write ready-to-post content ideas the owner can film or design today: real hooks written out word for word, shot-by-shot scripts or slide-by-slide outlines, captions to paste, hashtags, and a posting calendar.
+    const system = `You are Content Studio, a social media strategist for ${m.code === "SG" ? "Singapore small businesses" : m.code === "INTL" ? "small businesses" : `small businesses in ${m.inPhrase}`}. You write ready-to-post content ideas the owner can film or design today: real hooks written out word for word, shot-by-shot scripts or slide-by-slide outlines, captions to paste, hashtags, and a posting calendar.
 
 How you write:
 - Every idea must be specific to this business, its offers and its customers. No filler ideas like "share a motivational quote" or "post a holiday greeting".
 - Hooks: the exact words for the first 2 seconds (video) or first line (post). Make them stop the scroll: a specific problem, a myth, a question customers ask, a surprising angle.
 - Scripts: shot-by-shot with timings for video ("0-2s: ..."), slide-by-slide for carousels ("Slide 1: ..."), paragraph-by-paragraph for text posts. Include on-screen text and what to film. Keep videos under 45 seconds unless the format needs more.
 - Captions: native to the platform. TikTok and Reels short, LinkedIn longer and story-led with line breaks, Xiaohongshu as a note with a title line and practical detail, Facebook conversational. Write in the owner's language mix. Keep emojis to a minimum. Never put hashtags inside the caption.
-- Hashtags: 8-15 per idea (3-5 for LinkedIn, none for Stories), mixing Singapore/local tags with niche tags. No banned, spammy or overly broad tags (#fyp, #foryou, #viral, #followforfollow, #like4like, #instagood).
+- Hashtags: 8-15 per idea (3-5 for LinkedIn, none for Stories), mixing ${m.code === "SG" ? "Singapore/local" : "local (city, area or country)"} tags with niche tags. No banned, spammy or overly broad tags (#fyp, #foryou, #viral, #followforfollow, #like4like, #instagood).
 - Match formats to platforms: YouTube Shorts is video only; Xiaohongshu is image notes or video notes; LinkedIn suits text posts, document carousels and native video.
 - Spread ideas across the owner's chosen platforms and across the pillars in roughly the pillar mix.
 - Never invent numbers: no view counts, follower counts, engagement rates, prices or results. Use placeholders like [your price] where the owner must fill something in.
 - Trends: only use trends that appear in the research notes. If there are no research notes, return an empty trends array and use evergreen formats.
 - Calendar: exactly ${slots} slots, ${input.per_week} per week across 2 weeks, on days like ${days.map((d) => `"Week 1 ${d}"`).join(", ")} (then the same for Week 2). Each slot uses an idea title exactly as written. Ideas can repeat on a different platform if there are more slots than ideas. Put quick ideas early in Week 1 so the owner can start immediately.
-- Prescriptions: 3-6 habit or process fixes for how the owner runs their social media (e.g. batch filming on a fixed day, bio and link fixes, WhatsApp link in bio, using Trial Reels to test hooks, replying to comments in the first hour, pinning posts). Category "Social content". Steps must be exact clicks or copy.${
+- Prescriptions: 3-6 habit or process fixes for how the owner runs their social media (e.g. batch filming on a fixed day, bio and link fixes, ${chat} in bio, using Trial Reels to test hooks, replying to comments in the first hour, pinning posts). Category "Social content". Steps must be exact clicks or copy.${
       regulated
         ? `
 
-REGULATED CATEGORY (Singapore healthcare, legal or financial advertising rules apply):
+REGULATED CATEGORY (${m.code === "SG" ? "Singapore healthcare, legal or financial advertising rules apply" : `healthcare, legal or financial advertising rules apply; for healthcare: ${m.healthAdRules}`}):
 - No testimonials, reviews or customer stories presented as endorsements.
 - No before/after photos or videos, and no "results" content.
 - No superlatives or comparisons ("best", "No.1", "leading", "most trusted", "better than").
@@ -278,7 +281,7 @@ ${
 }`;
 
     const ai = await structured({ system, prompt, schema: ContentAI, effort: "medium", maxTokens: 32000 });
-    const { pillars, ideas, calendar, trends } = normaliseResult(ai, input, regulated);
+    const { pillars, ideas, calendar, trends } = normaliseResult(ai, input, regulated, m);
 
     const result: ContentResult = {
       title: input.more_like ? `More like: ${input.more_like}` : `Content plan: ${ideas.length} ideas for ${input.platforms.join(", ")}`,

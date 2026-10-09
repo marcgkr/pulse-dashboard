@@ -5,6 +5,7 @@ import { FileUp, Search } from "lucide-react";
 import { Button, Field, Input, Select, Textarea } from "../ui";
 import { FormError, useRunAgent } from "../run-agent";
 import type { FormProps } from "./types";
+import { marketFor } from "@/lib/markets";
 
 function seedsText(v: unknown, fallback: string): string {
   if (Array.isArray(v) && v.length) return v.map(String).join("\n");
@@ -28,7 +29,10 @@ async function readExport(file: File): Promise<string> {
 export function KeywordsForm({ profile, lastInput }: FormProps) {
   const li = lastInput ?? {};
   const [seeds, setSeeds] = useState(seedsText(li.seeds, profile.offers || profile.industry));
-  const [location, setLocation] = useState((li.location as string) || profile.location || "Singapore");
+  const market = marketFor(profile.country);
+  const country = market.code === "INTL" ? "" : market.name;
+  const area = market.code === "INTL" ? "" : market.exampleArea;
+  const [location, setLocation] = useState((li.location as string) || profile.location || country);
   const [focus, setFocus] = useState<"discover" | "expand">(li.focus === "expand" ? "expand" : "discover");
   const [expand, setExpand] = useState((li.expand as string) || "");
   const [data, setData] = useState((li.data as string) || "");
@@ -52,7 +56,7 @@ export function KeywordsForm({ profile, lastInput }: FormProps) {
 
       {focus === "expand" && (
         <Field label="Keyword to expand" hint="We go deep on price, near me, best, reviews, vs and question variants of this one phrase.">
-          <Input value={expand} onChange={(e) => setExpand(e.target.value)} placeholder="e.g. hydrafacial tampines" required />
+          <Input value={expand} onChange={(e) => setExpand(e.target.value)} placeholder={area ? `e.g. hydrafacial ${area.toLowerCase()}` : "e.g. hydrafacial near me"} required />
         </Field>
       )}
 
@@ -60,8 +64,8 @@ export function KeywordsForm({ profile, lastInput }: FormProps) {
         <Textarea value={seeds} onChange={(e) => setSeeds(e.target.value)} rows={4} placeholder={"lash extensions\nbrow embroidery"} required={focus !== "expand"} />
       </Field>
 
-      <Field label="Target location" hint="Neighbourhood first if you serve one area, e.g. 'Tampines, Singapore'.">
-        <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Singapore" />
+      <Field label="Target location" hint={`Neighbourhood first if you serve one area, e.g. '${area ? `${area}, ${country}` : "Your neighbourhood, your city"}'.`}>
+        <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={country || "Your city"} />
       </Field>
 
       <Field
@@ -73,7 +77,7 @@ export function KeywordsForm({ profile, lastInput }: FormProps) {
           onChange={(e) => setData(e.target.value)}
           rows={5}
           className="font-mono text-xs"
-          placeholder={"Top queries,Clicks,Impressions,CTR,Position\nhydrafacial tampines,12,340,3.5%,8.2"}
+          placeholder={`Top queries,Clicks,Impressions,CTR,Position\nhydrafacial ${area ? area.toLowerCase() : "near me"},12,340,3.5%,8.2`}
         />
       </Field>
       <div className="flex flex-wrap items-center gap-3 text-sm">

@@ -602,7 +602,13 @@ export const DEFAULT_FREQUENCY_THRESHOLD = 3;
 
 export function analyzeAds(
   rows: AdRow[],
-  opts: { currency?: Partial<Record<Platform, string | null>>; brandTerms?: string[]; frequencyThreshold?: number } = {},
+  opts: {
+    currency?: Partial<Record<Platform, string | null>>;
+    /** Used when an export doesn't say its currency: the business's market currency. */
+    defaultCurrency?: string;
+    brandTerms?: string[];
+    frequencyThreshold?: number;
+  } = {},
 ): AdsAnalysis {
   const freqMax = opts.frequencyThreshold ?? DEFAULT_FREQUENCY_THRESHOLD;
   const flags: Flag[] = [];
@@ -758,7 +764,7 @@ export function analyzeAds(
     platforms[platform] = {
       ...tot,
       platform,
-      currency: opts.currency?.[platform] || "SGD",
+      currency: opts.currency?.[platform] || opts.defaultCurrency || "SGD",
       base_level: base,
       campaigns: campaigns.slice(0, 60),
       adsets: adsets.slice(0, 80),
@@ -796,7 +802,7 @@ export function analyzeAds(
 // Built-in sample data (used only when the owner provides nothing). Clearly labelled as sample in the result.
 // ---------------------------------------------------------------------------
 
-export function sampleReports(opts: { service?: string; location?: string; brand?: string }): ReportInput[] {
+export function sampleReports(opts: { service?: string; location?: string; brand?: string; currency?: string }): ReportInput[] {
   const svc = (opts.service || "facial").toLowerCase().slice(0, 28);
   const loc = (opts.location || "singapore").toLowerCase();
   const brand = (opts.brand || "your brand").toLowerCase();
@@ -835,10 +841,13 @@ Total: Search terms,--,--,--,--,"1,178","19,604",6.01%,SGD,2.07,"2,447.00",66.00
 "2026-09-01","2026-09-30","WhatsApp - Consult Booking","Retargeting - Site visitors 30d","active","22","actions:onsite_conversion.messaging_conversation_started_7d","2,980","6.84","17.53","385.66","20,383","18.92","233","1.66","1.14"
 "2026-09-01","2026-09-30","Traffic - Website","Broad ${cap(loc)} 18-65","active","1,058","actions:link_click","64,200","1.86","0.88","934.05","118,355","7.89","1,058","0.88","0.89"
 `;
+  // Sample figures are written in SGD; label them with the business's currency instead.
+  const cur = /^[A-Z]{3}$/.test(opts.currency ?? "") ? opts.currency! : "SGD";
+  const inCur = (csv: string) => csv.replace(/\bSGD\b/g, cur);
   return [
-    { platform: "google", filename: "sample-google-campaigns.csv", csv: google },
-    { platform: "google", filename: "sample-google-search-terms.csv", csv: terms },
-    { platform: "meta", filename: "sample-meta-adsets.csv", csv: meta },
+    { platform: "google", filename: "sample-google-campaigns.csv", csv: inCur(google) },
+    { platform: "google", filename: "sample-google-search-terms.csv", csv: inCur(terms) },
+    { platform: "meta", filename: "sample-meta-adsets.csv", csv: inCur(meta) },
   ];
 }
 

@@ -43,6 +43,7 @@ export default async function AgentPage({ params }: { params: Promise<{ agent: s
                 website: ws.website,
                 industry: ws.industry,
                 location: ws.location,
+                country: ws.country,
                 audience: ws.audience,
                 offers: ws.offers,
                 competitors: ws.competitors,

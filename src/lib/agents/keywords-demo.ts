@@ -3,6 +3,7 @@
 
 import type { WorkspaceRow } from "../db";
 import type { Prescription } from "../ai";
+import { marketFor } from "../markets";
 
 // ---------- Shared types ----------
 
@@ -148,21 +149,33 @@ export function splitSeeds(raw: unknown): string[] {
   return out;
 }
 
-/** Maps a location to the country code used for web search localisation. */
-export function countryCode(location: string): string {
+/** Guesses a country code from free-text location. Null when nothing matches. */
+export function countryCode(location: string): string | null {
   const l = location.toLowerCase();
   const table: [RegExp, string][] = [
+    [/singapore/, "SG"],
     [/malaysia|kuala lumpur|johor|penang/, "MY"],
     [/australia|sydney|melbourne|brisbane|perth/, "AU"],
+    [/new zealand|auckland|wellington|christchurch/, "NZ"],
     [/hong kong/, "HK"],
     [/united kingdom|\buk\b|london|manchester/, "GB"],
     [/united states|\busa\b|new york|california/, "US"],
+    [/united arab emirates|\buae\b|dubai|abu dhabi/, "AE"],
     [/indonesia|jakarta|bali/, "ID"],
     [/philippines|manila/, "PH"],
     [/thailand|bangkok/, "TH"],
     [/vietnam|ho chi minh|hanoi/, "VN"],
   ];
-  return table.find(([re]) => re.test(l))?.[1] ?? "SG";
+  return table.find(([re]) => re.test(l))?.[1] ?? null;
+}
+
+/**
+ * Web search location for a workspace. The workspace's country is the source of truth; only a business
+ * set to "Anywhere else" falls back to a guess from its location text (or no location at all).
+ */
+export function searchCountryFor(country: string | null | undefined, location: string): string | null {
+  const m = marketFor(country);
+  return m.code === "INTL" ? countryCode(location) : m.searchCountry;
 }
 
 // ---------- Pasted data parsing ----------
@@ -599,7 +612,7 @@ export function sampleQuestions(input: KeywordsInput, ws: WorkspaceRow): AeoQues
   const other = input.seeds.map(cleanKeyword).find((s) => s && !related(s, main));
   const qs: AeoQuestion[] = [
     { question: `How much does ${main} cost in ${p.regionTitle}?`, answer_angle: `Give your actual price or range, what is included, and what changes the price. Start the answer with the number.`, where_to_answer: `${titleCase(main)} prices page`, format: "FAQ block" },
-    { question: `Where can I get ${main} near ${p.areaTitle}?`, answer_angle: `Your address, nearest MRT or landmark, opening hours and how to book, in two or three sentences.`, where_to_answer: `${titleCase(main)} service page`, format: "FAQ block" },
+    { question: `Where can I get ${main} near ${p.areaTitle}?`, answer_angle: `Your address, nearest ${marketFor(ws.country).code === "SG" ? "MRT" : "station"} or landmark, opening hours and how to book, in two or three sentences.`, where_to_answer: `${titleCase(main)} service page`, format: "FAQ block" },
     { question: `How do I choose a good ${main} provider in ${p.regionTitle}?`, answer_angle: `A short checklist: qualifications, reviews, clear pricing, consultation first. Show how you meet each point without claiming to be the best.`, where_to_answer: "Blog guide, linked from the service page", format: "how-to steps" },
     { question: `Is ${main} worth it?`, answer_angle: `Who it suits, who it does not, and what result to expect, in plain words. Honest answers get quoted more.`, where_to_answer: `${titleCase(main)} service page FAQ`, format: "FAQ block" },
     { question: `What should I expect at my first ${main} appointment?`, answer_angle: `Step by step from booking to aftercare or follow-up, with how long each step takes.`, where_to_answer: `${titleCase(main)} service page`, format: "how-to steps" },
@@ -613,8 +626,15 @@ export function sampleQuestions(input: KeywordsInput, ws: WorkspaceRow): AeoQues
   return qs;
 }
 
+/** "WhatsApp button" or the market's equivalent. */
+function chatButton(country: string): string {
+  const m = marketFor(country);
+  return m.messaging === "SMS" ? "tap-to-call button" : `${m.messaging} button`;
+}
+
 export function sampleBriefs(input: KeywordsInput, ws: WorkspaceRow): ContentBrief[] {
   const p = place(input.location);
+  const market = marketFor(ws.country);
   const seeds = input.expand ? [coreKeyword(cleanKeyword(input.expand), p)] : input.seeds.map(cleanKeyword).filter(Boolean);
   const main = seeds[0] || cleanKeyword(ws.industry) || "service";
   const M = titleCase(main);
@@ -633,7 +653,7 @@ export function sampleBriefs(input: KeywordsInput, ws: WorkspaceRow): ContentBri
         `Why people choose ${ws.name}: qualifications, experience, real reviews`,
         "Who it suits and who it does not",
         "FAQ: 5 or 6 questions from the AI search table, marked up with FAQPage schema",
-        "Location, opening hours, map and WhatsApp button",
+        `Location, opening hours, map and ${chatButton(ws.country)}`,
       ],
       must_include: [`"${main} ${p.area}" in the title, H1 and first paragraph`, "A visible 'Last updated' date", "Real photos of your premises and team", "LocalBusiness schema with address and opening hours", ...reg],
       internal_links: ["Homepage (link to this page using the service name)", `${M} prices page`, "Contact or booking page"],
@@ -643,7 +663,7 @@ export function sampleBriefs(input: KeywordsInput, ws: WorkspaceRow): ContentBri
       slug: `/${slugify(main)}-price`,
       h1: `How much does ${main} cost in ${p.regionTitle}?`,
       outline: [
-        "Answer first: your price or range in SGD, in the first sentence",
+        `Answer first: your price or range in ${market.code === "INTL" ? "your currency" : market.currency}, in the first sentence`,
         "What is included and what costs extra",
         "What changes the price (sessions, area, add-ons)",
         "Packages or payment options, if you offer them",
@@ -699,7 +719,7 @@ export function samplePrescriptions(input: KeywordsInput, ws: WorkspaceRow, data
       steps: [
         "Make one page per service from the clusters above, using the suggested URL.",
         "Use the primary keyword (first chip in each cluster) in the title tag, H1 and first paragraph.",
-        "Add price or price range, how it works, reviews and a WhatsApp button.",
+        `Add price or price range, how it works, reviews and a ${chatButton(ws.country)}.`,
         "Link each service page from your homepage and main menu.",
       ],
       where: "Website > Pages",

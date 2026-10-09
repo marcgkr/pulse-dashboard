@@ -5,6 +5,7 @@ import { ShieldCheck } from "lucide-react";
 import { Button, Field, Input, Select, Textarea } from "../ui";
 import { FormError, useRunAgent } from "../run-agent";
 import type { FormProps } from "./types";
+import { marketFor } from "@/lib/markets";
 
 const CHANNELS = ["Meta ad", "Google ad", "Instagram post", "TikTok", "Website", "Other"];
 const CATEGORIES = [
@@ -40,6 +41,8 @@ export function ComplianceForm({ profile, lastInput }: FormProps) {
   );
   const { start, pending, error } = useRunAgent("compliance");
   const empty = !text.trim() && !url.trim();
+  const market = marketFor(profile.country);
+  const bestOf = market.code === "SG" ? "Singapore's" : market.code === "INTL" ? "The" : `${market.exampleArea}'s`;
 
   return (
     <form
@@ -54,11 +57,11 @@ export function ComplianceForm({ profile, lastInput }: FormProps) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={7}
-          placeholder="e.g. Singapore's best Hydrafacial. Book your free trial today!"
+          placeholder={`e.g. ${bestOf} best Hydrafacial. Book your free trial today!`}
         />
       </Field>
       <Field label="Or a page URL" hint="Optional. We read the text on the page and check that too.">
-        <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="yourbusiness.com.sg/promo" />
+        <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={market.code === "SG" ? "yourbusiness.com.sg/promo" : "yourbusiness.com/promo"} />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Where it will run">
