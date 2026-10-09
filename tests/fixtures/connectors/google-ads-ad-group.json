@@ -1,0 +1,28 @@
+[
+  {
+    "results": [
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/2011", "name": "Search - Brand" },
+        "adGroup": { "resourceName": "customers/1234567890/adGroups/3011", "name": "Brand", "status": "ENABLED" },
+        "metrics": { "clicks": "498", "conversions": 41.0, "conversionsValue": 0.0, "costMicros": "189240000", "impressions": "2140", "searchImpressionShare": 0.882 }
+      },
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/2012", "name": "Search - Hydrafacial" },
+        "adGroup": { "resourceName": "customers/1234567890/adGroups/3012", "name": "Core", "status": "ENABLED" },
+        "metrics": { "clicks": "912", "conversions": 80.0, "conversionsValue": 0.0, "costMicros": "2190080000", "impressions": "18420", "searchImpressionShare": 0.346 }
+      },
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/2013", "name": "Search - Hydrafacial Price" },
+        "adGroup": { "resourceName": "customers/1234567890/adGroups/3013", "name": "Price", "status": "ENABLED" },
+        "metrics": { "clicks": "401", "conversions": 9.0, "conversionsValue": 0.0, "costMicros": "1251120000", "impressions": "9880", "searchImpressionShare": 0.411 }
+      },
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/2014", "name": "Search - Competitors" },
+        "adGroup": { "resourceName": "customers/1234567890/adGroups/3014", "name": "Competitor names", "status": "PAUSED" },
+        "metrics": { "clicks": "122", "conversions": 0.0, "conversionsValue": 0.0, "costMicros": "494100000", "impressions": "6310", "searchImpressionShare": 0.0999 }
+      }
+    ],
+    "fieldMask": "campaign.name,adGroup.name,adGroup.status,metrics.costMicros,metrics.impressions,metrics.clicks,metrics.conversions,metrics.conversionsValue,metrics.searchImpressionShare",
+    "requestId": "Lr2Xw9Pq5Tn1Vb8Mc3kZaw"
+  }
+]

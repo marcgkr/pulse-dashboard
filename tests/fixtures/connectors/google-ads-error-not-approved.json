@@ -1,0 +1,19 @@
+{
+  "error": {
+    "code": 403,
+    "message": "The caller does not have permission",
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.ads.googleads.v22.errors.GoogleAdsFailure",
+        "errors": [
+          {
+            "errorCode": { "authorizationError": "DEVELOPER_TOKEN_NOT_APPROVED" },
+            "message": "The developer token is only approved for use with test accounts. To access non-test accounts, apply for Basic or Standard access."
+          }
+        ],
+        "requestId": "Zx9Kc4Vq1Lm7Rt2Pn5bWaw"
+      }
+    ]
+  }
+}

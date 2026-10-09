@@ -61,6 +61,15 @@ export function ConnectionCard({ c, lastSync, livePlan }: { c: ClientConnection;
         <p className="mt-4 rounded-2xl bg-paper px-4 py-3 text-sm text-ink-2">This connection isn&apos;t switched on yet. Upload your exports instead.</p>
       ) : (
         <>
+          {!c.connected && (
+            <p className="mt-4 text-sm text-ink-2">
+              {c.provider === "google" && !c.adsReady
+                ? "Google Ads isn't switched on yet, so this connects Search Console only. "
+                : ""}
+              Read-only: we see your performance numbers and never change anything. Disconnect any time.
+            </p>
+          )}
+
           {c.connected && (
             <div className="mt-4 space-y-0.5 text-sm text-ink-2">
               {c.externalUser && (

@@ -132,7 +132,10 @@ export function authorizeUrl(p: Provider, state: string, challenge: string): str
   u.searchParams.set("client_id", env("META_APP_ID"));
   u.searchParams.set("redirect_uri", redirectUri(p));
   u.searchParams.set("response_type", "code");
-  u.searchParams.set("scope", metaScopes().join(","));
+  // Facebook Login for Business apps pick permissions with a login configuration instead of scope.
+  const configId = env("META_LOGIN_CONFIG_ID");
+  if (configId) u.searchParams.set("config_id", configId);
+  else u.searchParams.set("scope", metaScopes().join(","));
   u.searchParams.set("state", state);
   u.searchParams.set("code_challenge", challenge);
   u.searchParams.set("code_challenge_method", "S256");

@@ -26,7 +26,7 @@ export async function fetchWindsor(apiKey: string, days: number): Promise<{ rows
       url.searchParams.set("date_preset", `last_${days}d`);
       url.searchParams.set("fields", WINDSOR_FIELDS[connector]);
       const res = await fetch(url, { signal: AbortSignal.timeout(30_000), headers: { accept: "application/json" } });
-      // Supplier responses can name the supplier, so owners only ever see a generic message.
+      // Supplier responses can name the supplier, so owners only ever see our own wording.
       if (!res.ok) throw new Error(res.status === 401 || res.status === 403 ? "This live sync connection was refused. Connect the account again in Settings > Connected accounts." : "Live sync couldn't read this account right now.");
       const json = (await res.json()) as { data?: Record<string, unknown>[]; error?: unknown };
       if (!Array.isArray(json.data)) throw new Error("Live sync couldn't read this account right now.");

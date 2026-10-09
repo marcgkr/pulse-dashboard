@@ -1,0 +1,26 @@
+[
+  {
+    "results": [
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/2012", "name": "Search - Hydrafacial" },
+        "adGroup": { "resourceName": "customers/1234567890/adGroups/3012", "name": "Core" },
+        "adGroupCriterion": { "resourceName": "customers/1234567890/adGroupCriteria/3012~4001", "status": "ENABLED", "keyword": { "text": "hydrafacial singapore", "matchType": "PHRASE" } },
+        "metrics": { "clicks": "530", "conversions": 52.0, "conversionsValue": 0.0, "costMicros": "1205400000", "impressions": "9120", "searchImpressionShare": 0.41 }
+      },
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/2012", "name": "Search - Hydrafacial" },
+        "adGroup": { "resourceName": "customers/1234567890/adGroups/3012", "name": "Core" },
+        "adGroupCriterion": { "resourceName": "customers/1234567890/adGroupCriteria/3012~4002", "status": "ENABLED", "keyword": { "text": "facial treatment", "matchType": "BROAD" } },
+        "metrics": { "clicks": "382", "conversions": 28.0, "conversionsValue": 0.0, "costMicros": "984680000", "impressions": "9300", "searchImpressionShare": 0.27 }
+      },
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/2011", "name": "Search - Brand" },
+        "adGroup": { "resourceName": "customers/1234567890/adGroups/3011", "name": "Brand" },
+        "adGroupCriterion": { "resourceName": "customers/1234567890/adGroupCriteria/3011~4003", "status": "ENABLED", "keyword": { "text": "glow aesthetics", "matchType": "EXACT" } },
+        "metrics": { "clicks": "498", "conversions": 41.0, "conversionsValue": 0.0, "costMicros": "189240000", "impressions": "2140", "searchImpressionShare": 0.882 }
+      }
+    ],
+    "fieldMask": "campaign.name,adGroup.name,adGroupCriterion.keyword.text,adGroupCriterion.keyword.matchType,adGroupCriterion.status,metrics.costMicros,metrics.impressions,metrics.clicks,metrics.conversions,metrics.conversionsValue,metrics.searchImpressionShare",
+    "requestId": "Pn7Rk2Wq9Xv4Lt1Bm8cZsw"
+  }
+]

@@ -1,0 +1,34 @@
+[
+  {
+    "results": [
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/2011", "name": "Search - Brand", "status": "ENABLED" },
+        "metrics": { "clicks": "498", "conversions": 41.0, "conversionsValue": 0.0, "costMicros": "189240000", "impressions": "2140", "searchImpressionShare": 0.882 }
+      },
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/2012", "name": "Search - Hydrafacial", "status": "ENABLED" },
+        "metrics": { "clicks": "912", "conversions": 80.0, "conversionsValue": 0.0, "costMicros": "2190080000", "impressions": "18420", "searchImpressionShare": 0.346 }
+      }
+    ],
+    "fieldMask": "campaign.name,campaign.status,metrics.costMicros,metrics.impressions,metrics.clicks,metrics.conversions,metrics.conversionsValue,metrics.searchImpressionShare",
+    "requestId": "Qz4mVx7Lp1Rt8Nb2Kc0yHw"
+  },
+  {
+    "results": [
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/2013", "name": "Search - Hydrafacial Price", "status": "ENABLED" },
+        "metrics": { "clicks": "401", "conversions": 9.0, "conversionsValue": 0.0, "costMicros": "1251120000", "impressions": "9880", "searchImpressionShare": 0.411 }
+      },
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/2014", "name": "Search - Competitors", "status": "PAUSED" },
+        "metrics": { "clicks": "122", "conversions": 0.0, "conversionsValue": 0.0, "costMicros": "494100000", "impressions": "6310", "searchImpressionShare": 0.0999 }
+      },
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/2015", "name": "Performance Max - All", "status": "ENABLED" },
+        "metrics": { "clicks": "605", "conversions": 14.0, "conversionsValue": 0.0, "costMicros": "1034550000", "impressions": "48900" }
+      }
+    ],
+    "fieldMask": "campaign.name,campaign.status,metrics.costMicros,metrics.impressions,metrics.clicks,metrics.conversions,metrics.conversionsValue,metrics.searchImpressionShare",
+    "requestId": "Qz4mVx7Lp1Rt8Nb2Kc0yHw"
+  }
+]

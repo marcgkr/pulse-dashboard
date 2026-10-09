@@ -1,0 +1,7 @@
+{
+  "siteEntry": [
+    { "siteUrl": "https://www.glowaesthetics.sg/", "permissionLevel": "siteFullUser" },
+    { "siteUrl": "sc-domain:glowaesthetics.sg", "permissionLevel": "siteOwner" },
+    { "siteUrl": "https://old-domain.example/", "permissionLevel": "siteUnverifiedUser" }
+  ]
+}

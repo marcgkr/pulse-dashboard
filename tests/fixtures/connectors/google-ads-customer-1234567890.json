@@ -1,0 +1,18 @@
+[
+  {
+    "results": [
+      {
+        "customer": {
+          "resourceName": "customers/1234567890",
+          "id": "1234567890",
+          "descriptiveName": "Glow Aesthetics SG",
+          "currencyCode": "SGD",
+          "manager": false,
+          "testAccount": false
+        }
+      }
+    ],
+    "fieldMask": "customer.id,customer.descriptiveName,customer.currencyCode,customer.manager,customer.testAccount",
+    "requestId": "fR3kA9qLx2Vb7mN1cT0yZw"
+  }
+]

@@ -1,0 +1,7 @@
+{
+  "access_token": "ya29.a0AfB_byRecordedRefreshedAccessToken0000000000",
+  "expires_in": 3599,
+  "scope": "https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/adwords openid https://www.googleapis.com/auth/userinfo.email",
+  "token_type": "Bearer",
+  "id_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Im93bmVyQGdsb3dhZXN0aGV0aWNzLnNnIiwiaXNzIjoiaHR0cHM6Ly9hY2NvdW50cy5nb29nbGUuY29tIn0.c2lnbmF0dXJl"
+}

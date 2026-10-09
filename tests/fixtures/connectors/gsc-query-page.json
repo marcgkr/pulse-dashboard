@@ -1,0 +1,9 @@
+{
+  "rows": [
+    { "keys": ["hydrafacial singapore", "https://www.glowaesthetics.sg/treatments/hydrafacial"], "clicks": 33, "impressions": 2010, "ctr": 0.01641791044776119, "position": 6.9 },
+    { "keys": ["hydrafacial singapore", "https://www.glowaesthetics.sg/"], "clicks": 5, "impressions": 400, "ctr": 0.0125, "position": 9.1 },
+    { "keys": ["pico laser tampines", "https://www.glowaesthetics.sg/treatments/pico-laser"], "clicks": 14, "impressions": 520, "ctr": 0.026923076923076925, "position": 5.9 },
+    { "keys": ["hydrafacial price singapore", "https://www.glowaesthetics.sg/prices"], "clicks": 9, "impressions": 1180, "ctr": 0.007627118644067797, "position": 11.62 }
+  ],
+  "responseAggregationType": "byPage"
+}

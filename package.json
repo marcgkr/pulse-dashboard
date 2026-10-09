@@ -9,7 +9,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
-    "test:live": "ANTHROPIC_API_KEY=test ANTHROPIC_BASE_URL=http://127.0.0.1:4600 PULSERX_ALLOW_PRIVATE=1 NO_PROXY='*' DATABASE_PATH=data/live-test.db tsx tests/live-paths.test.ts"
+    "test:live": "ANTHROPIC_API_KEY=test ANTHROPIC_BASE_URL=http://127.0.0.1:4600 PULSERX_ALLOW_PRIVATE=1 NO_PROXY='*' DATABASE_PATH=data/live-test.db tsx tests/live-paths.test.ts",
+    "test:connectors": "NO_PROXY='*' DATABASE_PATH=data/connectors-test.db tsx tests/connectors.test.ts"
   },
   "engines": {
     "node": ">=20"

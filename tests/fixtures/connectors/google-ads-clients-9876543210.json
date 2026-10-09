@@ -1,0 +1,52 @@
+[
+  {
+    "results": [
+      {
+        "customerClient": {
+          "resourceName": "customers/9876543210/customerClients/9876543210",
+          "id": "9876543210",
+          "descriptiveName": "Glow Group (manager)",
+          "currencyCode": "SGD",
+          "manager": true,
+          "level": "0",
+          "status": "ENABLED"
+        }
+      },
+      {
+        "customerClient": {
+          "resourceName": "customers/9876543210/customerClients/5550001111",
+          "id": "5550001111",
+          "descriptiveName": "Glow Aesthetics Tampines",
+          "currencyCode": "SGD",
+          "manager": false,
+          "level": "1",
+          "status": "ENABLED"
+        }
+      },
+      {
+        "customerClient": {
+          "resourceName": "customers/9876543210/customerClients/5550002222",
+          "id": "5550002222",
+          "descriptiveName": "Closed test account",
+          "currencyCode": "SGD",
+          "manager": false,
+          "level": "1",
+          "status": "CANCELED"
+        }
+      },
+      {
+        "customerClient": {
+          "resourceName": "customers/9876543210/customerClients/1234567890",
+          "id": "1234567890",
+          "descriptiveName": "Glow Aesthetics SG",
+          "currencyCode": "SGD",
+          "manager": false,
+          "level": "1",
+          "status": "ENABLED"
+        }
+      }
+    ],
+    "fieldMask": "customerClient.id,customerClient.descriptiveName,customerClient.currencyCode,customerClient.manager,customerClient.level,customerClient.status",
+    "requestId": "b7TgQ2mVn8Lp0Xz4cRk1Ys"
+  }
+]

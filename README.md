@@ -8,12 +8,13 @@ A do-it-yourself AI marketing suite by PULSE Digital. Business owners get a chec
 | --- | --- |
 | Chart (dashboard) | Pulse Score (website, AI visibility, ads health, fixes done), score trend, next prescriptions, specialists |
 | Site Doctor | Crawls the homepage + up to 6 inner pages. 25 checks across technical, on-page, conversion, tracking and AI search. Platform-aware fix steps (WordPress, Shopify, Wix, Squarespace, Webflow). Rewrites title/meta/H1 and drafts FAQs |
-| Keyword Lab | SEO keyword clusters, AEO questions, content briefs, quick wins from pasted Search Console data. Every keyword can be expanded into a deeper drill-down |
+| Keyword Lab | SEO keyword clusters, AEO questions, content briefs, quick wins from the connected Search Console (last 90 days) or pasted exports. Every keyword can be expanded into a deeper drill-down |
 | AI Visibility | Asks AI-assistant-style questions with live web search, checks whether the business is named or cited, share of voice vs competitors, which sources AI pulls from |
 | Content Studio | Trend research, content pillars, ready-to-post ideas (hook, script, caption, hashtags), 2-week calendar, "more like this" |
-| Ads Doctor | Google Ads and Meta Ads from CSV exports or Windsor.ai sync. Computes CPA/CTR/frequency flags against the account's own averages, wasted search terms, pause/scale lists, RSA headline ideas |
+| Ads Doctor | Google Ads and Meta Ads from CSV exports or live read-only sync from the owner's connected accounts. Computes CPA/CTR/frequency flags against the account's own averages, wasted search terms, pause/scale lists, RSA headline ideas |
 | Compliance Check | Pre-checks ad copy and landing pages against SG healthcare advertising rules, ASAS, Meta and Google ad policies, with compliant rewrites |
 | Ask PULSE | Streaming strategist chat that has read the profile, latest reports and open prescriptions |
+| Connected accounts | `/app/settings/connections`: owners connect Google (Google Ads + Search Console) and Meta (Facebook and Instagram ads) with one click, pick which accounts we read, disconnect any time |
 | Prescriptions board | Every recommendation as a task: open / done / not relevant, filter by specialist, "Rather have PULSE do it?" upsell on every card |
 | Admin (`/admin`) | All businesses, plans, usage, list-price MRR, manual plan override for comped clients |
 | Billing | Stripe Checkout + customer portal + webhook (optional; without Stripe the plan page shows a contact email) |
@@ -41,11 +42,71 @@ See `.env.example`. The important ones:
 
 Plans and prices live in `src/lib/config.ts`. The brand name, domain and the done-for-you WhatsApp link are there too.
 
+## Connecting Google and Meta
+
+Owners connect their own Google and Meta logins in **Settings > Connected accounts** (`/app/settings/connections`). Ads Doctor then reads Google Ads and Meta Ads performance for the last 7, 14, 30 or 90 days (Growth and Pro plans), and Keyword Lab reads the last 90 days of Search Console queries. Everything is read-only; the owner makes every change themselves. Tokens are stored encrypted (AES-256-GCM with `ENCRYPTION_KEY`) and never reach the browser or the logs.
+
+Until a provider's env vars are set, its card says "This connection isn't switched on yet. Upload your exports instead." and everything else keeps working. **The approvals below take time (days to weeks)**, so start them early. Until they come through:
+
+- Google: while the OAuth consent screen is in Testing, only the test users you list can connect, and Google expires their refresh tokens after 7 days (they click Reconnect). Without an approved Google Ads developer token, only Google Ads *test* accounts can be read; real accounts show "Google hasn't approved live Google Ads access for this app yet" on the report. Leave `GOOGLE_ADS_DEVELOPER_TOKEN` empty and Google connects for Search Console only.
+- Meta: until `ads_read` has Advanced Access through App Review, only people with a role on the Meta app (admins, developers, testers) can connect.
+
+### 1. Encryption key and URL
+
+```bash
+openssl rand -base64 32   # put the output in ENCRYPTION_KEY
+```
+
+Set `APP_URL` to the exact public URL (for example `https://marketingrx.ai`, no trailing slash). The redirect URIs are built from it:
+
+- Google: `https://marketingrx.ai/api/connect/google/callback`
+- Meta: `https://marketingrx.ai/api/connect/meta/callback`
+
+For local testing also register `http://localhost:3000/api/connect/google/callback` and `http://localhost:3000/api/connect/meta/callback`, with `APP_URL=http://localhost:3000`. Open the app on exactly that host, or the sign-in check (state cookie) fails. Don't change `ENCRYPTION_KEY` once owners have connected: stored tokens become unreadable and everyone has to reconnect.
+
+### 2. Google (Google Ads + Search Console)
+
+1. In [Google Cloud Console](https://console.cloud.google.com/) create a project (for example "MarketingRx").
+2. **APIs & Services > Library**: enable **Google Ads API** and **Google Search Console API**.
+3. **OAuth consent screen** (Google Auth Platform): user type External; app name MarketingRx; support email; app domain and authorised domain `marketingrx.ai`; privacy policy `https://marketingrx.ai/privacy`; terms `https://marketingrx.ai/terms`.
+   - Scopes (Data access): `openid`, `email`, `https://www.googleapis.com/auth/adwords`, `https://www.googleapis.com/auth/webmasters.readonly`. Google Ads has no read-only scope; the app only ever reads.
+   - Audience: while in Testing, add each owner who should be able to connect as a test user (up to 100).
+   - To open it to everyone, publish the app and submit it for verification. Google reviews apps that ask for these scopes (privacy policy, a short video of the connect flow, domain ownership in Search Console). Plan for days to weeks.
+4. **Credentials > Create credentials > OAuth client ID**, type **Web application**. Add the redirect URIs above under **Authorised redirect URIs**. Copy the client ID and secret into `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET`.
+5. **Google Ads developer token**: sign in to a Google Ads **manager account** (create one at ads.google.com/home/tools/manager-accounts if PULSE doesn't have one), open **Admin > API Center**, complete the form and accept the terms. The token starts at Test Account Access. Apply for **Basic Access** from the same page (describe MarketingRx as a read-only reporting tool for the business owners who connect their own accounts). Put the token in `GOOGLE_ADS_DEVELOPER_TOKEN` once Basic Access is approved; until then leave it empty (Search Console only) or use it with test accounts.
+6. `GOOGLE_ADS_LOGIN_CUSTOMER_ID` is normally left empty: when an owner reaches an ad account through their own manager account, the app records that manager and sends it automatically.
+7. `GOOGLE_ADS_API_VERSION` defaults to `v22`. Google retires each version about a year after release; check the [sunset dates](https://developers.google.com/google-ads/api/docs/sunset-dates) and set the newest version here when `v22` nears its date. Queries use plain GAQL over REST (`googleAds:searchStream`), so a version bump rarely needs code changes.
+
+What we read: accessible customers (`customers:listAccessibleCustomers`), each account's name and currency, and campaign, ad group, keyword and search term cost, impressions, clicks, conversions, conversion value and search impression share; from Search Console, the property list and the top 1,000 queries (plus query and page) for the last 90 days.
+
+### 3. Meta (Facebook and Instagram ads)
+
+1. In [Meta for Developers](https://developers.facebook.com/apps) create an app of type **Business** and connect it to PULSE Digital's business portfolio.
+2. **App settings > Basic**: app domain `marketingrx.ai`, privacy policy URL, terms URL, data deletion instructions URL, category, icon. Copy the App ID and App secret into `META_APP_ID` and `META_APP_SECRET`.
+3. Add **Facebook Login for Business**. Under its **Settings**, add the Meta redirect URI above to **Valid OAuth Redirect URIs** and keep **Use Strict Mode for redirect URIs** on.
+   - Recommended: create a **Configuration** (login variation: General; token type: User access token; permission: `ads_read`) and put its ID in `META_LOGIN_CONFIG_ID`. Without it the app sends `scope=ads_read`, which classic Facebook Login uses.
+4. Add the **Marketing API** product. `ads_read` works straight away for people with a role on the app (**App roles > Roles**: add owners you want to test with as Testers).
+5. **App Review > Permissions and features**: request **Advanced Access** for `ads_read` (screencast of connecting and an Ads Doctor report, plus how the data is used). Meta also asks for **Business Verification** of PULSE Digital. Plan for days to weeks. When approved, switch the app to **Live** mode.
+6. Optional: `META_BUSINESS_ACCOUNTS=1` also asks for `business_management` so ad accounts owned by an owner's business portfolio are listed even if they aren't assigned to them personally. That permission needs its own App Review; without it, `ads_read` lists the ad accounts the person has a role on, which covers most small businesses.
+7. `META_GRAPH_VERSION` defaults to `v23.0` (Meta supports each version for about two years). Set a newer one when Meta announces the end of v23.0.
+
+Meta user tokens last about 60 days. When one expires, the card says "Reconnect needed" and the owner clicks Reconnect.
+
+What we read: the ad account list (`/me/adaccounts`: name, id, currency, status) and campaign, ad set and ad insights for the chosen period (spend, impressions, reach, frequency, clicks, link clicks, actions, action values). Leads, purchases and messaging conversations count as conversions, the same three result types the CSV path counts.
+
+### 4. How it fits together
+
+- `src/lib/connectors/oauth.ts` provider settings, PKCE, the sealed state cookie, code exchange, Google refresh, revoke. `store.ts` encrypted tokens and account choices (every query scoped to the workspace). `google-ads.ts`, `meta.ts`, `search-console.ts` fetch and map to the same `AdRow` / `DataRow` shapes the CSV parsers produce, so the analysis code is shared.
+- Routes: `GET /api/connect/[provider]/start`, `GET /api/connect/[provider]/callback`, `POST /api/connect/accounts`, `POST /api/connect/[provider]/disconnect` (also revokes access with the provider, best effort).
+- If one provider or account fails during an Ads Doctor run, the report still uses the others and names the one that failed.
+- Workspaces that saved a key for the previous sync supplier keep syncing through it while `WINDSOR_API_KEY` is set and they haven't connected Google or Meta. Customers never see the supplier's name. Remove the variable to switch the fallback off.
+- `npm run test:connectors` checks the mapping against recorded API responses in `tests/fixtures/connectors`, plus encryption, OAuth state and PKCE. It can't reach Google or Meta, so connect one real account per provider after setup.
+
 ## Deploy (Railway)
 
 1. New project from this repo. Railway picks up `railway.json` and builds the `Dockerfile`.
 2. Add a volume mounted at `/data` (the image sets `DATABASE_PATH=/data/marketingrx.db`).
-3. Set `ANTHROPIC_API_KEY`, `ADMIN_SETUP_TOKEN`, `APP_URL=https://marketingrx.ai`, and Stripe keys if billing is on.
+3. Set `ANTHROPIC_API_KEY`, `ADMIN_SETUP_TOKEN`, `APP_URL=https://marketingrx.ai`, Stripe keys if billing is on, and `ENCRYPTION_KEY` plus the Google and Meta variables to switch on connected accounts.
 4. Point marketingrx.ai at the service under Settings > Networking > Custom domain.
 
 SQLite on one instance is fine for the first few hundred businesses. Agent runs execute in the web process; if you scale to multiple instances, move the database to Postgres and runs to a queue first.
@@ -56,6 +117,7 @@ SQLite on one instance is fine for the first few hundred businesses. Agent runs 
 npm run build
 npx playwright test     # signup, onboarding, Site Doctor on a local fixture site, prescriptions, chat, admin claim, auth and cross-site checks
 npm run test:live       # every specialist's live AI path against a local mock of the Claude API (tests/mock-anthropic)
+npm run test:connectors # Google Ads / Meta / Search Console mapping from recorded API responses, token encryption, OAuth state and PKCE
 ```
 
 `test:live` checks request shapes, response handling and report rendering. It can't prove answer quality, so run one real checkup per specialist after adding the API key.
