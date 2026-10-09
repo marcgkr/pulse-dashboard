@@ -115,6 +115,7 @@ h3 {
   animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
+@layer components {
 /* A pill box: a specialist's colour-blocked card. Lifts slightly on hover. */
 .pillbox {
   border-radius: var(--radius-box);
@@ -127,6 +128,7 @@ a.pillbox:hover,
 button.pillbox:hover {
   transform: translateY(-3px) rotate(-0.4deg);
   box-shadow: var(--shadow-lift);
+}
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -68,8 +68,8 @@ export async function POST(req: Request) {
   // Optional: the country picked on the public site. Echoed back; the checkup itself is the same everywhere.
   const countryParam = typeof body?.country === "string" ? body.country.trim().toUpperCase() : "";
   const country = countryParam && marketFor(countryParam).code === countryParam ? countryParam : null;
-  if (!raw) return NextResponse.json({ error: "Enter your website address, for example yourclinic.sg." }, { status: 400 });
-  if (raw.length > 300) return NextResponse.json({ error: "That address is too long. Enter just your homepage, like yourclinic.sg." }, { status: 400 });
+  if (!raw) return NextResponse.json({ error: "Enter your website address, for example yourbusiness.com." }, { status: 400 });
+  if (raw.length > 300) return NextResponse.json({ error: "That address is too long. Enter just your homepage, like yourbusiness.com." }, { status: 400 });
 
   let url: string;
   try {
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const audit = await withTimeout((signal) => auditSite(url, { maxPages: 3, signal, market: String((body as { country?: unknown } | null)?.country ?? "") || null }), TIMEOUT_MS);
+    const audit = await withTimeout((signal) => auditSite(url, { maxPages: 3, signal, market: country }), TIMEOUT_MS);
     const topIssues: Check[] = audit.checks
       .filter((c) => c.status !== "pass")
       .sort((a, b) => b.weight - a.weight || statusRank[a.status] - statusRank[b.status])

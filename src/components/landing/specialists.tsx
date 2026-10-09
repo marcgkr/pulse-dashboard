@@ -117,7 +117,9 @@ export function SpecialistShelf({ market }: { market: Market }) {
             A chat that has read your profile, your reports and your board. Ask what to do first this week, why a fix matters, or how to do a step on your setup.
           </p>
         </div>
-        <RxTag light className="hidden md:inline-flex" />
+        <span className="hidden md:block">
+          <RxTag light />
+        </span>
       </div>
     </div>
   );

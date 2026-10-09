@@ -130,7 +130,7 @@ export function Checkup({ intro, market }: { intro: ReactNode; market: Market })
             <div
               className={cx(
                 "flex items-center gap-2 rounded-full bg-card p-1.5 shadow-[var(--shadow-lift)] ring-1 transition focus-within:ring-4 motion-reduce:transition-none",
-                phase === "error" ? "ring-pulse/50 focus-within:ring-pulse/25" : "ring-ink/5 focus-within:ring-scrub/25",
+                phase === "error" ? "ring-pulse/50 focus-within:ring-pulse/40" : "ring-ink/5 focus-within:ring-scrub/45",
               )}
             >
               <input
@@ -147,7 +147,7 @@ export function Checkup({ intro, market }: { intro: ReactNode; market: Market })
                 onChange={(e) => setUrl(e.target.value)}
                 aria-invalid={phase === "error" || undefined}
                 aria-describedby={phase === "error" ? "checkup-error" : "checkup-hint"}
-                className="h-12 min-w-0 flex-1 rounded-full bg-transparent pl-4 text-[16px] text-ink placeholder:text-ink-3/70 focus:outline-none md:h-14 md:pl-6 md:text-lg"
+                className="h-12 min-w-0 flex-1 rounded-full bg-transparent pl-4 text-[16px] text-ink placeholder:text-ink-3/70 focus:outline-none focus-visible:outline-none! md:h-14 md:pl-6 md:text-lg"
               />
               <button
                 type="submit"

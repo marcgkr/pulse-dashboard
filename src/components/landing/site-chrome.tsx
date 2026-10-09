@@ -24,9 +24,11 @@ export function SiteNav({ market }: { market: Market }) {
           <Link href="/login" className="rounded-full px-3 py-2 text-sm font-semibold text-ink-2 transition hover:bg-card hover:text-ink">
             Log in
           </Link>
-          <ButtonLink href={signupHref(market)} className="hidden px-4 sm:inline-flex">
-            Start free
-          </ButtonLink>
+          <span className="hidden sm:inline-flex">
+            <ButtonLink href={signupHref(market)} className="px-4">
+              Start free
+            </ButtonLink>
+          </span>
         </div>
       </nav>
     </header>

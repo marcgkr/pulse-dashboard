@@ -214,13 +214,13 @@ export default async function LandingPage() {
               market={market}
               intro={
                 <div className="xl:flex xl:items-start xl:justify-between xl:gap-10">
-                <div>
+                <div className="xl:min-w-0 xl:flex-1">
                   <p className="rise inline-flex rounded-full bg-white/75 px-4 py-1.5 text-sm font-semibold text-scrub-dark ring-1 ring-scrub/10">
                     For business owners in {market.inPhrase}
                   </p>
                   <h1
                     id="hero-title"
-                    className="rise mt-5 font-display text-[2.6rem] font-extrabold leading-[0.92] tracking-[-0.035em] sm:text-6xl md:text-7xl lg:text-[5.5rem] xl:text-[6.25rem]"
+                    className="rise mt-5 font-display text-[2.6rem] font-extrabold leading-[0.92] tracking-[-0.035em] sm:text-6xl md:text-7xl lg:text-[5.5rem] xl:text-[5.1rem] 2xl:text-[5.75rem]"
                     style={{ animationDelay: "80ms" }}
                   >
                     Your marketing, diagnosed. The fixes, <span className="text-scrub">prescribed.</span>
@@ -252,7 +252,7 @@ export default async function LandingPage() {
           <div className="mx-auto max-w-[90rem] rounded-[2rem] bg-card px-4 py-16 shadow-[var(--shadow-box)] md:rounded-[2.75rem] md:px-8 md:py-24">
             <div className="mx-auto max-w-7xl">
               <SectionHead id="sample-title" title="What a prescription looks like.">
-                Three slips from the board of Lumen Aesthetics, a made-up clinic in {market.exampleArea}. Each arrives in its specialist&apos;s colour. Open one to see
+                Three slips from the board of Lumen Aesthetics, a made-up clinic in {market.exampleArea}. Each carries its specialist&apos;s colour. Open one to see
                 the steps.
               </SectionHead>
               <div className="grid items-start gap-5 lg:grid-cols-3">

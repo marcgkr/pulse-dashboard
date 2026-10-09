@@ -121,7 +121,7 @@ function CellMark({ value }: { value: Cell }) {
       </span>
     );
   if (value === false) return <Minus size={16} className="text-ink-3/50" aria-label="Not included" />;
-  return <span className="font-mono text-sm font-semibold tabular-nums text-ink">{value}</span>;
+  return <span className={cx("text-sm font-semibold text-ink", /^\d+$/.test(value) && "font-mono tabular-nums")}>{value}</span>;
 }
 
 function priceLabel(m: Market, n: number) {
