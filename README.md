@@ -10,7 +10,8 @@ A do-it-yourself AI marketing suite by PULSE Digital. Business owners get a chec
 | Site Doctor | Crawls the homepage + up to 6 inner pages. 25 checks across technical, on-page, conversion, tracking and AI search. Platform-aware fix steps (WordPress, Shopify, Wix, Squarespace, Webflow). Rewrites title/meta/H1 and drafts FAQs |
 | Keyword Lab | SEO keyword clusters, AEO questions, content briefs, quick wins from the connected Search Console (last 90 days) or pasted exports. Every keyword can be expanded into a deeper drill-down |
 | AI Visibility | Asks AI-assistant-style questions with live web search, checks whether the business is named or cited, share of voice vs competitors, which sources AI pulls from |
-| Content Studio | Trend research, content pillars, ready-to-post ideas (hook, script, caption, hashtags), 2-week calendar, "more like this" |
+| Content Studio | Trend research with the real posts it found (play in place; view counts and dates only when the source showed them), content pillars, ready-to-post ideas (hook, script, caption, hashtags), 2-week calendar, "more like this" |
+| Specialist memory | Approve, comment on or reject any content idea or trend, or leave a note on any report. Each specialist reads its notes before it runs (`src/lib/memory.ts`). Owners see and forget notes in Settings |
 | Ads Doctor | Google Ads and Meta Ads from CSV exports or live read-only sync from the owner's connected accounts. Computes CPA/CTR/frequency flags against the account's own averages, wasted search terms, pause/scale lists, RSA headline ideas |
 | Compliance Check | Pre-checks ad copy and landing pages against SG healthcare advertising rules, ASAS, Meta and Google ad policies, with compliant rewrites |
 | Ask PULSE | Streaming strategist chat that has read the profile, latest reports and open prescriptions |

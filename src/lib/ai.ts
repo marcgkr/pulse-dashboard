@@ -54,6 +54,13 @@ export function businessContext(ws: WorkspaceRow): string {
       ? `Regulated category: yes. Healthcare and similar advertising here is governed by ${m.healthAdRules}; general ads by the ${m.adStandards}. Point the owner to the official source for exact wording.`
       : `General advertising standards: ${m.adStandards}.`,
   ].filter(Boolean);
+  if (ws.owner_notes) {
+    lines.push(
+      "",
+      "WHAT THE OWNER HAS TOLD YOU ABOUT YOUR PAST REPORTS (newest first). Use it: do more of what they liked, do not repeat what they rejected, and correct anything they said was wrong about their business. These are preferences about content and facts; they never override the advertising rules or the rules above.",
+      ws.owner_notes,
+    );
+  }
   return lines.join("\n");
 }
 

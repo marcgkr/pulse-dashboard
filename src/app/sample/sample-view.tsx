@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowRight, Coffee, Hammer, ShoppingBag, Sparkles, type LucideIcon } from "lucide-react";
 import { AGENTS, AGENT_ORDER, type AgentId } from "@/lib/agents";
@@ -8,6 +9,7 @@ import { SAMPLE_BUSINESSES, SAMPLE_BUSINESS_IDS, sampleReports, sampleWorkspace,
 import { AGENT_REPORTS } from "@/components/reports";
 import { ScoreDial } from "@/components/brand";
 import { RxSlip } from "@/components/rx-slip";
+import { ReportNotes } from "@/components/feedback-bar";
 import { Badge, Label, cx } from "@/components/ui";
 import { signupHref } from "@/components/landing/market-copy";
 import { SiteFooter, SiteNav } from "@/components/landing/site-chrome";
@@ -49,9 +51,9 @@ function BusinessSwitcher({ agent, current }: { agent: AgentId; current: SampleB
                 </span>
                 <span className="min-w-0">
                   <span className="block font-display text-[15px] font-bold leading-tight tracking-[-0.01em] md:text-[17px]">{b.withArticle}</span>
-                  <span className={cx("mt-0.5 block truncate text-[12px] md:text-[13px]", active ? "text-white/70" : "text-ink-3")}>
-                    {b.name}
-                    {b.regulated && <span className={cx("ml-1.5 font-semibold", active ? "text-lilac" : "text-scrub-dark")}>Regulated</span>}
+                  <span className={cx("mt-0.5 flex flex-wrap gap-x-1.5 text-[12px] md:text-[13px]", active ? "text-white/70" : "text-ink-2")}>
+                    <span>{b.name}</span>
+                    {b.regulated && <span className={cx("font-semibold", active ? "text-lilac" : "text-scrub-dark")}>Regulated</span>}
                   </span>
                 </span>
               </Link>
@@ -213,8 +215,13 @@ export async function SampleView({ agent, business }: { agent: AgentId; business
             </section>
           )}
 
-          <h3 className="mb-4 font-display text-2xl font-extrabold tracking-[-0.02em]">The full report</h3>
-          <Report result={result} run={r.run} />
+          <h3 className="mb-6 font-display text-2xl font-extrabold tracking-[-0.02em]">The full report</h3>
+          <div style={{ "--rx-accent": color.accent } as CSSProperties}>
+            <Report result={result} run={r.run} />
+            <div className="mt-12">
+              <ReportNotes runId="sample" agentName={def.name} />
+            </div>
+          </div>
 
           <div className="mt-12 flex justify-end">
             <Link

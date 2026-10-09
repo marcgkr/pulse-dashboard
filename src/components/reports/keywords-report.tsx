@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ExternalLink, FileText, Search, Zap } from "lucide-react";
 import type { AeoQuestion, ContentBrief, DataColumn, KeywordCluster, ParsedData } from "@/lib/agents/keywords-demo";
 import { isQuickWinRow } from "@/lib/agents/keywords-demo";
-import { Badge, Card, Label, cx } from "../ui";
+import { Badge, Card, Label, ReportSection, cx } from "../ui";
 import { CopyButton } from "../copy-button";
 import { useRunAgent } from "../run-agent";
 
@@ -63,9 +63,9 @@ function KeywordChip({ keyword, run, primary }: { keyword: string; run: RunRef; 
           disabled={pending}
           aria-label={`Expand "${keyword}"`}
           title={error ?? `Expand "${keyword}" into long-tail keywords and questions`}
-          className="inline-flex shrink-0 items-center gap-1 border-l border-line px-1.5 font-mono text-[10px] uppercase tracking-wider text-ink-3 hover:bg-card hover:text-scrub disabled:opacity-50"
+          className="inline-flex shrink-0 items-center gap-1 border-l border-line px-2 text-xs font-semibold text-ink-2 hover:bg-card hover:text-scrub disabled:opacity-50"
         >
-          <Search size={11} />
+          <Search size={12} />
           <span className="hidden sm:inline">{pending ? "..." : "Expand"}</span>
         </button>
       )}
@@ -96,9 +96,9 @@ function ExpandClusterButton({ keyword, run }: { keyword: string; run: RunRef })
 function ClusterCard({ c, run }: { c: KeywordCluster; run: RunRef }) {
   const primary = c.keywords[0] ?? c.name;
   return (
-    <Card className="flex flex-col p-4">
+    <Card className="flex flex-col p-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 className="font-display text-lg font-semibold leading-snug">{c.name}</h3>
+        <h4 className="font-display text-lg font-semibold leading-snug">{c.name}</h4>
         <Badge tone={priorityTone[c.priority] ?? "neutral"}>{c.priority} priority</Badge>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -109,22 +109,22 @@ function ClusterCard({ c, run }: { c: KeywordCluster; run: RunRef }) {
         <Badge tone={difficultyTone[c.difficulty] ?? "neutral"}>Difficulty: {c.difficulty}</Badge>
       </div>
 
-      <div className="mt-3 rounded-md border border-line bg-paper/60 px-3 py-2">
+      <div className="mt-4 rounded-md border border-line bg-paper/60 px-4 py-3">
         <div className="flex items-center justify-between gap-2">
           <Label>{c.target_page.action === "create" ? "New page to create" : "Page to optimise"}</Label>
           <CopyButton text={c.target_page.slug} label="Copy URL" />
         </div>
-        <p className="mt-1 text-sm font-semibold">{c.target_page.page}</p>
+        <p className="mt-1 text-[15px] font-semibold">{c.target_page.page}</p>
         <p className="break-all font-mono text-xs text-ink-2">{c.target_page.slug}</p>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      <div className="mt-4 flex flex-wrap gap-1.5">
         {c.keywords.map((k, i) => (
           <KeywordChip key={k} keyword={k} run={run} primary={i === 0} />
         ))}
       </div>
 
-      {c.why && <p className="mt-3 text-sm text-ink-2">{c.why}</p>}
+      {c.why && <p className="mt-4 text-[15px] leading-relaxed text-ink-2">{c.why}</p>}
 
       <div className="mt-auto flex flex-wrap items-start gap-2 pt-4">
         <CopyButton text={c.keywords.join("\n")} label="Copy keywords" />
@@ -153,29 +153,29 @@ function briefText(b: ContentBrief): string {
 
 function BriefCard({ b }: { b: ContentBrief }) {
   return (
-    <Card className="p-4">
+    <Card className="p-5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <Label className="mb-1 flex items-center gap-1.5">
-            <FileText size={12} /> Page brief
+            <FileText size={13} /> Page brief
           </Label>
-          <h3 className="font-display text-lg font-semibold leading-snug">{b.h1}</h3>
-          <p className="break-all font-mono text-xs text-ink-3">{b.slug}</p>
+          <h4 className="font-display text-lg font-semibold leading-snug">{b.h1}</h4>
+          <p className="break-all font-mono text-xs text-ink-2">{b.slug}</p>
         </div>
         <CopyButton text={briefText(b)} label="Copy brief" />
       </div>
-      <div className="mt-3 flex items-start gap-2 rounded-md border border-line bg-paper/60 px-3 py-2 text-sm">
-        <span className="w-16 shrink-0 font-mono text-[11px] uppercase tracking-wider text-ink-3">Title</span>
+      <div className="mt-4 flex items-start gap-3 rounded-md border border-line bg-paper/60 px-4 py-3 text-[15px]">
+        <span className="w-12 shrink-0 pt-0.5 text-[13px] font-semibold text-ink-2">Title</span>
         <span className="min-w-0 flex-1 break-words">{b.title}</span>
         <CopyButton text={b.title} />
       </div>
-      <div className="mt-4 grid gap-4 md:grid-cols-[3fr_2fr]">
+      <div className="mt-5 grid gap-5 md:grid-cols-[3fr_2fr]">
         <div>
           <div className="mb-1.5 flex items-center justify-between gap-2">
             <Label>Outline</Label>
             <CopyButton text={b.outline.join("\n")} label="Copy outline" />
           </div>
-          <ol className="list-decimal space-y-1 pl-5 text-sm marker:font-mono marker:text-ink-3">
+          <ol className="list-decimal space-y-1.5 pl-5 text-[15px] leading-relaxed marker:font-mono marker:text-ink-3">
             {b.outline.map((s, i) => (
               <li key={i}>{s}</li>
             ))}
@@ -185,10 +185,10 @@ function BriefCard({ b }: { b: ContentBrief }) {
           {b.must_include.length > 0 && (
             <div>
               <Label className="mb-1.5">Must include</Label>
-              <ul className="space-y-1 text-sm text-ink-2">
+              <ul className="space-y-1.5 text-[15px] leading-relaxed text-ink-2">
                 {b.must_include.map((s, i) => (
                   <li key={i} className="flex gap-2">
-                    <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-scrub" />
+                    <span className="mt-2.5 h-1 w-1 shrink-0 rounded-full bg-scrub" />
                     {s}
                   </li>
                 ))}
@@ -198,10 +198,10 @@ function BriefCard({ b }: { b: ContentBrief }) {
           {b.internal_links.length > 0 && (
             <div>
               <Label className="mb-1.5">Internal links</Label>
-              <ul className="space-y-1 text-sm text-ink-2">
+              <ul className="space-y-1.5 text-[15px] leading-relaxed text-ink-2">
                 {b.internal_links.map((s, i) => (
                   <li key={i} className="flex gap-2">
-                    <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-ink-3" />
+                    <span className="mt-2.5 h-1 w-1 shrink-0 rounded-full bg-ink-3" />
                     {s}
                   </li>
                 ))}
@@ -230,8 +230,7 @@ function DataTable({ data }: { data: ParsedData }) {
   const gsc = data.source === "search_console";
   const wins = gsc ? data.rows.filter(isQuickWinRow).length : 0;
   return (
-    <section>
-      <Label className="mb-2">Your data</Label>
+    <ReportSection title="Your data">
       <Card>
         <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3 text-sm">
           <Badge tone="ink">{gsc ? "Search Console" : data.source === "keyword_planner" ? "Keyword Planner" : "Keyword list"}</Badge>
@@ -249,7 +248,7 @@ function DataTable({ data }: { data: ParsedData }) {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+            <thead className="text-xs font-semibold uppercase tracking-wide text-ink-2">
               <tr className="border-b border-line">
                 <th className="px-4 py-2">Query</th>
                 {data.columns.map((c) => (
@@ -301,7 +300,7 @@ function DataTable({ data }: { data: ParsedData }) {
           </div>
         )}
       </Card>
-    </section>
+    </ReportSection>
   );
 }
 
@@ -316,8 +315,8 @@ export function KeywordsReport({ result, run }: { result: KeywordsResult; run?: 
   const runRef: RunRef = run?.id ? { id: run.id, input: run.input ?? {} } : undefined;
 
   return (
-    <div className="space-y-8">
-      <Card className="p-4 sm:p-5">
+    <div className="space-y-12">
+      <Card className="p-5">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <Badge tone="ink">{result.expand ? "Drill-down" : "Keyword map"}</Badge>
           {result.expand && (
@@ -333,33 +332,35 @@ export function KeywordsReport({ result, run }: { result: KeywordsResult; run?: 
               </Badge>
             ))}
         </div>
-        <p className="mt-3 text-xs text-ink-3">
+        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-ink-2">
           Demand and difficulty are estimates for comparing clusters, not search volumes.
           {result.data_from ? ` Numbers in the data table come from your connected ${result.data_from}.` : result.data ? " Numbers in the data table come from the export you pasted." : " For real monthly searches, check Google Keyword Planner."}
           {runRef && " Click Expand on any keyword to drill deeper; the new report links back here."}
         </p>
-        {result.score_note && <p className="mt-2 border-t border-line pt-2 text-sm text-ink-2">{result.score_note}</p>}
+        {result.score_note && <p className="mt-3 max-w-3xl border-t border-line pt-3 text-[15px] leading-relaxed text-ink-2">{result.score_note}</p>}
       </Card>
 
       {clusters.length > 0 && (
-        <section>
-          <Label className="mb-2">{result.expand ? "Variants by modifier" : "Keyword clusters"}</Label>
+        <ReportSection
+          title={result.expand ? "Variants by modifier" : "Keyword clusters"}
+          hint={result.expand ? undefined : "Groups of searches that one page can answer, with the page to build or improve for each."}
+        >
           <div className="grid gap-3 lg:grid-cols-2">
             {clusters.map((c, i) => (
               <ClusterCard key={`${c.name}-${i}`} c={c} run={runRef} />
             ))}
           </div>
-        </section>
+        </ReportSection>
       )}
 
       {questions.length > 0 && (
-        <section>
-          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <Label>Questions people ask AI assistants</Label>
-            <CopyButton text={questions.map((q) => q.question).join("\n")} label="Copy all questions" />
-          </div>
+        <ReportSection
+          title="Questions people ask AI assistants"
+          hint="Answer these on your site so assistants like ChatGPT have something of yours to quote."
+          actions={<CopyButton text={questions.map((q) => q.question).join("\n")} label="Copy all questions" />}
+        >
           <Card className="divide-y divide-line">
-            <div className="hidden grid-cols-[2fr_2fr_1.2fr_1fr_auto] gap-3 px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-ink-3 md:grid">
+            <div className="hidden grid-cols-[2fr_2fr_1.2fr_1fr_auto] gap-3 px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-ink-2 md:grid">
               <span>Question</span>
               <span>Answer angle</span>
               <span>Where to answer</span>
@@ -367,7 +368,7 @@ export function KeywordsReport({ result, run }: { result: KeywordsResult; run?: 
               <span className="w-[4.5rem]" />
             </div>
             {questions.map((q, i) => (
-              <div key={i} className="grid gap-1.5 px-4 py-3 text-sm md:grid-cols-[2fr_2fr_1.2fr_1fr_auto] md:gap-3">
+              <div key={i} className="grid gap-1.5 px-5 py-3.5 text-sm leading-relaxed md:grid-cols-[2fr_2fr_1.2fr_1fr_auto] md:gap-3">
                 <div className="flex items-start justify-between gap-2 md:block">
                   <p className="font-semibold">{q.question}</p>
                   <span className="md:hidden">
@@ -376,7 +377,7 @@ export function KeywordsReport({ result, run }: { result: KeywordsResult; run?: 
                 </div>
                 <p className="text-ink-2">{q.answer_angle}</p>
                 <p className="text-ink-2">
-                  <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3 md:hidden">Where: </span>
+                  <span className="text-xs font-semibold text-ink-3 md:hidden">Where: </span>
                   {q.where_to_answer}
                 </p>
                 <div>
@@ -388,39 +389,36 @@ export function KeywordsReport({ result, run }: { result: KeywordsResult; run?: 
               </div>
             ))}
           </Card>
-        </section>
+        </ReportSection>
       )}
 
       {briefs.length > 0 && (
-        <section>
-          <Label className="mb-2">Briefs for new pages</Label>
-          <div className="space-y-3">
+        <ReportSection title="Briefs for new pages" hint="What to put on each new page. Copy a brief and hand it to whoever writes the page.">
+          <div className="space-y-4">
             {briefs.map((b, i) => (
               <BriefCard key={`${b.slug}-${i}`} b={b} />
             ))}
           </div>
-        </section>
+        </ReportSection>
       )}
 
       {wins.length > 0 && (
-        <section>
-          <Label className="mb-2">Quick wins</Label>
+        <ReportSection title="Quick wins">
           <Card className="divide-y divide-line">
             {wins.map((w, i) => (
-              <div key={i} className="flex gap-3 px-4 py-3 text-sm">
-                <Zap size={15} className="mt-0.5 shrink-0 text-amber" />
-                <p>{w}</p>
+              <div key={i} className="flex gap-3 px-5 py-3.5 text-[15px] leading-relaxed">
+                <Zap size={15} className="mt-1 shrink-0 text-amber" />
+                <p className="max-w-3xl">{w}</p>
               </div>
             ))}
           </Card>
-        </section>
+        </ReportSection>
       )}
 
       {result.data && result.data.rows.length > 0 && <DataTable data={result.data} />}
 
       {sources.length > 0 && (
-        <section>
-          <Label className="mb-2">Pages we looked at</Label>
+        <ReportSection title="Pages we looked at">
           <Card className="divide-y divide-line">
             {sources.map((s) => (
               <a
@@ -428,12 +426,12 @@ export function KeywordsReport({ result, run }: { result: KeywordsResult; run?: 
                 href={s.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-start gap-2 px-4 py-2 text-sm hover:bg-paper"
+                className="flex items-start gap-2 px-5 py-2.5 text-sm hover:bg-paper"
               >
                 <ExternalLink size={13} className="mt-1 shrink-0 text-ink-3" />
                 <span className="min-w-0">
                   <span className="block truncate">{s.title || s.url}</span>
-                  <span className="block truncate font-mono text-[11px] text-ink-3">{(() => {
+                  <span className="block truncate font-mono text-xs text-ink-3">{(() => {
                     try {
                       return new URL(s.url).hostname;
                     } catch {
@@ -444,7 +442,7 @@ export function KeywordsReport({ result, run }: { result: KeywordsResult; run?: 
               </a>
             ))}
           </Card>
-        </section>
+        </ReportSection>
       )}
     </div>
   );

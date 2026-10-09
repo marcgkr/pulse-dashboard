@@ -10,6 +10,8 @@ import { contentAgent } from "./agents/content";
 import { adsAgent } from "./agents/ads";
 import { complianceAgent } from "./agents/compliance";
 import type { ReportInput } from "./agents/ads-data";
+import type { ContentResult, Idea } from "./agents/content-demo";
+import type { Reference } from "./social-links";
 
 // The public sample report (/sample). A small set of fictional businesses in the visitor's market,
 // run through the real agents' demo() functions at request time. None of these touch the network:
@@ -1374,6 +1376,7 @@ async function buildSampleReports(m: Market, id: SampleBusinessId): Promise<Samp
   vr.prompts.forEach((p) => (p.brand_context = stripPrefix(p.brand_context, "Sample: ")));
 
   content.result.summary = spec.content.summary(c);
+  addSampleTrends(content.result as ContentResult);
 
   const ar = ads.result as AgentResult & {
     sample?: boolean;
@@ -1458,4 +1461,71 @@ export async function homeSampleSlips(m: Market): Promise<HomeSlip[]> {
     pick("store", "ads", (p) => /^Pause/.test(p.title)),
   ]);
   return slips.filter((s): s is HomeSlip => s !== null);
+}
+
+// ---------- Content Studio: sample trends and reference posts ----------
+
+// Live runs link real posts that the trend research found, with the view counts the source showed.
+// The sample business is made up, so its references are placeholders: no links, no numbers.
+
+function sampleRef(platform: string, borrow: string): Reference {
+  return { platform, url: null, creator: "A creator in your niche", views: null, posted: null, borrow, sample: true };
+}
+
+function borrowFor(idea: Idea): { basis: string; borrow: string } {
+  const t = `${idea.title} ${idea.hook}`.toLowerCase();
+  if (/pov|finally found/.test(t))
+    return {
+      basis: "POV captions over everyday footage are low effort to film and easy to share with a friend who needs the service.",
+      borrow: "Borrow the on-screen POV caption over simple footage of your work. Keep it under 15 seconds.",
+    };
+  if (/myth|believ|wrong|truth/.test(t))
+    return {
+      basis: "Myth-versus-fact videos keep working in service niches because the first line names something viewers already believe. Live reports show the posts this borrows from and how they performed.",
+      borrow: "Borrow the structure: say the myth in the first line, show the fact on screen, end with one thing to do instead. Use your own wording.",
+    };
+  if (/question|ask|before you/.test(t))
+    return {
+      basis: "Checklist posts get saved and shared by people comparing options, which is the moment before they enquire.",
+      borrow: "Borrow the numbered format: one question per slide or shot, the answer underneath, and a save prompt at the end.",
+    };
+  if (/price|cost|paying/.test(t))
+    return {
+      basis: "Price explainers answer the question most people are too shy to message about, so they bring in enquiries that are ready to talk.",
+      borrow: "Borrow the breakdown: show what changes the price, one factor per shot, and end with how to get a quote.",
+    };
+  return {
+    basis: "This format is easy to film in one sitting and fits how people in your niche are posting right now.",
+    borrow: "Borrow the pacing: one point per shot, text on screen, under 30 seconds.",
+  };
+}
+
+function addSampleTrends(cr: ContentResult) {
+  for (const idea of cr.ideas.slice(0, 3)) {
+    const { basis, borrow } = borrowFor(idea);
+    idea.trend_basis = basis;
+    idea.references = [sampleRef(idea.platform, borrow)];
+  }
+  const platforms = [...new Set(cr.ideas.map((i) => i.platform))];
+  const a = platforms[0] ?? "Instagram";
+  const b = platforms[1] ?? a;
+  cr.trends = [
+    {
+      name: "Myth versus fact explainers",
+      what_it_is: "Short videos that open with a belief people in the niche hold, then correct it with one clear fact on screen.",
+      how_to_use_it: "Pick the myth you correct most often on calls or in messages and film your answer in under 30 seconds.",
+      platform: a,
+      shelf_life: "evergreen",
+      examples: [sampleRef(a, "Borrow the first line: name the myth in five words or fewer, then cut straight to the fact.")],
+    },
+    {
+      name: "Before-you-book checklists",
+      what_it_is: "Carousels and talking-head videos listing the questions to ask before choosing a provider.",
+      how_to_use_it: "Turn the five questions you wish every customer asked into a carousel, with your honest answer to each.",
+      platform: b,
+      shelf_life: "evergreen",
+      examples: [sampleRef(b, "Borrow the numbered list and the save prompt at the end. Leave out any claims about competitors.")],
+    },
+  ];
+  cr.trends_note = "";
 }

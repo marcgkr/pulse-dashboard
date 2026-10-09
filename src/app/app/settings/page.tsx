@@ -7,6 +7,9 @@ import { ProfileForm } from "@/components/profile-form";
 import { PlanButtons } from "@/components/settings-forms";
 import { Badge, ButtonLink, Card, Label, PageHeader } from "@/components/ui";
 import { clientConnections } from "@/lib/connectors/store";
+import { feedbackForWorkspace } from "@/lib/memory";
+import { getAgent } from "@/lib/agents";
+import { MemoryList } from "@/components/memory-list";
 
 export const metadata = { title: "Settings" };
 
@@ -19,6 +22,15 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const summary = conns
     .filter((c) => c.connected)
     .map((c) => `${c.provider === "google" ? "Google" : "Meta"}${c.needsReconnect ? " (reconnect needed)" : ""}`);
+  const memory = feedbackForWorkspace(ws.id).map((f) => ({
+    id: f.id,
+    agentName: getAgent(f.agent)?.name ?? f.agent,
+    runId: f.run_id,
+    item: f.item,
+    verdict: f.verdict,
+    comment: f.comment,
+    when: new Date(f.updated_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: market.timeZone }),
+  }));
   return (
     <div className="space-y-10">
       <PageHeader eyebrow="Settings" title="Your business" />
@@ -60,6 +72,16 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <ButtonLink href="/app/settings/connections" variant="secondary" className="shrink-0">
             Manage connected accounts
           </ButtonLink>
+        </Card>
+      </section>
+
+      <section id="memory">
+        <Label className="mb-2">What your specialists remember</Label>
+        <Card className="overflow-hidden">
+          <p className="border-b border-line px-5 py-4 text-[15px] leading-relaxed text-ink-2 md:px-6">
+            Your approvals, rejections and comments on reports. Each specialist reads its notes before it runs, so it stops repeating what you rejected and gets your business right. Forget a note to stop it being used.
+          </p>
+          <MemoryList rows={memory} />
         </Card>
       </section>
 

@@ -21,8 +21,18 @@ import {
 } from "./content-demo";
 import { marketFor, type Market } from "../markets";
 import { searchCountryFor } from "./keywords-demo";
+import { parseSocialLink, type Reference } from "../social-links";
 
 type Input = ContentInput;
+
+const RefAI = z.object({
+  url: z.string().describe("Full link to the post exactly as it appears in the research notes. Never build or guess a link."),
+  creator: z.string().describe("Account name as shown, e.g. @handle"),
+  platform: z.string().describe("Platform of the post"),
+  views: z.string().describe("View count exactly as the research notes give it, e.g. '7,860,584 views'. Empty string if the notes don't give one."),
+  posted: z.string().describe("When it was posted, exactly as the research notes give it, e.g. '18 days ago' or '21 Sep 2026'. Empty string if not given."),
+  borrow: z.string().describe("1-2 sentences: what this business should borrow from the post (structure, opening, format, pacing) and what to leave out. Never copy its wording."),
+});
 
 const ContentAI = z.object({
   summary: z.string().describe("2-4 sentences for the owner: what this plan focuses on and why, and the one thing to start with this week."),
@@ -34,6 +44,7 @@ const ContentAI = z.object({
         how_to_use_it: z.string().describe("1-2 sentences on how this specific business can use it"),
         platform: z.string().describe("Platform where it is happening, from the owner's chosen platforms"),
         shelf_life: z.string().describe("Exactly one of: this week, this month, evergreen"),
+        examples: z.array(RefAI).describe("0-3 example posts from the research notes that show this trend. Empty if the notes name none."),
       }),
     )
     .describe("4-8 trends from the research notes. Empty array if no research notes were given."),
@@ -62,6 +73,10 @@ const ContentAI = z.object({
       why_it_works: z.string().describe("1-2 sentences on why this works for this business and goal"),
       effort: z.string().describe("Exactly one of: quick, half-day, project"),
       compliance_note: z.string().describe("Empty string unless the business is in a regulated category; then what to avoid or check for this idea"),
+      trend_basis: z
+        .string()
+        .describe("2-3 sentences: which trend or example post from the research notes this idea borrows from and why it fits this business now. Only numbers that appear in the notes. Empty string for evergreen ideas or when there are no research notes."),
+      references: z.array(RefAI).describe("0-2 example posts from the research notes this idea borrows from. Empty if none fit."),
     }),
   ),
   calendar: z
@@ -87,7 +102,42 @@ function str(v: unknown, max = 800): string {
 
 const SHELF = ["this week", "this month", "evergreen"] as const;
 
-function normaliseResult(ai: z.infer<typeof ContentAI>, input: Input, regulated: boolean, m: Market) {
+/**
+ * Keeps only example posts the research actually found: the link must be a post on a social
+ * platform and appear in the search results or notes. Views and dates are dropped unless the
+ * same figure appears in the notes, so the report never shows a number the model made up.
+ */
+export function cleanReferences(refs: z.infer<typeof RefAI>[], research: { notes: string; urls: Set<string> }, max: number): Reference[] {
+  const notes = research.notes.toLowerCase();
+  // The figure itself, without thousands separators: "7,860,584 views" -> "7860584", "1.2M views" -> "1.2m".
+  const figure = (v: string) => /\d[\d,.]*\s?[kmb]?\b/i.exec(v)?.[0].replace(/[,\s]/g, "").toLowerCase() ?? "";
+  const notesFlat = notes.replace(/(\d),(?=\d)/g, "$1").replace(/(\d)\s([kmb])\b/g, "$1$2");
+  const seen = new Set<string>();
+  const out: Reference[] = [];
+  for (const r of refs) {
+    const link = parseSocialLink(r.url.trim());
+    if (!link) continue;
+    const url = link.url;
+    const found = research.urls.has(url) || research.urls.has(r.url.trim()) || notes.includes(r.url.trim().toLowerCase());
+    if (!found || seen.has(url)) continue;
+    seen.add(url);
+    const views = r.views.trim();
+    const posted = r.posted.trim();
+    const fig = figure(views);
+    out.push({
+      platform: link.platform,
+      url,
+      creator: r.creator.trim().slice(0, 80) || link.platform,
+      views: fig && new RegExp(`(^|[^\\d.])${fig.replace(/\./g, "\\.")}(?![\\d.])`).test(notesFlat) ? views.slice(0, 40) : null,
+      posted: posted && !/not shown/i.test(posted) && notes.includes(posted.toLowerCase()) ? posted.slice(0, 40) : null,
+      borrow: r.borrow.trim().slice(0, 500),
+    });
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+function normaliseResult(ai: z.infer<typeof ContentAI>, input: Input, regulated: boolean, m: Market, research: { notes: string; urls: Set<string> }) {
   const chosen = input.platforms;
   const toPlatform = (p: unknown): string => {
     const m = matchPlatform(p);
@@ -123,6 +173,8 @@ function normaliseResult(ai: z.infer<typeof ContentAI>, input: Input, regulated:
       why_it_works: i.why_it_works.trim(),
       effort: pick(i.effort, ["quick", "half-day", "project"] as const, "quick"),
       compliance_note: note || (regulated ? regulatedNote(m) : ""),
+      trend_basis: input.trends ? i.trend_basis.trim() : "",
+      references: input.trends ? cleanReferences(i.references, research, 2) : [],
     };
   });
 
@@ -138,6 +190,7 @@ function normaliseResult(ai: z.infer<typeof ContentAI>, input: Input, regulated:
         how_to_use_it: t.how_to_use_it.trim(),
         platform: matchPlatform(t.platform) ?? t.platform.trim(),
         shelf_life: pick(t.shelf_life, SHELF, "this month"),
+        examples: cleanReferences(t.examples, research, 3),
       }))
     : [];
 
@@ -208,8 +261,10 @@ Research what is working on these platforms right now (${season.label}) for this
 3. Seasonal and calendar moments in the next 4-6 weeks that fit this niche. ${m.code === "SG" ? "Singapore moments" : "Moments"} to check: ${season.moments.join("; ")}. Confirm actual dates for any lunar or gazetted holiday.
 4. Recent platform features or changes worth using (for example Instagram Trial Reels, TikTok photo mode, LinkedIn document posts, YouTube Shorts features).
 ${regulated ? `5. Any recent enforcement or guidance on social media advertising for this regulated category in ${m.code === "INTL" ? "the owner's country" : m.inPhrase}.\n` : ""}
-Write bullet-point notes under 900 words. For each point say which platform and where you saw it. If you could not confirm something, say so.`,
-        maxSearches: input.more_like ? 3 : 6,
+${regulated ? "6" : "5"}. Example posts: find 4 to 8 specific recent posts (ideally from the last 60 days) in this niche or a nearby one that show the formats above working, preferring creators in ${location}. For each, give the full link to the post itself (not a profile or search page), the account name, the platform, and the view count and posting date exactly as the page or source shows them. If a number or date isn't shown, write "not shown". Say in one line what makes it work: its structure, opening, format or pacing.
+
+Write bullet-point notes under 1,200 words. For each point say which platform and where you saw it. If you could not confirm something, say so.`,
+        maxSearches: input.more_like ? 4 : 8,
         effort: "medium",
         country: searchCountryFor(ws.country, ws.location),
       }).catch((e) => {
@@ -237,6 +292,7 @@ How you write:
 - Spread ideas across the owner's chosen platforms and across the pillars in roughly the pillar mix.
 - Never invent numbers: no view counts, follower counts, engagement rates, prices or results. Use placeholders like [your price] where the owner must fill something in.
 - Trends: only use trends that appear in the research notes. If there are no research notes, return an empty trends array and use evergreen formats.
+- Example posts (trend examples and idea references): only posts listed in the research notes, with the link copied exactly. Copy views and posting dates exactly as the notes give them, or leave them empty. Borrow the structure, never the wording, product pitch or claims of the original. Give at least half the ideas a trend_basis and a reference when the notes have enough examples.
 - Calendar: exactly ${slots} slots, ${input.per_week} per week across 2 weeks, on days like ${days.map((d) => `"Week 1 ${d}"`).join(", ")} (then the same for Week 2). Each slot uses an idea title exactly as written. Ideas can repeat on a different platform if there are more slots than ideas. Put quick ideas early in Week 1 so the owner can start immediately.
 - Prescriptions: 3-6 habit or process fixes for how the owner runs their social media (e.g. batch filming on a fixed day, bio and link fixes, ${chat} in bio, using Trial Reels to test hooks, replying to comments in the first hour, pinning posts). Category "Social content". Steps must be exact clicks or copy.${
       regulated
@@ -281,7 +337,7 @@ ${
 }`;
 
     const ai = await structured({ system, prompt, schema: ContentAI, effort: "medium", maxTokens: 32000 });
-    const { pillars, ideas, calendar, trends } = normaliseResult(ai, input, regulated, m);
+    const { pillars, ideas, calendar, trends } = normaliseResult(ai, input, regulated, m, { notes, urls: new Set(sources.map((x) => x.url)) });
 
     const result: ContentResult = {
       title: input.more_like ? `More like: ${input.more_like}` : `Content plan: ${ideas.length} ideas for ${input.platforms.join(", ")}`,

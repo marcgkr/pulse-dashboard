@@ -15,6 +15,7 @@
  * Options: MOCK_VERBOSE=1 prints the mock's request log; MOCK_ARRAY_ITEMS=0 (or 1) makes every generated
  * array empty (or single) to shake out crashes on sparse answers; LIVE_DUMP_DIR=dir writes each result as JSON.
  */
+import { saveFeedback } from "../src/lib/memory";
 import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -278,7 +279,7 @@ async function main() {
   }
 
   // The workspace's country (not the location text) sets where web searches run from.
-  type MockRequest = { system?: { type: string; text: string }[]; tools?: { type: string; user_location?: { country?: string } }[] };
+  type MockRequest = { system?: { type: string; text: string }[]; tools?: { type: string; user_location?: { country?: string } }[]; messages?: unknown[] };
   const lastSearchCountry = async () => {
     const reqs = (await (await fetch(`${MOCK_URL}/__requests`)).json()) as MockRequest[];
     const search = reqs.filter((r) => r.tools?.some((t) => t.type.startsWith("web_search"))).at(-1)!;
@@ -339,6 +340,30 @@ async function main() {
     pass(`run saved, ${tasks.n} tasks created`);
   } catch (e) {
     fail("execute", e);
+  }
+
+  // Owner feedback on one report reaches the same specialist's next run, and only that specialist's.
+  console.log("\nmemory (owner feedback reaches the next run)");
+  try {
+    const agent = getAgent("compliance")!;
+    const input = agent.parseInput(cases.find((c) => c.agent === "compliance")!.raw, ws);
+    const prevRun = db().prepare("SELECT id FROM runs WHERE workspace_id = ? AND agent = 'compliance' ORDER BY created_at DESC LIMIT 1").get(ws.id) as { id: string };
+    saveFeedback({ workspaceId: ws.id, agent: "compliance", runId: prevRun.id, item: "", verdict: "comment", comment: "We are a dental clinic, not an aesthetics clinic." });
+    saveFeedback({ workspaceId: ws.id, agent: "content", runId: prevRun.id, item: "Some idea", verdict: "reject", comment: "CONTENT-ONLY NOTE" });
+    const runId = id("r_");
+    db()
+      .prepare("INSERT INTO runs (id, workspace_id, agent, title, input_json, status, progress, demo, created_at) VALUES (?, ?, 'compliance', ?, ?, 'queued', '', 0, ?)")
+      .run(runId, ws.id, agent.runTitle(input, ws), JSON.stringify(input), now());
+    await execute(runId, ws, input, true);
+    const reqs = (await (await fetch(`${MOCK_URL}/__requests`)).json()) as MockRequest[];
+    const req = reqs.filter((x) => x.system?.some((b) => b.text.includes("You are Compliance Check"))).at(-1);
+    const text = JSON.stringify(req?.messages ?? []);
+    assert.ok(text.includes("WHAT THE OWNER HAS TOLD YOU"), "owner notes block missing from the prompt");
+    assert.ok(text.includes("We are a dental clinic, not an aesthetics clinic."), "the owner's comment is missing from the prompt");
+    assert.ok(!text.includes("CONTENT-ONLY NOTE"), "another specialist's note leaked into this prompt");
+    pass("comment saved on a report is in the next compliance prompt; content notes stay with Content Studio");
+  } catch (e) {
+    fail("memory", e);
   }
 
   console.log("\nstructured() edge cases");

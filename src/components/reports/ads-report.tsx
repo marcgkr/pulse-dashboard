@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, Ban } from "lucide-react";
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, ChevronRight } from "lucide-react";
 import type { Entity, Flag, FlagType, PauseCandidate, Platform, PlatformSummary, ScaleCandidate, SourceInfo, WastedTerm } from "@/lib/agents/ads-data";
 import type { AdsAIResult, AdsCreative } from "@/lib/agents/ads";
-import { Badge, Card, Label, cx, scoreTone } from "../ui";
+import { Badge, Card, Label, ReportSection, cx, scoreTone } from "../ui";
 import { CopyButton } from "../copy-button";
 
 type AdsResult = {
@@ -56,7 +56,7 @@ function Kpi({ label, value, sub }: { label: string; value: string; sub?: string
     <div className="min-w-0 px-3 py-3">
       <Label className="truncate">{label}</Label>
       <div className="mt-1 truncate font-mono text-lg font-semibold tabular-nums text-ink">{value}</div>
-      {sub && <div className="font-mono text-[11px] text-ink-3">{sub}</div>}
+      {sub && <div className="text-xs text-ink-3">{sub}</div>}
     </div>
   );
 }
@@ -80,7 +80,7 @@ function EntityTable({ rows, p, showParent, parentLabel }: { rows: Entity[]; p: 
   return (
     <Card className="overflow-x-auto">
       <table className="w-full min-w-[46rem] text-left text-sm">
-        <thead className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+        <thead className="text-xs font-semibold uppercase tracking-wide text-ink-2">
           <tr className="border-b border-line">
             <th className="px-3 py-2">Name</th>
             <th className="px-3 py-2 text-right">Spend</th>
@@ -143,11 +143,11 @@ function PlatformSection({ p, diagnosis }: { p: PlatformSummary; diagnosis?: { v
   const hasAdsets = p.adsets.length > 0;
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="font-display text-xl font-semibold">{PLAT[p.platform]}</h2>
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line pb-3">
+        <h2 className="font-display text-2xl font-extrabold tracking-[-0.02em] md:text-[28px]">{PLAT[p.platform]}</h2>
         <Badge tone={scoreTone(p.score)}>Health {p.score}/100</Badge>
-        <span className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+        <span className="text-sm text-ink-2">
           {p.campaign_count} campaign{p.campaign_count === 1 ? "" : "s"}
           {hasAdsets ? ` · ${p.adset_count} ${levelName(p.platform, p.adset_count !== 1)}` : ""}
         </span>
@@ -160,10 +160,10 @@ function PlatformSection({ p, diagnosis }: { p: PlatformSummary; diagnosis?: { v
       </Card>
 
       {diagnosis && (
-        <Card className="p-4">
-          <p className="font-semibold">{diagnosis.verdict}</p>
+        <Card className="p-5">
+          <p className="max-w-3xl font-semibold leading-snug">{diagnosis.verdict}</p>
           {diagnosis.points.length > 0 && (
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink-2">
+            <ul className="mt-3 max-w-3xl list-disc space-y-1.5 pl-5 text-[15px] leading-relaxed text-ink-2">
               {diagnosis.points.map((x, i) => (
                 <li key={i}>{x}</li>
               ))}
@@ -173,18 +173,17 @@ function PlatformSection({ p, diagnosis }: { p: PlatformSummary; diagnosis?: { v
       )}
 
       {p.campaigns.length > 0 && (
-        <div>
-          <Label className="mb-2">Campaigns by spend</Label>
+        <ReportSection title="Campaigns by spend" className="pt-4">
           <EntityTable rows={p.campaigns.slice(0, 25)} p={p} />
-        </div>
+        </ReportSection>
       )}
 
       {hasAdsets && (
         <details className="group" open={p.campaigns.length <= 1}>
-          <summary className="cursor-pointer list-none">
-            <Label className="inline-flex items-center gap-1 hover:text-ink">
-              <span className="transition group-open:rotate-90">›</span> {levelName(p.platform, true)} by spend ({p.adset_count})
-            </Label>
+          <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-md py-1 text-[15px] font-semibold text-ink hover:text-scrub [&::-webkit-details-marker]:hidden">
+            <ChevronRight size={16} className="shrink-0 transition group-open:rotate-90" />
+            <span className="first-letter:uppercase">{levelName(p.platform, true)} by spend</span>
+            <span className="font-mono text-sm font-normal tabular-nums text-ink-3">({p.adset_count})</span>
           </summary>
           <div className="mt-2">
             <EntityTable rows={p.adsets.slice(0, 40)} p={p} showParent parentLabel="Campaign" />
@@ -194,10 +193,10 @@ function PlatformSection({ p, diagnosis }: { p: PlatformSummary; diagnosis?: { v
 
       {p.keywords.length > 0 && (
         <details className="group">
-          <summary className="cursor-pointer list-none">
-            <Label className="inline-flex items-center gap-1 hover:text-ink">
-              <span className="transition group-open:rotate-90">›</span> Keywords by spend ({p.keywords.length})
-            </Label>
+          <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-md py-1 text-[15px] font-semibold text-ink hover:text-scrub [&::-webkit-details-marker]:hidden">
+            <ChevronRight size={16} className="shrink-0 transition group-open:rotate-90" />
+            Keywords by spend
+            <span className="font-mono text-sm font-normal tabular-nums text-ink-3">({p.keywords.length})</span>
           </summary>
           <div className="mt-2">
             <EntityTable rows={p.keywords.slice(0, 40)} p={p} showParent parentLabel="Ad group" />
@@ -220,20 +219,24 @@ function ActionCard({
   children: ReactNode[];
 }) {
   return (
-    <section>
-      <Label className="mb-2 flex items-center gap-1.5">
-        {icon} {title}
-      </Label>
-      <Card className="divide-y divide-line">{children.length ? children : <p className="px-4 py-3 text-sm text-ink-3">{empty}</p>}</Card>
-    </section>
+    <ReportSection
+      title={
+        <>
+          {icon}
+          {title}
+        </>
+      }
+    >
+      <Card className="divide-y divide-line">{children.length ? children : <p className="px-5 py-4 text-[15px] leading-relaxed text-ink-2">{empty}</p>}</Card>
+    </ReportSection>
   );
 }
 
 function CharCopy({ text, max }: { text: string; max: number }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5">
-      <span className="min-w-0 flex-1 break-words text-sm">{text}</span>
-      <span className={cx("shrink-0 font-mono text-[11px] tabular-nums", text.length > max ? "text-pulse" : "text-ink-3")}>
+    <div className="flex items-center gap-3 px-5 py-3">
+      <span className="min-w-0 flex-1 break-words text-[15px]">{text}</span>
+      <span className={cx("shrink-0 font-mono text-xs tabular-nums", text.length > max ? "text-pulse" : "text-ink-3")}>
         {text.length}/{max}
       </span>
       <CopyButton text={text} />
@@ -262,9 +265,9 @@ export function AdsReport({ result }: { result: AdsResult }) {
   const gCur = curOf("google");
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-12">
       {/* Data sources */}
-      <Card className="flex flex-wrap items-center gap-2 p-4 text-sm">
+      <Card className="flex flex-wrap items-center gap-2 p-5 text-sm">
         {result.sample && <Badge tone="amber">Sample data</Badge>}
         {result.period && <span className="font-mono text-xs text-ink-2">{result.period}</span>}
         {sources.map((s, i) => (
@@ -273,21 +276,32 @@ export function AdsReport({ result }: { result: AdsResult }) {
             {s.ok && s.rows > 0 ? ` · ${s.rows} rows` : " · failed"}
           </Badge>
         ))}
-        {result.sample && <p className="w-full text-xs text-ink-3">These numbers come from a built-in sample account, not yours. Connect your ad accounts or upload your own exports to get your real checkup.</p>}
+        {result.sample && (
+          <p className="basis-full text-sm leading-relaxed text-ink-2">
+            <span className="block max-w-3xl">These numbers come from a built-in sample account, not yours. Connect your ad accounts or upload your own exports to get your real checkup.</span>
+          </p>
+        )}
       </Card>
 
       {/* Tracking warnings */}
       {tracking.length > 0 && (
-        <section className="rounded-lg border border-pulse/40 bg-pulse/5 p-4">
-          <Label className="mb-2 flex items-center gap-1.5 text-pulse">
-            <AlertTriangle size={14} /> Tracking warnings
-          </Label>
-          <ul className="space-y-1.5 text-sm text-pulse">
+        <ReportSection
+          title={
+            <>
+              <AlertTriangle size={18} className="shrink-0 text-pulse" />
+              Tracking warnings
+            </>
+          }
+          hint="Fix these first. The conversion numbers below depend on tracking working."
+        >
+          <ul className="space-y-2 rounded-lg border border-pulse/40 bg-pulse/5 p-5 text-[15px] leading-relaxed text-pulse">
             {tracking.map((t, i) => (
-              <li key={i}>{t}</li>
+              <li key={i} className="max-w-3xl">
+                {t}
+              </li>
             ))}
           </ul>
-        </section>
+        </ReportSection>
       )}
 
       {platforms.map((p) => (
@@ -295,99 +309,103 @@ export function AdsReport({ result }: { result: AdsResult }) {
       ))}
 
       {/* Pause and scale */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ActionCard icon={<ArrowDownRight size={14} className="text-pulse" />} title="Pause or cut" empty="Nothing is wasting enough to pause.">
-          {[
-            ...pause.map((c, i) => (
-              <div key={`p${i}`} className="px-4 py-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="break-words font-semibold">{c.name}</p>
-                    <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                      {PLAT[c.platform]} · {c.level === "adset" ? levelName(c.platform) : c.level.replace("_", " ")}
-                    </p>
-                  </div>
-                  <Badge tone={c.action === "pause" ? "red" : "amber"}>{c.action === "pause" ? "Pause" : `Cut ${c.reduce_pct ?? 25}%`}</Badge>
-                </div>
-                <p className="mt-1 font-mono text-xs tabular-nums text-ink-2">
-                  {curOf(c.platform)} {money(c.spend)} spent · {conv(c.conversions)} conv. · CPA {money(c.cpa)}
-                </p>
-                <p className="mt-1 text-sm text-ink-2">{aiPauseReason(c.name) ?? c.reason}</p>
-              </div>
-            )),
-            ...extraPause.map((x, i) => (
-              <div key={`xp${i}`} className="px-4 py-3">
-                <p className="break-words font-semibold">{x.name}</p>
-                <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">{PLAT[x.platform]} · review</p>
-                <p className="mt-1 text-sm text-ink-2">{x.reason}</p>
-              </div>
-            )),
-          ]}
-        </ActionCard>
-
-        <ActionCard icon={<ArrowUpRight size={14} className="text-scrub" />} title="Scale up" empty="No clear winner yet. Fix the flagged items first, then check again in 2 weeks.">
-          {[
-            ...scale.map((c, i) => {
-              const a = aiScale(c.name);
-              return (
-                <div key={`s${i}`} className="px-4 py-3">
+      <div>
+        <div className="grid gap-x-6 gap-y-12 lg:grid-cols-2">
+          <ActionCard icon={<ArrowDownRight size={18} className="shrink-0 text-pulse" />} title="Pause or cut" empty="Nothing is wasting enough to pause.">
+            {[
+              ...pause.map((c, i) => (
+                <div key={`p${i}`} className="px-5 py-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="break-words font-semibold">{c.name}</p>
-                      <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                        {PLAT[c.platform]} · {c.level === "adset" ? levelName(c.platform) : c.level}
+                      <p className="text-[13px] text-ink-3">
+                        {PLAT[c.platform]} · {c.level === "adset" ? levelName(c.platform) : c.level.replace("_", " ")}
                       </p>
                     </div>
-                    <Badge tone="green">+{a?.budget_shift_pct ?? c.budget_shift_pct}% budget</Badge>
+                    <Badge tone={c.action === "pause" ? "red" : "amber"}>{c.action === "pause" ? "Pause" : `Cut ${c.reduce_pct ?? 25}%`}</Badge>
                   </div>
-                  <p className="mt-1 font-mono text-xs tabular-nums text-ink-2">
+                  <p className="mt-1.5 font-mono text-[13px] tabular-nums text-ink-2">
                     {curOf(c.platform)} {money(c.spend)} spent · {conv(c.conversions)} conv. · CPA {money(c.cpa)}
-                    {c.roas != null ? ` · ROAS ${c.roas.toFixed(2)}` : ""}
                   </p>
-                  <p className="mt-1 text-sm text-ink-2">{a?.reason ?? c.reason}</p>
+                  <p className="mt-1.5 max-w-3xl text-[15px] leading-relaxed text-ink-2">{aiPauseReason(c.name) ?? c.reason}</p>
                 </div>
-              );
-            }),
-            ...extraScale.map((x, i) => (
-              <div key={`xs${i}`} className="px-4 py-3">
-                <div className="flex items-start justify-between gap-2">
+              )),
+              ...extraPause.map((x, i) => (
+                <div key={`xp${i}`} className="px-5 py-4">
                   <p className="break-words font-semibold">{x.name}</p>
-                  <Badge tone="green">+{x.budget_shift_pct}% budget</Badge>
+                  <p className="text-[13px] text-ink-3">{PLAT[x.platform]} · review</p>
+                  <p className="mt-1.5 max-w-3xl text-[15px] leading-relaxed text-ink-2">{x.reason}</p>
                 </div>
-                <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3">{PLAT[x.platform]}</p>
-                <p className="mt-1 text-sm text-ink-2">{x.reason}</p>
-              </div>
-            )),
-          ]}
-        </ActionCard>
+              )),
+            ]}
+          </ActionCard>
+
+          <ActionCard icon={<ArrowUpRight size={18} className="shrink-0 text-scrub" />} title="Scale up" empty="No clear winner yet. Fix the flagged items first, then check again in 2 weeks.">
+            {[
+              ...scale.map((c, i) => {
+                const a = aiScale(c.name);
+                return (
+                  <div key={`s${i}`} className="px-5 py-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="break-words font-semibold">{c.name}</p>
+                        <p className="text-[13px] text-ink-3">
+                          {PLAT[c.platform]} · {c.level === "adset" ? levelName(c.platform) : c.level}
+                        </p>
+                      </div>
+                      <Badge tone="green">+{a?.budget_shift_pct ?? c.budget_shift_pct}% budget</Badge>
+                    </div>
+                    <p className="mt-1.5 font-mono text-[13px] tabular-nums text-ink-2">
+                      {curOf(c.platform)} {money(c.spend)} spent · {conv(c.conversions)} conv. · CPA {money(c.cpa)}
+                      {c.roas != null ? ` · ROAS ${c.roas.toFixed(2)}` : ""}
+                    </p>
+                    <p className="mt-1.5 max-w-3xl text-[15px] leading-relaxed text-ink-2">{a?.reason ?? c.reason}</p>
+                  </div>
+                );
+              }),
+              ...extraScale.map((x, i) => (
+                <div key={`xs${i}`} className="px-5 py-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="break-words font-semibold">{x.name}</p>
+                    <Badge tone="green">+{x.budget_shift_pct}% budget</Badge>
+                  </div>
+                  <p className="text-[13px] text-ink-3">{PLAT[x.platform]}</p>
+                  <p className="mt-1.5 max-w-3xl text-[15px] leading-relaxed text-ink-2">{x.reason}</p>
+                </div>
+              )),
+            ]}
+          </ActionCard>
+        </div>
+        {(pause.length > 0 || scale.length > 0) && (
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-ink-2">Change budgets by 20 to 30% at a time and wait 3 to 5 days between changes so the platforms can settle.</p>
+        )}
       </div>
-      {(pause.length > 0 || scale.length > 0) && (
-        <p className="-mt-5 text-xs text-ink-3">Change budgets by 20 to 30% at a time and wait 3 to 5 days between changes so the platforms can settle.</p>
-      )}
 
       {/* Wasted search terms */}
       {(wasted.length > 0 || aiNegatives.length > 0) && (
-        <section>
-          <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <Label className="flex items-center gap-1.5">
-                <Ban size={14} className="text-pulse" /> Wasted search terms
-              </Label>
-              {wasted.length > 0 && (
-                <p className="mt-1 text-sm text-ink-2">
-                  <span className="font-mono tabular-nums text-pulse">
-                    {gCur} {money(result.wasted_spend_total ?? 0)}
-                  </span>{" "}
-                  spent on searches that brought no conversions.
-                </p>
-              )}
-            </div>
-            {negatives.length > 0 && <CopyButton text={negatives.join("\n")} label={`Copy as negative keywords (${negatives.length})`} />}
-          </div>
+        <ReportSection
+          title={
+            <>
+              <Ban size={18} className="shrink-0 text-pulse" />
+              Wasted search terms
+            </>
+          }
+          hint={
+            wasted.length > 0 ? (
+              <>
+                <span className="font-mono font-semibold tabular-nums text-pulse">
+                  {gCur} {money(result.wasted_spend_total ?? 0)}
+                </span>{" "}
+                spent on searches that brought no conversions.
+              </>
+            ) : undefined
+          }
+          actions={negatives.length > 0 ? <CopyButton text={negatives.join("\n")} label={`Copy as negative keywords (${negatives.length})`} /> : undefined}
+        >
           {wasted.length > 0 && (
             <Card className="overflow-x-auto">
               <table className="w-full min-w-[34rem] text-left text-sm">
-                <thead className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+                <thead className="text-xs font-semibold uppercase tracking-wide text-ink-2">
                   <tr className="border-b border-line">
                     <th className="px-3 py-2">Search term</th>
                     <th className="px-3 py-2">Campaign / ad group</th>
@@ -418,11 +436,11 @@ export function AdsReport({ result }: { result: AdsResult }) {
               </table>
             </Card>
           )}
-          {wasted.length > 0 && <p className="mt-2 text-xs text-ink-3">The copy button includes terms with enough spend to judge, and leaves out your brand name.</p>}
+          {wasted.length > 0 && <p className="mt-2 text-sm text-ink-3">The copy button includes terms with enough spend to judge, and leaves out your brand name.</p>}
           {aiNegatives.length > 0 && (
-            <Card className="mt-3 p-4">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">More negatives to block whole families of bad searches</p>
+            <Card className="mt-4 p-5">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <p className="text-[15px] font-semibold">More negatives to block whole families of bad searches</p>
                 <CopyButton text={aiNegatives.join("\n")} label="Copy" />
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -434,81 +452,82 @@ export function AdsReport({ result }: { result: AdsResult }) {
               </div>
             </Card>
           )}
-        </section>
+        </ReportSection>
       )}
 
       {/* Creative */}
       {creative && (creative.google_headlines.length > 0 || creative.google_descriptions.length > 0 || creative.meta.length > 0) && (
-        <section className="space-y-4">
-          <div>
-            <Label>Ad copy and creative</Label>
-            {creative.source === "template" && <p className="mt-1 text-xs text-ink-3">Starter templates built from your profile. Edit them before use.</p>}
-          </div>
-          {creative.google_headlines.length > 0 && (
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">Google RSA headlines (max 30 characters)</p>
-                <CopyButton text={creative.google_headlines.join("\n")} label="Copy all" />
-              </div>
-              <Card className="divide-y divide-line">
-                {creative.google_headlines.map((h, i) => (
-                  <CharCopy key={i} text={h} max={30} />
-                ))}
-              </Card>
-            </div>
-          )}
-          {creative.google_descriptions.length > 0 && (
-            <div>
-              <p className="mb-2 text-sm font-semibold">Google RSA descriptions (max 90 characters)</p>
-              <Card className="divide-y divide-line">
-                {creative.google_descriptions.map((d, i) => (
-                  <CharCopy key={i} text={d} max={90} />
-                ))}
-              </Card>
-            </div>
-          )}
-          {creative.meta.length > 0 && (
-            <div>
-              <p className="mb-2 text-sm font-semibold">Meta creative feedback</p>
-              <Card className="p-4">
-                <ul className="list-disc space-y-1.5 pl-5 text-sm text-ink-2">
-                  {creative.meta.map((m, i) => (
-                    <li key={i}>{m}</li>
+        <ReportSection
+          title="Ad copy and creative"
+          hint={creative.source === "template" ? "Starter templates built from your profile. Edit them before use." : undefined}
+        >
+          <div className="space-y-6">
+            {creative.google_headlines.length > 0 && (
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-[15px] font-semibold">Google RSA headlines (max 30 characters)</p>
+                  <CopyButton text={creative.google_headlines.join("\n")} label="Copy all" />
+                </div>
+                <Card className="divide-y divide-line">
+                  {creative.google_headlines.map((h, i) => (
+                    <CharCopy key={i} text={h} max={30} />
                   ))}
-                </ul>
-              </Card>
-            </div>
-          )}
-        </section>
+                </Card>
+              </div>
+            )}
+            {creative.google_descriptions.length > 0 && (
+              <div>
+                <p className="mb-2 text-[15px] font-semibold">Google RSA descriptions (max 90 characters)</p>
+                <Card className="divide-y divide-line">
+                  {creative.google_descriptions.map((d, i) => (
+                    <CharCopy key={i} text={d} max={90} />
+                  ))}
+                </Card>
+              </div>
+            )}
+            {creative.meta.length > 0 && (
+              <div>
+                <p className="mb-2 text-[15px] font-semibold">Meta creative feedback</p>
+                <Card className="p-5">
+                  <ul className="max-w-3xl list-disc space-y-2 pl-5 text-[15px] leading-relaxed text-ink-2">
+                    {creative.meta.map((m, i) => (
+                      <li key={i}>{m}</li>
+                    ))}
+                  </ul>
+                </Card>
+              </div>
+            )}
+          </div>
+        </ReportSection>
       )}
 
       {/* Audience notes */}
       {ai && ai.audience_notes.length > 0 && (
-        <section>
-          <Label className="mb-2">Audience and targeting</Label>
-          <Card className="p-4">
-            <ul className="list-disc space-y-1.5 pl-5 text-sm text-ink-2">
+        <ReportSection title="Audience and targeting">
+          <Card className="p-5">
+            <ul className="max-w-3xl list-disc space-y-2 pl-5 text-[15px] leading-relaxed text-ink-2">
               {ai.audience_notes.map((n, i) => (
                 <li key={i}>{n}</li>
               ))}
             </ul>
           </Card>
-        </section>
+        </ReportSection>
       )}
 
       {(result.warnings?.length ?? 0) > 0 && (
-        <section>
-          <Label className="mb-2">Notes on your files</Label>
-          <ul className="space-y-1 text-xs text-ink-3">
+        <ReportSection title="Notes on your files">
+          <ul className="max-w-3xl space-y-1.5 text-sm leading-relaxed text-ink-2">
             {result.warnings!.map((w, i) => (
               <li key={i}>{w}</li>
             ))}
           </ul>
-        </section>
+        </ReportSection>
       )}
 
-      <p className="text-xs text-ink-3">
-        Every number above is calculated from your data and compared with your own account averages, not industry benchmarks. Frequency above 3 is a common rule of thumb, not a hard limit.
+      <p className="border-t border-line pt-4 text-sm leading-relaxed text-ink-3">
+        <span className="block max-w-3xl">
+          Every number above is calculated from your data and compared with your own account averages, not industry benchmarks. Frequency above 3 is a common rule of thumb, not a hard limit.
+        </span>
       </p>
     </div>
   );

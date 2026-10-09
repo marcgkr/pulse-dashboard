@@ -164,6 +164,19 @@ function migrate(db: Database.Database) {
       selected INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (connection_id, kind, provider_account_id)
     );
+    CREATE TABLE IF NOT EXISTS feedback (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      agent TEXT NOT NULL,
+      run_id TEXT REFERENCES runs(id) ON DELETE SET NULL,
+      item TEXT NOT NULL DEFAULT '',
+      verdict TEXT NOT NULL,
+      comment TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS feedback_ws ON feedback(workspace_id, agent, updated_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS feedback_item ON feedback(workspace_id, run_id, item);
   `);
   addColumn(db, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
   addColumn(db, "workspaces", "stripe_subscription_id", "TEXT");
@@ -210,6 +223,21 @@ export type WorkspaceRow = {
   stripe_subscription_id?: string | null;
   windsor_api_key: string | null;
   created_at: string;
+  /** Not a column. Set by runs.ts before an agent runs: what the owner has told this specialist. */
+  owner_notes?: string;
+};
+
+export type FeedbackRow = {
+  id: string;
+  workspace_id: string;
+  agent: string;
+  run_id: string | null;
+  /** The idea or finding the feedback is about. Empty for feedback on the whole report. */
+  item: string;
+  verdict: "approve" | "reject" | "comment";
+  comment: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export type ConnectionRow = {

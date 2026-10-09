@@ -27,9 +27,44 @@ export function Card({ className, ...props }: ComponentProps<"div">) {
   return <div className={cx("rounded-3xl bg-card shadow-[var(--shadow-box)] ring-1 ring-line/70", className)} {...props} />;
 }
 
-/** Small section label. */
+/** Small label inside a card or form. For a report section heading use ReportSection. */
 export function Label({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cx("text-[13px] font-semibold text-ink-3", className)} {...props} />;
+  return <div className={cx("text-[13px] font-semibold text-ink-2", className)} {...props} />;
+}
+
+/**
+ * One section of a specialist report: a heading people can scan for, an optional line on what the
+ * section is for, and optional actions (copy buttons) on the right. The marker takes the
+ * specialist's colour from --rx-accent, set where the report is rendered.
+ */
+export function ReportSection({
+  title,
+  hint,
+  actions,
+  className,
+  children,
+}: {
+  title: ReactNode;
+  hint?: ReactNode;
+  actions?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className={className}>
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0">
+          <h3 className="flex items-center gap-2.5 font-display text-xl font-bold leading-tight tracking-[-0.015em] text-ink md:text-[22px]">
+            <span aria-hidden className="h-5 w-1.5 shrink-0 rounded-full ring-1 ring-ink/10" style={{ background: "var(--rx-accent, var(--color-scrub))" }} />
+            {title}
+          </h3>
+          {hint && <p className="mt-1 max-w-2xl pl-4 text-sm leading-relaxed text-ink-2">{hint}</p>}
+        </div>
+        {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
+      </div>
+      {children}
+    </section>
+  );
 }
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
@@ -68,7 +103,7 @@ const tones: Record<Tone, string> = {
 export function Badge({ tone = "neutral", className, ...props }: ComponentProps<"span"> & { tone?: Tone }) {
   return (
     <span
-      className={cx("inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ring-1", tones[tone], className)}
+      className={cx("inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1", tones[tone], className)}
       {...props}
     />
   );

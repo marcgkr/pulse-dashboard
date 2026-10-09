@@ -55,7 +55,7 @@ export function ScoreDial({ score, size = 132, label }: { score: number | null; 
         <div className="font-display text-4xl font-extrabold tabular-nums tracking-[-0.03em]" style={{ color }}>
           {score ?? "--"}
         </div>
-        {label && <div className="text-[11px] font-semibold text-ink-3">{label}</div>}
+        {label && <div className="text-xs font-semibold text-ink-2">{label}</div>}
       </div>
     </div>
   );

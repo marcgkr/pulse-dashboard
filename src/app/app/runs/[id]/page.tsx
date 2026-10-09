@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -5,10 +6,12 @@ import { getAgent } from "@/lib/agents";
 import { requireWorkspace } from "@/lib/auth";
 import { marketFor } from "@/lib/markets";
 import { db, type RunRow, type TaskRow } from "@/lib/db";
+import { feedbackForRun } from "@/lib/memory";
 import { parseTask } from "@/lib/runs";
 import { AGENT_REPORTS } from "@/components/reports";
 import { RunProgress } from "@/components/run-agent";
 import { RxSlip } from "@/components/rx-slip";
+import { ReportNotes } from "@/components/feedback-bar";
 import { ScoreDial } from "@/components/brand";
 import { Badge, ButtonLink, Card, Label } from "@/components/ui";
 import { agentColor } from "@/lib/agent-colors";
@@ -77,6 +80,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
   const result = JSON.parse(run.result_json ?? "{}") as { summary?: string; score?: number | null; demo?: boolean };
   const tasks = (db().prepare("SELECT * FROM tasks WHERE run_id = ? AND workspace_id = ? ORDER BY CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END").all(run.id, ws.id) as TaskRow[]).map(parseTask);
   const Report = AGENT_REPORTS[run.agent as AgentId];
+  const feedback = Object.fromEntries(feedbackForRun(ws.id, run.id).map((f) => [f.item, { verdict: f.verdict, comment: f.comment }]));
 
   return (
     <div>
@@ -109,7 +113,12 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
         </section>
       )}
 
-      {Report && <Report result={result} run={{ id: run.id, agent: run.agent, title: run.title, created_at: run.created_at, input }} />}
+      <div style={{ "--rx-accent": agentColor(run.agent).accent } as CSSProperties}>
+        {Report && <Report result={result} run={{ id: run.id, agent: run.agent, title: run.title, created_at: run.created_at, input }} feedback={feedback} />}
+        <div className="mt-12">
+          <ReportNotes runId={run.id} agentName={getAgent(run.agent)?.name ?? "This specialist"} initial={feedback[""]} />
+        </div>
+      </div>
     </div>
   );
 }

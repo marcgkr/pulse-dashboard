@@ -1,4 +1,5 @@
 import type { Prescription } from "../ai";
+import type { Reference } from "../social-links";
 import type { WorkspaceRow } from "../db";
 import { marketFor, type Market, type MarketCode } from "../markets";
 import type { AgentResult } from "./types";
@@ -36,6 +37,8 @@ export type Trend = {
   how_to_use_it: string;
   platform: string;
   shelf_life: "this week" | "this month" | "evergreen";
+  /** Real posts showing the trend, found by the research step. */
+  examples?: Reference[];
 };
 
 export type Pillar = { name: string; percent: number; description: string };
@@ -53,6 +56,10 @@ export type Idea = {
   why_it_works: string;
   effort: "quick" | "half-day" | "project";
   compliance_note: string;
+  /** What this idea borrows from what is working now, and why. Live runs with trend research only. */
+  trend_basis?: string;
+  /** Real posts the idea borrows from. Live runs with trend research only. */
+  references?: Reference[];
 };
 
 export type CalendarSlot = { day: string; idea_title: string; platform: string };

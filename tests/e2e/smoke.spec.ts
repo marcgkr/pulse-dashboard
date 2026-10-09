@@ -79,3 +79,55 @@ test("landing page free checkup works", async ({ page }) => {
   const body = await res.json();
   expect(typeof body.score).toBe("number");
 });
+
+test("owner notes on a report are remembered, listed in settings, and can be forgotten", async ({ page, browser }) => {
+  await page.goto("/signup?website=http://127.0.0.1:4555/");
+  await page.getByLabel("Your name").fill("Ravi");
+  await page.getByLabel("Email").fill("notes@example.com");
+  await page.getByLabel("Password").fill("correct-horse-2");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.getByLabel("Business name").fill("Northside Renovations");
+  await page.getByLabel("Industry").selectOption({ index: 1 });
+  await page.getByLabel("What you sell").fill("Kitchen and bathroom renovations");
+  await page.getByRole("button", { name: "Save and open my dashboard" }).click();
+  await expect(page).toHaveURL(/\/app\/runs\//);
+  await expect(page.getByText("Every check we ran")).toBeVisible({ timeout: 60_000 });
+  const runUrl = page.url();
+
+  await page.getByPlaceholder(/We only serve the north/).fill("We only serve the north of the city.");
+  await page.getByRole("button", { name: "Save note" }).click();
+  await expect(page.getByText("Saved. Site Doctor will use this on your next run.")).toBeVisible();
+
+  // The note is still there after a reload.
+  await page.reload();
+  await expect(page.getByPlaceholder(/We only serve the north/)).toHaveValue("We only serve the north of the city.");
+
+  // Another account can't write feedback on this report.
+  const other = await browser.newContext({ baseURL: "http://127.0.0.1:3100" });
+  await other.request.post("/api/auth/signup", { data: { email: "intruder@example.com", name: "X", password: "intruder-pass-1" } });
+  const runId = runUrl.split("/").pop();
+  const denied = await other.request.post(`/api/runs/${runId}/feedback`, { data: { item: "", verdict: "comment", comment: "hijack" }, headers: { origin: "http://127.0.0.1:3100" } });
+  expect([401, 404]).toContain(denied.status());
+  await other.close();
+
+  await page.goto("/app/settings#memory");
+  const memory = page.locator("#memory");
+  await expect(memory.getByText("We only serve the north of the city.")).toBeVisible();
+  await memory.getByRole("button", { name: "Forget this" }).click();
+  await expect(memory.getByText(/Nothing yet/)).toBeVisible();
+});
+
+test("sample Content Studio shows feedback buttons and reference posts", async ({ page }) => {
+  await page.goto("/sample/content");
+  await expect(page.getByRole("heading", { name: "Post ideas" })).toBeVisible();
+  await expect(page.getByText("Sample reference. Live reports link the real post.").first()).toBeVisible();
+  const idea = page.locator("#idea-1");
+  await idea.getByRole("button", { name: "Approve" }).click();
+  await expect(idea.getByText("Approved. Content Studio will do more like this.")).toBeVisible();
+  await idea.getByRole("button", { name: "Approved" }).click(); // clicking again clears it
+  await expect(idea.getByRole("button", { name: "Approve" })).toBeVisible();
+  await idea.getByRole("button", { name: "Reject" }).click();
+  await idea.getByRole("textbox").fill("We never film customers.");
+  await idea.getByRole("button", { name: "Save comment" }).click();
+  await expect(idea.getByText("Rejected. Content Studio won't suggest this again.")).toBeVisible();
+});

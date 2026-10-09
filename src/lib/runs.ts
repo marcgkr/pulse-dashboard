@@ -2,6 +2,7 @@ import { aiEnabled } from "./ai";
 import { planById, LIVE_SYNC_PLANS, type PlanId } from "./config";
 import { db, id, now, type RunRow, type TaskRow, type WorkspaceRow } from "./db";
 import { getAgent, type AgentResult } from "./agents";
+import { memoryFor } from "./memory";
 
 const SGT_OFFSET_MS = 8 * 60 * 60 * 1000;
 
@@ -118,7 +119,8 @@ export async function execute(runId: string, ws: WorkspaceRow, input: unknown, l
   let result: AgentResult;
   let timer: NodeJS.Timeout | undefined;
   try {
-    const ctx = { ws, runId, progress: setProgress };
+    // Each specialist reads what the owner told it about its past reports.
+    const ctx = { ws: { ...ws, owner_notes: memoryFor(ws.id, agent.id) }, runId, progress: setProgress };
     const deadline = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new Error("This checkup took too long and was stopped. Try again, or try a smaller input.")), RUN_DEADLINE_MS);
     });

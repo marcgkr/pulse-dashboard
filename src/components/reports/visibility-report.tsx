@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { CheckCircle2, ChevronDown, CircleMinus, ExternalLink } from "lucide-react";
-import { Badge, Card, Label, cx } from "../ui";
+import { Badge, Card, Label, ReportSection, cx } from "../ui";
 
 type Source = { title: string; url: string };
 type PromptRow = {
@@ -107,53 +107,52 @@ export function VisibilityReport({ result }: { result: VisibilityResult }) {
   const getListed = r.cited_domains.filter((d) => d.kind !== "Your website");
 
   return (
-    <div className="space-y-8">
-      <Card className="p-4 text-sm text-ink-2">
+    <div className="space-y-12">
+      <Card className="p-5 text-[15px] leading-relaxed text-ink-2">
         <Label className="mb-2">How to read this</Label>
-        <p>
+        <p className="max-w-3xl">
           The answers below come from Claude with web search, used as a stand-in for AI assistants like ChatGPT, Perplexity and Google AI
           Mode. Each assistant uses different sources, and answers change over time, so treat this as a snapshot and re-run it monthly.
         </p>
-        <p className="mt-2">
+        <p className="mt-3 max-w-3xl">
           <span className="font-semibold text-ink">Score:</span> each question scores 100 if {r.brand} is named and your website is one of
           the sources, 70 if you are named but your site is not a source, and 0 if you are not named. The score is the average across{" "}
           {counted.length} question{counted.length === 1 ? "" : "s"}. Here you were named in {named} and cited in {citedCount}.
         </p>
       </Card>
 
-      <section>
-        <Label className="mb-2">Question by question</Label>
+      <ReportSection title="Question by question" hint="Whether each answer named you, where you came in the list, and whether your website was one of the sources.">
         <Card className="overflow-x-auto">
           <table className="w-full min-w-[480px] text-left text-sm">
-            <thead className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+            <thead className="text-xs font-semibold uppercase tracking-wide text-ink-2">
               <tr className="border-b border-line">
-                <th className="px-4 py-2">Question</th>
-                <th className="px-3 py-2">Named</th>
-                <th className="px-3 py-2">Position</th>
-                <th className="px-3 py-2">Site cited</th>
+                <th className="px-4 py-2.5">Question</th>
+                <th className="px-3 py-2.5">Named</th>
+                <th className="px-3 py-2.5">Position</th>
+                <th className="px-3 py-2.5">Site cited</th>
               </tr>
             </thead>
             <tbody>
               {r.prompts.map((p, i) => (
                 <tr key={i} className="border-b border-line align-top last:border-0">
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-3">
                     <span className="mr-1.5 font-mono text-xs text-ink-3">{String(i + 1).padStart(2, "0")}</span>
                     {p.prompt}
                     {p.competitors_found.length > 0 && (
-                      <div className="mt-1 text-xs text-ink-3">Competitors named: {p.competitors_found.join(", ")}</div>
+                      <div className="mt-1 text-[13px] text-ink-2">Competitors named: {p.competitors_found.join(", ")}</div>
                     )}
                   </td>
                   {p.error ? (
-                    <td colSpan={3} className="px-3 py-2.5 text-xs text-ink-3">
+                    <td colSpan={3} className="px-3 py-3 text-[13px] text-ink-2">
                       Did not run: {p.error}
                     </td>
                   ) : (
                     <>
-                      <td className="px-3 py-2.5 whitespace-nowrap">{p.mentioned ? <Yes /> : <No />}</td>
-                      <td className="px-3 py-2.5 font-mono tabular-nums">
+                      <td className="px-3 py-3 whitespace-nowrap">{p.mentioned ? <Yes /> : <No />}</td>
+                      <td className="whitespace-nowrap px-3 py-3 font-mono tabular-nums">
                         {p.position ? `#${p.position}${p.businesses.length ? ` of ${Math.max(p.businesses.length, p.position)}` : ""}` : "--"}
                       </td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">{p.cited ? <Yes /> : <No />}</td>
+                      <td className="px-3 py-3 whitespace-nowrap">{p.cited ? <Yes /> : <No />}</td>
                     </>
                   )}
                 </tr>
@@ -161,20 +160,19 @@ export function VisibilityReport({ result }: { result: VisibilityResult }) {
             </tbody>
           </table>
         </Card>
-      </section>
+      </ReportSection>
 
       {r.share_of_voice.length > 0 && (
-        <section>
-          <Label className="mb-2">Share of voice: how many answers name each business</Label>
-          <Card className="space-y-3 p-4">
+        <ReportSection title="Share of voice" hint="How many answers name each business.">
+          <Card className="space-y-4 p-5">
             {r.share_of_voice.map((s) => (
               <div key={s.name}>
-                <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+                <div className="mb-1.5 flex items-baseline justify-between gap-3 text-[15px]">
                   <span className={cx("min-w-0 truncate", s.is_brand ? "font-semibold text-scrub-dark" : "text-ink-2")}>
                     {s.name}
-                    {s.is_brand && <span className="ml-2 font-mono text-[10px] uppercase tracking-wider text-scrub">You</span>}
+                    {s.is_brand && <span className="ml-2 text-xs font-bold uppercase tracking-wide text-scrub">You</span>}
                   </span>
-                  <span className="shrink-0 font-mono text-xs tabular-nums text-ink-3">
+                  <span className="shrink-0 font-mono text-sm tabular-nums text-ink-2">
                     {s.mentions} / {counted.length}
                   </span>
                 </div>
@@ -187,18 +185,17 @@ export function VisibilityReport({ result }: { result: VisibilityResult }) {
               </div>
             ))}
           </Card>
-        </section>
+        </ReportSection>
       )}
 
       {getListed.length > 0 && (
-        <section>
-          <Label className="mb-1">Get listed here: the sites AI read most</Label>
-          <p className="mb-2 text-sm text-ink-2">
-            These sites came up as sources. Being listed, reviewed or mentioned on them is how businesses end up in AI answers.
-          </p>
+        <ReportSection
+          title="Get listed on these sites"
+          hint="These sites came up as sources. Being listed, reviewed or mentioned on them is how businesses end up in AI answers."
+        >
           <Card className="divide-y divide-line">
             {getListed.map((d) => (
-              <div key={d.domain} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
+              <div key={d.domain} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3">
                 <a
                   href={`https://${d.domain}`}
                   target="_blank"
@@ -208,47 +205,45 @@ export function VisibilityReport({ result }: { result: VisibilityResult }) {
                   {d.domain} <ExternalLink size={12} className="shrink-0" />
                 </a>
                 {d.kind && <Badge>{d.kind}</Badge>}
-                <span className="ml-auto font-mono text-xs tabular-nums text-ink-3">
+                <span className="ml-auto text-sm tabular-nums text-ink-2">
                   {d.count} question{d.count === 1 ? "" : "s"}
                 </span>
               </div>
             ))}
           </Card>
-        </section>
+        </ReportSection>
       )}
 
       {r.insights && r.insights.length > 0 && (
-        <section>
-          <Label className="mb-2">Why others get named</Label>
+        <ReportSection title="Why others get named">
           <ul className="space-y-2">
             {r.insights.map((s, i) => (
-              <li key={i} className="flex gap-3 rounded-md border border-line bg-card px-3 py-2 text-sm">
-                <span className="font-mono text-xs text-ink-3">{String(i + 1).padStart(2, "0")}</span>
-                <span>{s}</span>
+              <li key={i} className="flex gap-3 rounded-md border border-line bg-card px-5 py-3.5 text-[15px] leading-relaxed">
+                <span className="mt-0.5 font-mono text-sm text-ink-3">{String(i + 1).padStart(2, "0")}</span>
+                <span className="max-w-3xl">{s}</span>
               </li>
             ))}
           </ul>
-        </section>
+        </ReportSection>
       )}
 
-      <section>
-        <Label className="mb-2">Full AI answers</Label>
+      <ReportSection title="Full AI answers" hint="Open a question to read what the AI said, with your name highlighted.">
         <div className="space-y-2">
           {r.prompts.map((p, i) => (
             <details key={i} className="group rounded-lg border border-line bg-card">
-              <summary className="flex cursor-pointer list-none items-start gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
-                <span className="mt-0.5 font-mono text-xs text-ink-3">{String(i + 1).padStart(2, "0")}</span>
+              <summary className="flex cursor-pointer list-none items-start gap-3 px-5 py-3.5 [&::-webkit-details-marker]:hidden">
+                <span className="mt-0.5 font-mono text-sm text-ink-3">{String(i + 1).padStart(2, "0")}</span>
                 <span className="min-w-0 flex-1 font-semibold">{p.prompt}</span>
                 {!p.error && <Badge tone={p.mentioned ? "green" : "red"}>{p.mentioned ? "Named" : "Not named"}</Badge>}
                 <ChevronDown size={16} className="mt-0.5 shrink-0 text-ink-3 transition group-open:rotate-180" />
               </summary>
-              <div className="space-y-3 border-t border-line px-4 py-3">
+              <div className="space-y-4 border-t border-line px-5 py-4">
                 {p.error ? (
-                  <p className="text-sm text-ink-3">This question did not run: {p.error}</p>
+                  <p className="text-[15px] text-ink-2">This question did not run: {p.error}</p>
                 ) : (
                   <>
                     {p.brand_context && (
-                      <p className="text-sm">
+                      <p className="max-w-3xl text-[15px] leading-relaxed">
                         <span className="font-semibold">How you were described</span>
                         {p.sentiment && p.sentiment !== "not mentioned" && (
                           <Badge tone={p.sentiment === "positive" ? "green" : p.sentiment === "negative" ? "red" : "neutral"} className="mx-2">
@@ -258,8 +253,8 @@ export function VisibilityReport({ result }: { result: VisibilityResult }) {
                         <span className="text-ink-2">{p.brand_context}</span>
                       </p>
                     )}
-                    <div className="whitespace-pre-line break-words rounded-md bg-paper px-3 py-2.5 text-sm leading-relaxed text-ink-2">
-                      {highlight(cleanAnswer(p.answer) || "No answer returned.", re)}
+                    <div className="whitespace-pre-line break-words rounded-md bg-paper px-4 py-3 text-[15px] leading-relaxed text-ink-2"><div className="max-w-3xl">
+                      {highlight(cleanAnswer(p.answer) || "No answer returned.", re)}</div>
                     </div>
                     {p.businesses.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -291,8 +286,8 @@ export function VisibilityReport({ result }: { result: VisibilityResult }) {
             </details>
           ))}
         </div>
-        {r.demo && <p className="mt-2 text-xs text-ink-3">These are sample answers made up to show the report, not real AI answers.</p>}
-      </section>
+        {r.demo && <p className="mt-3 text-sm text-ink-3">These are sample answers made up to show the report, not real AI answers.</p>}
+      </ReportSection>
     </div>
   );
 }
