@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Button, Field, Input } from "./ui";
 import { FormError } from "./run-agent";
 
-export function AuthForm({ mode, next }: { mode: "login" | "signup"; next?: string }) {
+export function AuthForm({ mode, next, defaultEmail }: { mode: "login" | "signup"; next?: string; defaultEmail?: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export function AuthForm({ mode, next }: { mode: "login" | "signup"; next?: stri
         </Field>
       )}
       <Field label="Email">
-        <Input name="email" type="email" autoComplete="email" required />
+        <Input name="email" type="email" autoComplete="email" defaultValue={defaultEmail} required />
       </Field>
       <Field label="Password" hint={mode === "signup" ? "At least 8 characters." : undefined}>
         <Input name="password" type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={mode === "signup" ? 8 : undefined} required />

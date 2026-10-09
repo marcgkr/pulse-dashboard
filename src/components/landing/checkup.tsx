@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import Link from "next/link";
 import { ArrowRight, TriangleAlert } from "lucide-react";
 import type { Check, CheckGroup } from "@/lib/agents/site-audit";
 import type { Prescription } from "@/lib/ai";
@@ -284,18 +283,73 @@ function Results({
         </div>
       )}
 
-      <div className="flex flex-col gap-5 bg-scrub px-5 py-6 text-white md:flex-row md:items-center md:justify-between md:px-8">
-        <p className="max-w-2xl text-[15px] leading-relaxed text-white/85">
-          <strong className="font-semibold text-white">This is the short version.</strong> A free account runs the full Site Doctor checkup on more pages and puts every
-          fix on a prescription board you can tick off, with a re-check date for each.
-        </p>
-        <Link
-          href={signupHref(market, { website: result.host })}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-[15px] font-semibold text-scrub-dark transition hover:-translate-y-0.5 focus-visible:outline-white motion-reduce:transition-none"
-        >
-          Get the full prescription, free <ArrowRight size={17} aria-hidden />
-        </Link>
-      </div>
+      <LeadForm result={result} market={market} />
     </section>
+  );
+}
+
+/** Captures the visitor's email as a lead, then continues to signup with it filled in. */
+function LeadForm({ result, market }: { result: CheckupResult; market: Market }) {
+  const [email, setEmail] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setPending(true);
+    setError("");
+    const res = await fetch("/api/leads", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, url: result.host, score: result.score, country: market.code }),
+    }).catch(() => null);
+    if (!res || !res.ok) {
+      const data = res ? await res.json().catch(() => ({})) : {};
+      setPending(false);
+      setError((data as { error?: string }).error || "That didn't go through. Check your email address and try again.");
+      return;
+    }
+    const href = signupHref(market, { website: result.host });
+    window.location.href = `${href}${href.includes("?") ? "&" : "?"}email=${encodeURIComponent(email)}`;
+  }
+
+  return (
+    <div className="bg-scrub px-5 py-6 text-white md:px-8 md:py-8">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="max-w-xl">
+          <p className="font-display text-xl font-extrabold tracking-[-0.02em] md:text-2xl">Get the full report for {result.host}</p>
+          <p className="mt-1 text-[15px] leading-relaxed text-white/85">
+            The full checkup reads more pages and puts every fix on a board you can tick off, with a re-check date for each. Free, no card.
+          </p>
+        </div>
+        <form onSubmit={submit} className="flex w-full flex-col gap-2 sm:flex-row lg:max-w-md">
+          <label className="sr-only" htmlFor="lead-email">
+            Your email
+          </label>
+          <input
+            id="lead-email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@yourbusiness.com"
+            className="min-w-0 flex-1 rounded-full border-0 bg-white px-5 py-3 text-[15px] text-ink placeholder:text-ink-3 focus:outline-none focus:ring-4 focus:ring-white/40"
+          />
+          <button
+            type="submit"
+            disabled={pending}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-[15px] font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-60 motion-reduce:transition-none"
+          >
+            {pending ? "One moment..." : "Get my full report"} <ArrowRight size={17} aria-hidden />
+          </button>
+        </form>
+      </div>
+      {error && (
+        <p role="alert" className="mt-3 text-sm font-semibold text-white">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

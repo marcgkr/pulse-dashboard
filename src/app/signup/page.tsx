@@ -7,7 +7,7 @@ import { visitorMarket } from "@/lib/market-server";
 
 export const metadata = { title: "Start free" };
 
-export default async function SignupPage({ searchParams }: { searchParams: Promise<{ website?: string; plan?: string; country?: string }> }) {
+export default async function SignupPage({ searchParams }: { searchParams: Promise<{ website?: string; plan?: string; country?: string; email?: string }> }) {
   const sp = await searchParams;
   // The country chosen on the public site: from the link, else the saved cookie / browser guess.
   const fromLink = MARKETS.find((m) => m.code === sp.country?.toUpperCase())?.code;
@@ -20,7 +20,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
   if (await currentUser()) redirect(next);
   return (
     <AuthShell title="Start with a free checkup" sub="No card needed. Your first Site Doctor report takes about a minute.">
-      <AuthForm mode="signup" next={next} />
+      <AuthForm mode="signup" next={next} defaultEmail={typeof sp.email === "string" ? sp.email.slice(0, 254) : undefined} />
     </AuthShell>
   );
 }

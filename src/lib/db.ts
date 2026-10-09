@@ -132,6 +132,16 @@ function migrate(db: Database.Database) {
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS usage_ws ON usage_events(workspace_id, kind, created_at);
+    CREATE TABLE IF NOT EXISTS leads (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      website TEXT NOT NULL DEFAULT '',
+      score INTEGER,
+      country TEXT NOT NULL DEFAULT '',
+      source TEXT NOT NULL DEFAULT 'checkup',
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS leads_created ON leads(created_at);
   `);
   addColumn(db, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
   addColumn(db, "workspaces", "stripe_subscription_id", "TEXT");

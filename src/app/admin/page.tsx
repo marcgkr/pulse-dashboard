@@ -41,6 +41,15 @@ export default async function AdminPage() {
     mrrByCurrency.set(m.currency, cur);
   }
   const mrr = [...mrrByCurrency.values()].map((v) => formatPrice(v.market, v.total)).join(" + ") || "0";
+  const leads = db()
+    .prepare(
+      `SELECT l.email, l.website, l.score, l.country, l.created_at, EXISTS(SELECT 1 FROM users u WHERE u.email = l.email) AS signed_up
+       FROM leads l ORDER BY l.created_at DESC LIMIT 50`,
+    )
+    .all() as { email: string; website: string; score: number | null; country: string; created_at: string; signed_up: number }[];
+  const leadTotals = db()
+    .prepare("SELECT COUNT(*) AS n, SUM(EXISTS(SELECT 1 FROM users u WHERE u.email = l.email)) AS converted FROM leads l")
+    .get() as { n: number; converted: number | null };
   const byAgent = db().prepare("SELECT agent, COUNT(*) n FROM runs WHERE created_at >= ? GROUP BY agent ORDER BY n DESC").all(month.toISOString()) as { agent: string; n: number }[];
 
   return (
@@ -64,6 +73,48 @@ export default async function AdminPage() {
       </div>
       <Label className="mb-2">Runs by specialist this month</Label>
       <p className="mb-8 text-sm text-ink-2">{byAgent.map((a) => `${a.agent} ${a.n}`).join(" · ") || "None yet."}</p>
+      <div className="mb-2 flex items-end justify-between gap-4">
+        <Label>
+          Free-checkup leads: {leadTotals.n} captured, {leadTotals.converted ?? 0} created an account
+        </Label>
+        <a href="/api/admin/leads" className="text-sm font-semibold text-scrub hover:underline">
+          Download CSV
+        </a>
+      </div>
+      <Card className="mb-10 overflow-x-auto">
+        {leads.length === 0 ? (
+          <p className="p-5 text-sm text-ink-3">No leads yet. They appear here when someone enters their email after the free checkup on the homepage.</p>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <thead className="text-xs font-semibold text-ink-3">
+              <tr className="border-b border-line">
+                <th className="px-4 py-2.5">Email</th>
+                <th className="px-4 py-2.5">Website</th>
+                <th className="px-4 py-2.5 text-right">Score</th>
+                <th className="px-4 py-2.5">Country</th>
+                <th className="px-4 py-2.5">Account</th>
+                <th className="px-4 py-2.5">When</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.map((l) => (
+                <tr key={l.email + l.website} className="border-b border-line last:border-0">
+                  <td className="px-4 py-2.5">
+                    <a className="font-semibold text-scrub" href={`mailto:${l.email}`}>
+                      {l.email}
+                    </a>
+                  </td>
+                  <td className="px-4 py-2.5">{l.website}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums">{l.score ?? ""}</td>
+                  <td className="px-4 py-2.5">{l.country ? marketFor(l.country).name : ""}</td>
+                  <td className="px-4 py-2.5">{l.signed_up ? "Yes" : "Not yet"}</td>
+                  <td className="px-4 py-2.5 text-xs text-ink-3">{l.created_at.slice(0, 10)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
       <Label className="mb-2">Businesses</Label>
       <Card className="overflow-x-auto">
         <table className="w-full text-left text-sm">

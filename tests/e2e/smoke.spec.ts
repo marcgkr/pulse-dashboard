@@ -15,10 +15,8 @@ test("owner signs up, runs Site Doctor, and works a prescription", async ({ page
   await page.getByLabel("What you sell").fill("Pico laser, Hydrafacial, skin boosters");
   await page.getByRole("button", { name: "Save and open my dashboard" }).click();
 
-  await expect(page.getByRole("heading", { name: /Welcome, Mei/ })).toBeVisible();
-  await expect(page.getByLabel("Website to check")).toHaveValue("http://127.0.0.1:4555/");
-  await page.getByRole("button", { name: "Run checkup" }).click();
-
+  // The first Site Doctor checkup starts automatically from the website given at signup.
+  await expect(page).toHaveURL(/\/app\/runs\//);
   await expect(page.getByText("Diagnosis")).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText("Sample output").first()).toBeVisible();
   await expect(page.getByText("Every check we ran")).toBeVisible();
@@ -57,6 +55,15 @@ test("wrong password is rejected", async ({ request }) => {
   expect(good.status()).toBe(200);
   const nobody = await request.post("/api/auth/login", { data: { email: "nobody@example.com", password: "whatever-123" } });
   expect(nobody.status()).toBe(401);
+});
+
+test("free-checkup leads are captured", async ({ request }) => {
+  const bad = await request.post("/api/leads", { data: { email: "not-an-email", url: "example.com" } });
+  expect(bad.status()).toBe(400);
+  const ok = await request.post("/api/leads", { data: { email: "lead@example.com", url: "example.com", score: 42, country: "AU" } });
+  expect(ok.status()).toBe(200);
+  const csv = await request.get("/api/admin/leads");
+  expect(csv.status()).toBe(403); // admins only
 });
 
 test("cross-site writes are blocked", async ({ request }) => {

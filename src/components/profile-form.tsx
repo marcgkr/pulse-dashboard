@@ -63,7 +63,7 @@ export function ProfileForm({ mode, initial }: { mode: "create" | "edit"; initia
     setPending(false);
     if (!res.ok) return setError(data.error || "Couldn't save.");
     if (mode === "create") {
-      router.push("/app?welcome=1");
+      router.push(data.firstRunId ? `/app/runs/${data.firstRunId}` : "/app?welcome=1");
     } else {
       setSaved(true);
       router.refresh();

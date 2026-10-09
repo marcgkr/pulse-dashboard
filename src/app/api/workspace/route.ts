@@ -3,6 +3,8 @@ import { currentUser, workspaceFor } from "@/lib/auth";
 import { db, id, now } from "@/lib/db";
 import { errorResponse, readJson } from "@/lib/http";
 import { MARKETS } from "@/lib/markets";
+import { startRun } from "@/lib/runs";
+import type { WorkspaceRow } from "@/lib/db";
 
 const countryOf = (v: unknown) => (typeof v === "string" && MARKETS.some((m) => m.code === v) ? v : null);
 
@@ -51,7 +53,17 @@ export async function POST(req: Request) {
        VALUES (@id, @owner_id, @name, @website, @industry, @location, @country, @audience, @offers, @competitors, @goals, @monthly_budget, @tone, @regulated, @created_at)`,
     )
     .run(row);
-  return NextResponse.json({ ok: true, id: row.id });
+  // Time to first value: start the first Site Doctor checkup straight away so the owner lands on a working report.
+  let firstRunId: string | null = null;
+  if (row.website) {
+    try {
+      const ws = db().prepare("SELECT * FROM workspaces WHERE id = ?").get(row.id) as WorkspaceRow;
+      firstRunId = startRun(ws, "site", { url: row.website }).id;
+    } catch (e) {
+      console.warn("[onboarding] first checkup not started:", (e as Error).message);
+    }
+  }
+  return NextResponse.json({ ok: true, id: row.id, firstRunId });
 }
 
 export async function PATCH(req: Request) {
