@@ -3,6 +3,7 @@ import { auditSite, type Check } from "@/lib/agents/site-audit";
 import { clientIp, HttpError, readJson } from "@/lib/http";
 import { rulePrescriptions } from "@/lib/agents/site";
 import { normalizeUrl } from "@/lib/safe-fetch";
+import { marketFor } from "@/lib/markets";
 
 // Free public checkup used by the landing page hero. Rules-only (no AI), so it is cheap to run.
 
@@ -56,7 +57,7 @@ function withTimeout<T>(work: (signal: AbortSignal) => Promise<T>, ms: number): 
 const statusRank = { fail: 0, warn: 1, pass: 2 } as const;
 
 export async function POST(req: Request) {
-  let body: { url?: unknown } | null;
+  let body: { url?: unknown; country?: unknown } | null;
   try {
     body = await readJson(req, 4000);
   } catch (e) {
@@ -64,6 +65,9 @@ export async function POST(req: Request) {
     throw e;
   }
   const raw = typeof body?.url === "string" ? body.url.trim() : "";
+  // Optional: the country picked on the public site. Echoed back; the checkup itself is the same everywhere.
+  const countryParam = typeof body?.country === "string" ? body.country.trim().toUpperCase() : "";
+  const country = countryParam && marketFor(countryParam).code === countryParam ? countryParam : null;
   if (!raw) return NextResponse.json({ error: "Enter your website address, for example yourclinic.sg." }, { status: 400 });
   if (raw.length > 300) return NextResponse.json({ error: "That address is too long. Enter just your homepage, like yourclinic.sg." }, { status: 400 });
 
@@ -84,7 +88,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const audit = await withTimeout((signal) => auditSite(url, { maxPages: 3, signal }), TIMEOUT_MS);
+    const audit = await withTimeout((signal) => auditSite(url, { maxPages: 3, signal, market: String((body as { country?: unknown } | null)?.country ?? "") || null }), TIMEOUT_MS);
     const topIssues: Check[] = audit.checks
       .filter((c) => c.status !== "pass")
       .sort((a, b) => b.weight - a.weight || statusRank[a.status] - statusRank[b.status])
@@ -96,6 +100,7 @@ export async function POST(req: Request) {
       platform: audit.platform,
       topIssues,
       prescriptions: rulePrescriptions(audit).slice(0, 3),
+      country,
     });
   } catch (e) {
     if (e instanceof TimeoutError) {

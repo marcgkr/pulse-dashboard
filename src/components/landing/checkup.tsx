@@ -2,12 +2,15 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight } from "lucide-react";
+import { ArrowRight, TriangleAlert } from "lucide-react";
 import type { Check, CheckGroup } from "@/lib/agents/site-audit";
 import type { Prescription } from "@/lib/ai";
-import { EcgTrace, Meter, ScoreDial } from "../brand";
+import type { Market } from "@/lib/markets";
+import { Meter, ScoreDial } from "../brand";
 import { RxSlip } from "../rx-slip";
-import { Badge, Label, cx, scoreColor } from "../ui";
+import { Badge, cx } from "../ui";
+import { Heartbeat, type BeatState } from "./heartbeat";
+import { exampleSite, signupHref } from "./market-copy";
 
 type CheckupResult = {
   host: string;
@@ -16,9 +19,8 @@ type CheckupResult = {
   platform: string;
   topIssues: Check[];
   prescriptions: Prescription[];
+  country?: string | null;
 };
-
-type Phase = "idle" | "running" | "done" | "error";
 
 // The steps auditSite actually performs, in order. Shown while the request runs.
 const STEPS = [
@@ -42,29 +44,27 @@ function mmss(s: number) {
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
 
-/** The hero: `intro` sits beside the chart card; results open full width underneath. */
-export function Checkup({ intro }: { intro: ReactNode }) {
+/**
+ * The hero's live checkup. `intro` (eyebrow, headline, lead) sits on top; the heartbeat runs
+ * into the URL capsule; results open full width underneath.
+ */
+export function Checkup({ intro, market }: { intro: ReactNode; market: Market }) {
   const [url, setUrl] = useState("");
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [phase, setPhase] = useState<BeatState>("idle");
   const [result, setResult] = useState<CheckupResult | null>(null);
   const [error, setError] = useState("");
   const [elapsed, setElapsed] = useState(0);
-  const [beat, setBeat] = useState(0);
   const resultsRef = useRef<HTMLHeadingElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const example = exampleSite(market);
 
   const running = phase === "running";
 
-  // Elapsed clock + re-draw the trace every 2.6s while the checkup runs.
   useEffect(() => {
     if (!running) return;
     const started = Date.now();
     const clock = setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 500);
-    const trace = setInterval(() => setBeat((b) => b + 1), 2600);
-    return () => {
-      clearInterval(clock);
-      clearInterval(trace);
-    };
+    return () => clearInterval(clock);
   }, [running]);
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export function Checkup({ intro }: { intro: ReactNode }) {
     const value = url.trim();
     if (!value) {
       setPhase("error");
-      setError("Enter your website address, for example yourclinic.sg.");
+      setError(`Enter your website address, for example ${example}.`);
       inputRef.current?.focus();
       return;
     }
@@ -85,7 +85,6 @@ export function Checkup({ intro }: { intro: ReactNode }) {
     setError("");
     setResult(null);
     setElapsed(0);
-    setBeat((b) => b + 1);
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 65_000);
@@ -93,7 +92,7 @@ export function Checkup({ intro }: { intro: ReactNode }) {
       const res = await fetch("/api/checkup", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: value }),
+        body: JSON.stringify({ url: value, country: market.code }),
         signal: controller.signal,
       });
       const data = (await res.json().catch(() => null)) as (CheckupResult & { error?: string }) | null;
@@ -112,149 +111,131 @@ export function Checkup({ intro }: { intro: ReactNode }) {
   }
 
   const stepIndex = Math.min(STEPS.length - 1, Math.floor(elapsed / 4));
-  const statusLine =
-    phase === "running"
-      ? STEPS[stepIndex]
-      : phase === "done" && result
-        ? `Checkup complete: ${result.host}`
-        : phase === "error"
-          ? "No reading. See the message below."
-          : "Waiting for a website address";
 
   return (
     <div>
-      <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-14">
-        <div>{intro}</div>
-        <div className="min-w-0">
-          {/* The chart card */}
-          <div className="overflow-hidden rounded-lg border border-ink/80 bg-card shadow-[0_1px_0_rgb(14_26_36/0.04),0_12px_32px_-12px_rgb(14_26_36/0.18)]">
-            <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5 md:px-5">
-              <Label className="text-ink">Patient chart</Label>
-              <Label>
-                <span className="hidden sm:inline">Site Doctor · </span>Free checkup
-              </Label>
-            </div>
+      {intro}
 
-            <form onSubmit={submit} className="p-4 md:p-5" noValidate>
-              <label htmlFor="checkup-url" className="mb-2 block font-display text-xl font-semibold tracking-tight md:text-2xl">
-                Check your website&apos;s pulse
-              </label>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <div className="relative flex-1">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-xs uppercase tracking-wider text-ink-3" aria-hidden>
-                    URL
-                  </span>
-                  <input
-                    ref={inputRef}
-                    id="checkup-url"
-                    name="url"
-                    type="text"
-                    inputMode="url"
-                    autoComplete="url"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    placeholder="yourclinic.sg"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    aria-invalid={phase === "error" || undefined}
-                    aria-describedby={phase === "error" ? "checkup-error" : "checkup-hint"}
-                    className="h-12 w-full rounded-md border border-line bg-white pl-12 pr-3 font-mono text-[15px] text-ink placeholder:text-ink-3/60 focus:border-scrub focus:outline-none focus:ring-2 focus:ring-scrub/25"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={running}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-scrub px-5 text-[15px] font-semibold text-white transition hover:bg-scrub-dark disabled:opacity-70 motion-reduce:transition-none"
-                >
-                  {running ? "Checking..." : "Run free checkup"}
-                  {!running && <ArrowRight size={17} aria-hidden />}
-                </button>
-              </div>
-              <p id="checkup-hint" className="mt-2 text-xs text-ink-3">
-                No sign-up. Takes about 20 to 40 seconds. We only read public pages.
-              </p>
-            </form>
-
-            {/* Bedside monitor strip */}
+      {/* Heartbeat running into the URL capsule */}
+      <form onSubmit={submit} noValidate className="rise mt-10 md:mt-14" style={{ animationDelay: "320ms" }}>
+        <label htmlFor="checkup-url" className="mb-3 block font-display text-xl font-bold tracking-tight md:ml-auto md:w-[min(36rem,60%)] md:pl-6 md:text-2xl">
+          Check your website&apos;s pulse
+        </label>
+        <div className="flex flex-col md:flex-row md:items-center">
+          <div className="-mx-5 h-12 md:-ml-14 md:mr-0 md:h-16 md:flex-1">
+            <Heartbeat state={phase} className="h-full" />
+          </div>
+          <div className="relative md:w-[min(36rem,60%)] md:shrink-0">
+            <span aria-hidden className={cx("absolute -left-1.5 top-1/2 z-10 hidden h-3 w-3 -translate-y-1/2 rounded-full md:block", phase === "error" ? "bg-ink-3" : "bg-pulse")} />
             <div
-              className="relative border-t border-ink bg-ink px-4 pb-3 pt-2.5 text-white md:px-5"
-              style={{
-                backgroundImage:
-                  "linear-gradient(to right, rgb(255 255 255 / 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgb(255 255 255 / 0.05) 1px, transparent 1px)",
-                backgroundSize: "16px 16px",
-              }}
+              className={cx(
+                "flex items-center gap-2 rounded-full bg-card p-1.5 shadow-[var(--shadow-lift)] ring-1 transition focus-within:ring-4 motion-reduce:transition-none",
+                phase === "error" ? "ring-pulse/50 focus-within:ring-pulse/25" : "ring-ink/5 focus-within:ring-scrub/25",
+              )}
             >
-              <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.12em] text-white/60">
-                <span className="inline-flex items-center gap-2">
-                  <span className={cx("h-1.5 w-1.5 rounded-full", running ? "blip bg-pulse" : phase === "done" ? "bg-[#5fd0b4]" : "bg-white/30")} aria-hidden />
-                  {running ? "Live" : phase === "done" ? "Reading taken" : "Standby"}
-                </span>
-                <span className="tabular-nums">{running || phase === "done" ? mmss(elapsed) : "--:--"}</span>
-              </div>
-              <div className="mt-1 flex items-center gap-4">
-                <div className="min-w-0 flex-1">
-                  <EcgTrace key={running ? `run-${beat}` : phase} flat={phase === "idle" || phase === "error"} className="h-14 md:h-16" />
-                </div>
-                <div className="shrink-0 text-right">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/50">Score</div>
-                  <div
-                    className="font-mono text-3xl font-semibold tabular-nums leading-none"
-                    style={{ color: phase === "done" && result ? scoreColor(result.score) : "rgb(255 255 255 / 0.35)" }}
-                  >
-                    {phase === "done" && result ? result.score : "--"}
-                  </div>
-                </div>
-              </div>
-              <p className="mt-1 truncate font-mono text-xs text-white/75" aria-live="polite">
-                {statusLine}
-                {running && <span aria-hidden>...</span>}
-              </p>
+              <input
+                ref={inputRef}
+                id="checkup-url"
+                name="url"
+                type="text"
+                inputMode="url"
+                autoComplete="url"
+                autoCapitalize="none"
+                spellCheck={false}
+                placeholder={example}
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                aria-invalid={phase === "error" || undefined}
+                aria-describedby={phase === "error" ? "checkup-error" : "checkup-hint"}
+                className="h-12 min-w-0 flex-1 rounded-full bg-transparent pl-4 text-[16px] text-ink placeholder:text-ink-3/70 focus:outline-none md:h-14 md:pl-6 md:text-lg"
+              />
+              <button
+                type="submit"
+                disabled={running}
+                className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-full bg-scrub px-4 text-[15px] font-semibold text-white shadow-[0_8px_20px_-8px_rgb(91_61_245/0.7)] transition hover:bg-scrub-dark disabled:opacity-80 motion-reduce:transition-none md:h-14 md:px-6 md:text-base"
+              >
+                {running ? (
+                  "Checking..."
+                ) : (
+                  <>
+                    <span className="sm:hidden">Check</span>
+                    <span className="hidden sm:inline">Run free checkup</span>
+                    <ArrowRight size={17} aria-hidden />
+                  </>
+                )}
+              </button>
             </div>
           </div>
+        </div>
 
+        <div className="mt-3 md:ml-auto md:w-[min(36rem,60%)] md:pl-6">
+          {phase === "idle" && (
+            <p id="checkup-hint" className="text-sm text-ink-2">
+              No sign-up. Takes 20 to 40 seconds. We only read public pages.
+            </p>
+          )}
+          {(running || phase === "done") && (
+            <p className="inline-flex max-w-full items-center gap-2.5 rounded-full bg-card/80 py-1.5 pl-3 pr-4 text-sm text-ink ring-1 ring-ink/5" aria-live="polite">
+              <span className={cx("h-2 w-2 shrink-0 rounded-full", running ? "blip bg-pulse" : "bg-good")} aria-hidden />
+              <span className="truncate">{running ? `${STEPS[stepIndex]}...` : `Checkup complete for ${result?.host}`}</span>
+              <span className="font-mono text-xs tabular-nums text-ink-3">{mmss(elapsed)}</span>
+            </p>
+          )}
           {phase === "error" && error && (
-            <div id="checkup-error" role="alert" className="mt-4 flex items-start gap-3 rounded-md border border-pulse/30 bg-pulse/5 px-4 py-3 text-sm text-ink">
-              <AlertTriangle size={18} className="mt-0.5 shrink-0 text-pulse" aria-hidden />
+            <div id="checkup-error" role="alert" className="flex items-start gap-3 rounded-2xl bg-card px-4 py-3 text-sm text-ink ring-1 ring-pulse/30">
+              <TriangleAlert size={18} className="mt-0.5 shrink-0 text-pulse" aria-hidden />
               <span>{error}</span>
             </div>
           )}
         </div>
-      </div>
+      </form>
 
-      {phase === "done" && result && <Results result={result} headingRef={resultsRef} />}
+      {phase === "done" && result && <Results result={result} market={market} headingRef={resultsRef} />}
     </div>
   );
 }
 
-function Results({ result, headingRef }: { result: CheckupResult; headingRef: React.RefObject<HTMLHeadingElement | null> }) {
-  const signupHref = `/signup?website=${encodeURIComponent(result.host)}`;
+function verdict(score: number) {
+  if (score >= 75) return "In good shape. A few fixes will tighten it up.";
+  if (score >= 50) return "Working, but losing enquiries it should be getting.";
+  return "Several basics are missing. Start with the slips below.";
+}
+
+function Results({
+  result,
+  market,
+  headingRef,
+}: {
+  result: CheckupResult;
+  market: Market;
+  headingRef: React.RefObject<HTMLHeadingElement | null>;
+}) {
   return (
-    <section aria-labelledby="checkup-results" className="mt-10 rounded-lg border border-line bg-card">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3 md:px-6">
-        <h2 id="checkup-results" ref={headingRef} tabIndex={-1} className="font-display text-xl font-semibold tracking-tight focus:outline-none">
+    <section aria-labelledby="checkup-results" className="mt-12 overflow-hidden rounded-[2rem] bg-card shadow-[var(--shadow-lift)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-6 md:px-8 md:pt-8">
+        <h2
+          id="checkup-results"
+          ref={headingRef}
+          tabIndex={-1}
+          className="min-w-0 break-words font-display text-2xl font-extrabold tracking-[-0.02em] focus:outline-none md:text-3xl"
+        >
           Results for {result.host}
         </h2>
-        <div className="flex flex-wrap gap-1.5">
-          <Badge>Built with {result.platform}</Badge>
-          <Badge tone="ink">Free checkup</Badge>
-        </div>
+        <Badge>Built with {result.platform}</Badge>
       </div>
 
-      <div className="grid gap-8 p-4 md:p-6 lg:grid-cols-[auto_1fr_1.25fr]">
-        <div className="flex flex-col items-center gap-2 lg:items-start">
-          <ScoreDial score={result.score} size={148} label="Site health" />
-          <p className="max-w-[16rem] text-center text-sm text-ink-2 lg:text-left">
-            {result.score >= 75
-              ? "In good shape. A few fixes will tighten it up."
-              : result.score >= 50
-                ? "Working, but losing enquiries it should be getting."
-                : "Several basics are missing. Start with the slips below."}
-          </p>
+      <div className="grid gap-6 p-5 md:p-8 lg:grid-cols-[auto_1fr_1.3fr] lg:gap-10">
+        <div className="flex flex-col items-center gap-3 rounded-3xl bg-paper p-5 lg:items-start">
+          <ScoreDial score={result.score} size={148} />
+          <div className="text-center lg:text-left">
+            <p className="text-[13px] font-semibold text-ink-3">Site health</p>
+            <p className="mt-1 max-w-[15rem] text-sm text-ink-2">{verdict(result.score)}</p>
+          </div>
         </div>
 
         <div>
-          <Label className="mb-3">By area</Label>
-          <div className="space-y-3.5">
+          <p className="mb-4 text-[15px] font-semibold text-ink">By area</p>
+          <div className="space-y-4">
             {GROUP_ORDER.map((g) => (
               <Meter key={g} label={GROUP_LABEL[g]} value={result.groupScores[g] ?? null} />
             ))}
@@ -262,18 +243,22 @@ function Results({ result, headingRef }: { result: CheckupResult; headingRef: Re
         </div>
 
         <div>
-          <Label className="mb-3">Top findings</Label>
+          <p className="mb-4 text-[15px] font-semibold text-ink">Top findings</p>
           {result.topIssues.length === 0 ? (
             <p className="text-sm text-ink-2">Every check we ran passed. Nice work.</p>
           ) : (
-            <ul className="divide-y divide-line border-y border-line">
+            <ul className="space-y-2">
               {result.topIssues.map((c) => (
-                <li key={c.id} className="flex gap-3 py-2.5">
-                  <Badge tone={c.status === "fail" ? "red" : "amber"} className="mt-0.5 h-fit shrink-0">
-                    {c.status === "fail" ? "Fail" : "Warn"}
-                  </Badge>
+                <li key={c.id} className="flex gap-3 rounded-2xl bg-paper px-4 py-3">
+                  <span
+                    aria-hidden
+                    className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ background: c.status === "fail" ? "var(--color-pulse)" : "var(--color-amber)" }}
+                  />
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-ink">{c.label}</p>
+                    <p className="text-sm font-semibold text-ink">
+                      {c.label} <span className="sr-only">({c.status === "fail" ? "fail" : "warning"})</span>
+                    </p>
                     <p className="break-words text-sm text-ink-2">{c.detail}</p>
                   </div>
                 </li>
@@ -284,27 +269,29 @@ function Results({ result, headingRef }: { result: CheckupResult; headingRef: Re
       </div>
 
       {result.prescriptions.length > 0 && (
-        <div className="border-t border-line px-4 py-6 md:px-6">
+        <div className="px-5 pb-6 md:px-8 md:pb-8">
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="font-display text-lg font-semibold tracking-tight">Your first {result.prescriptions.length === 1 ? "prescription" : `${result.prescriptions.length} prescriptions`}</h3>
-            <Label>Steps written for {result.platform}</Label>
+            <h3 className="font-display text-xl font-extrabold tracking-[-0.02em]">
+              Your first {result.prescriptions.length === 1 ? "prescription" : `${result.prescriptions.length} prescriptions`}
+            </h3>
+            <p className="text-sm text-ink-3">Steps written for {result.platform}</p>
           </div>
           <div className="grid items-start gap-4 lg:grid-cols-3">
             {result.prescriptions.map((p, i) => (
-              <RxSlip key={p.title} data={p} defaultOpen={i === 0} />
+              <RxSlip key={p.title} data={{ ...p, agent: "site", agentName: "Site Doctor" }} defaultOpen={i === 0} />
             ))}
           </div>
         </div>
       )}
 
-      <div className="flex flex-col gap-4 rounded-b-lg border-t border-scrub/20 bg-mint px-4 py-5 md:flex-row md:items-center md:justify-between md:px-6">
-        <p className="max-w-2xl text-[15px] text-ink">
-          <strong className="font-semibold">This is the short version.</strong> A free account runs the full Site Doctor checkup on more pages and puts every fix on a
-          prescription board you can tick off, with a re-check date for each.
+      <div className="flex flex-col gap-5 bg-scrub px-5 py-6 text-white md:flex-row md:items-center md:justify-between md:px-8">
+        <p className="max-w-2xl text-[15px] leading-relaxed text-white/85">
+          <strong className="font-semibold text-white">This is the short version.</strong> A free account runs the full Site Doctor checkup on more pages and puts every
+          fix on a prescription board you can tick off, with a re-check date for each.
         </p>
         <Link
-          href={signupHref}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-scrub px-5 py-3 text-[15px] font-semibold text-white hover:bg-scrub-dark"
+          href={signupHref(market, { website: result.host })}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-[15px] font-semibold text-scrub-dark transition hover:-translate-y-0.5 focus-visible:outline-white motion-reduce:transition-none"
         >
           Get the full prescription, free <ArrowRight size={17} aria-hidden />
         </Link>
