@@ -10,6 +10,7 @@ import { Badge, ButtonLink, Card, Label, scoreTone } from "@/components/ui";
 import { agentColor } from "@/lib/agent-colors";
 import type { AgentId } from "@/lib/agents/types";
 import { clientInput } from "@/lib/client-input";
+import { connectedSources } from "@/lib/connectors";
 
 export async function generateMetadata({ params }: { params: Promise<{ agent: string }> }) {
   const { agent } = await params;
@@ -50,7 +51,7 @@ export default async function AgentPage({ params }: { params: Promise<{ agent: s
                 goals: ws.goals,
                 regulated: !!ws.regulated,
               }}
-              windsorConnected={!!ws.windsor_api_key}
+              connected={connectedSources(ws)}
               lastInput={lastInput ? clientInput(agent.id, JSON.parse(lastInput)) : null}
             />
           ) : (

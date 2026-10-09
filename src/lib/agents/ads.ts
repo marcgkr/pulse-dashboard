@@ -4,7 +4,6 @@ import type { WorkspaceRow } from "../db";
 import type { AgentContext, AgentDef } from "./types";
 import {
   analyzeAds,
-  fetchWindsor,
   levelLabel,
   parseReport,
   sampleReports,
@@ -17,8 +16,9 @@ import {
   type SourceInfo,
 } from "./ads-data";
 import { marketFor, type Market } from "../markets";
+import { connectedSources, fetchLiveAds } from "../connectors";
 
-type Source = "upload" | "windsor" | "sample";
+type Source = "upload" | "live" | "sample";
 type Input = { source: Source; reports: ReportInput[]; days: number; notes: string };
 
 const MAX_REPORTS = 6;
@@ -194,20 +194,21 @@ async function gather(input: Input, ctx: AgentContext, opts: { fallbackToSample:
     return sample();
   }
 
-  if (input.source === "windsor") {
-    const key = ctx.ws.windsor_api_key;
-    if (!key) throw new Error("Connect Windsor.ai in Settings first, or upload CSV exports instead.");
-    ctx.progress(`Pulling the last ${input.days} days from Windsor.ai`);
-    const w = await fetchWindsor(key, input.days);
-    const failed = w.sources.filter((s) => !s.ok || s.rows === 0);
-    for (const f of failed) warnings.push(`${f.label}: ${f.error ?? "no rows"}`);
+  if (input.source === "live") {
+    ctx.progress(`Pulling the last ${input.days} days from your connected ad accounts`);
+    const w = await fetchLiveAds(ctx.ws, input.days, ctx.progress);
+    warnings.push(...w.warnings);
+    Object.assign(currency, w.currency);
     if (w.rows.length === 0) {
+      const failed = w.sources.filter((s) => !s.ok || s.rows === 0);
       if (opts.fallbackToSample) {
-        warnings.unshift("Windsor.ai returned no data, so this report uses sample data.");
+        warnings.unshift("Your connected ad accounts returned no data for this period, so this report uses sample data.");
         const s = sample();
         return { ...s, sources: [...w.sources, ...s.sources] };
       }
-      throw new Error(`Couldn't read ad data from Windsor.ai. ${failed.map((f) => `${f.label}: ${f.error ?? "no rows"}`).join(" ")} Check the connection in Settings, or upload CSV exports instead.`);
+      throw new Error(
+        `Couldn't read ad data from your connected accounts. ${failed.map((f) => `${f.label}: ${f.error ?? "no rows"}`).join(" ")} Check Settings > Connected accounts, or upload your exports instead.`.slice(0, 600),
+      );
     }
     return { rows: w.rows, sources: w.sources, period: `Last ${input.days} days`, currency, warnings, sample: false };
   }
@@ -583,16 +584,17 @@ export const adsAgent: AgentDef<Input> = {
   name: "Ads Doctor",
   blurb: "Checks your Google and Meta ads and tells you what to pause, scale and fix.",
   description:
-    "Upload your Google Ads or Meta Ads Manager exports (or connect Windsor.ai). Ads Doctor works out cost per enquiry for every campaign, finds the spend that brings nothing back, lists negative keywords to add, picks the winners worth more budget and checks your tracking. You make the changes in Ads Manager yourself, with exact click paths.",
+    "Connect your Google Ads and Meta ad accounts once, or upload your exports. Ads Doctor works out cost per enquiry for every campaign, finds the spend that brings nothing back, lists negative keywords to add, picks the winners worth more budget and checks your tracking. You make the changes in Ads Manager yourself, with exact click paths.",
 
   parseInput(raw, ws) {
     const r = (raw ?? {}) as Record<string, unknown>;
-    let source: Source = r.source === "windsor" ? "windsor" : r.source === "sample" ? "sample" : "upload";
+    // "windsor" is how live sync was stored before native connections; re-runs of those reports sync live.
+    let source: Source = r.source === "live" || r.source === "windsor" ? "live" : r.source === "sample" ? "sample" : "upload";
     const days = DAY_OPTIONS.includes(Number(r.days)) ? Number(r.days) : 30;
     const notes = String(r.notes ?? "").trim().slice(0, 1000);
     let reports: ReportInput[] = [];
-    if (source === "windsor") {
-      if (!ws.windsor_api_key) throw new Error("Connect Windsor.ai in Settings first, or upload CSV exports instead.");
+    if (source === "live") {
+      if (!connectedSources(ws).ads) throw new Error("Connect your Google Ads or Meta ad account in Settings > Connected accounts first, or upload your exports instead.");
     } else if (source === "upload") {
       reports = cleanReports(r.reports);
       if (reports.length > MAX_REPORTS) throw new Error(`Upload up to ${MAX_REPORTS} reports at a time.`);
@@ -612,7 +614,7 @@ export const adsAgent: AgentDef<Input> = {
 
   runTitle(input) {
     if (input.source === "sample") return "Ads checkup: sample account";
-    if (input.source === "windsor") return `Ads checkup: Windsor.ai, last ${input.days} days`;
+    if (input.source === "live") return `Ads checkup: live sync, last ${input.days} days`;
     const plats = new Set(input.reports.map((r) => parseReport(r).platform).filter(Boolean) as Platform[]);
     return `Ads checkup: ${[...plats].map((p) => PLAT[p]).join(" + ") || "uploaded reports"}`;
   },
@@ -629,7 +631,7 @@ export const adsAgent: AgentDef<Input> = {
       prompt: `BUSINESS PROFILE
 ${businessContext(ctx.ws)}
 
-DATA SOURCE: ${g.sample ? "SAMPLE DATA (not the owner's account; say so in the summary)" : input.source === "windsor" ? "Windsor.ai API" : "Uploaded CSV exports"}
+DATA SOURCE: ${g.sample ? "SAMPLE DATA (not the owner's account; say so in the summary)" : input.source === "live" ? "Live read-only sync from the owner's connected Google Ads / Meta ad accounts" : "Uploaded CSV exports"}
 PERIOD: ${g.period}
 ${input.notes ? `OWNER NOTES: ${input.notes}\n` : ""}
 ${promptTables(a)}

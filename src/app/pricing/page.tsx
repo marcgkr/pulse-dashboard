@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import { Fragment } from "react";
 import Link from "next/link";
 import { Check, Minus } from "lucide-react";
-import { BRAND, PLANS, planPrice, type PlanId } from "@/lib/config";
+import { BRAND, PLAN_ROWS, PLANS, planPrice, type AgentKey, type PlanId } from "@/lib/config";
+import { AGENT_COLORS } from "@/lib/agent-colors";
 import { formatPrice, type Market } from "@/lib/markets";
 import { visitorMarket } from "@/lib/market-server";
 import { signupHref } from "@/components/landing/market-copy";
-import { GuaranteeBlock, StrategyCallButton } from "@/components/landing/offer";
+import { DoneForYouServices, GuaranteeBlock, StrategyCallButton } from "@/components/landing/offer";
+import { PlanCard } from "@/components/plan-card";
 import { RxTag } from "@/components/landing/rx-tag";
 import { ColourRow, FaqList, SectionHead, SiteFooter, SiteNav } from "@/components/landing/site-chrome";
 import { cx } from "@/components/ui";
@@ -25,33 +27,16 @@ export async function generateMetadata(): Promise<Metadata> {
 const RECOMMENDED: PlanId = "growth";
 
 type Cell = boolean | string;
-const yes = true;
-const no = false;
 
-// Comparison rows. Run counts come from PLANS so they stay in sync with billing.
-function rows(m: Market): { group: string; label: string; cells: Record<PlanId, Cell> }[] {
+const SPECIALIST_ORDER: AgentKey[] = ["site", "keywords", "visibility", "content", "ads", "compliance"];
+
+// Comparison rows, built from the same plan data as the cards (plan.specialists and PLAN_ROWS),
+// so the table and the cards can't disagree.
+function rows(): { group: string; label: string; detail?: string; cells: Record<PlanId, Cell> }[] {
+  const per = (f: (p: (typeof PLANS)[number]) => Cell) => Object.fromEntries(PLANS.map((p) => [p.id, f(p)])) as Record<PlanId, Cell>;
   return [
-    {
-      group: "Usage",
-      label: "Agent runs a month",
-      cells: Object.fromEntries(PLANS.map((p) => [p.id, String(p.runsPerMonth)])) as Record<PlanId, Cell>,
-    },
-    { group: "Usage", label: "Prescription board", cells: { free: yes, starter: yes, growth: yes, pro: yes } },
-    { group: "Specialists", label: "Site Doctor", cells: { free: "1 site", starter: yes, growth: yes, pro: yes } },
-    { group: "Specialists", label: "Keyword Lab", cells: { free: no, starter: yes, growth: yes, pro: yes } },
-    { group: "Specialists", label: "AI Visibility", cells: { free: no, starter: yes, growth: yes, pro: yes } },
-    { group: "Specialists", label: "Content Studio", cells: { free: no, starter: yes, growth: yes, pro: yes } },
-    { group: "Specialists", label: "Ads Doctor", cells: { free: no, starter: yes, growth: yes, pro: yes } },
-    {
-      group: "Specialists",
-      label: `Compliance Check for ads in ${m.inPhrase}`,
-      cells: { free: no, starter: yes, growth: yes, pro: yes },
-    },
-    { group: "Specialists", label: "Ask PULSE strategist chat", cells: { free: no, starter: yes, growth: yes, pro: yes } },
-    { group: "Ongoing", label: "Ads Doctor live sync (Windsor.ai)", cells: { free: no, starter: no, growth: yes, pro: yes } },
-    { group: "Ongoing", label: "AI Visibility tracking over time", cells: { free: no, starter: no, growth: yes, pro: yes } },
-    { group: "Support", label: "Monthly 30-min review call with PULSE", cells: { free: no, starter: no, growth: no, pro: yes } },
-    { group: "Support", label: "Priority support", cells: { free: no, starter: no, growth: no, pro: yes } },
+    ...SPECIALIST_ORDER.map((id) => ({ group: "Specialists", label: AGENT_COLORS[id].label, cells: per((p) => p.specialists.includes(id)) })),
+    ...PLAN_ROWS.map((r) => ({ group: "What each plan includes", label: r.label, detail: r.detail, cells: per((p) => r.value(p)) })),
   ];
 }
 
@@ -118,8 +103,8 @@ function billingFaq(m: Market) {
       q: "Can PULSE Digital do the work for me instead?",
       a: (
         <p>
-          Yes. {BRAND.parent} can implement every prescription and run your Google and Meta ads for you, with a monthly report and call. It is priced separately from
-          the plans here, based on your ad spend.{" "}
+          Yes. {BRAND.parent} can implement every prescription for you and run the work behind it: Google, Meta, TikTok and LinkedIn ads, SEO, AI search, your Google
+          Business Profile, landing pages and tracking, with a monthly report and call. It is priced separately from the plans here, based on your ad spend.{" "}
           <a href={BRAND.doneForYouUrl} target="_blank" rel="noreferrer">
             Book a free strategy call
           </a>{" "}
@@ -134,20 +119,23 @@ function CellMark({ value }: { value: Cell }) {
   if (value === true)
     return (
       <span className="grid h-7 w-7 place-items-center rounded-full bg-mint text-scrub">
-        <Check size={16} strokeWidth={2.5} aria-label="Included" />
+        <Check size={16} strokeWidth={2.5} aria-hidden />
+        <span className="sr-only">Included</span>
       </span>
     );
-  if (value === false) return <Minus size={16} className="text-ink-3/50" aria-label="Not included" />;
-  return <span className={cx("text-sm font-semibold text-ink", /^\d+$/.test(value) && "font-mono tabular-nums")}>{value}</span>;
-}
-
-function priceLabel(m: Market, n: number) {
-  return n === 0 ? "Free" : formatPrice(m, n);
+  if (value === false)
+    return (
+      <>
+        <Minus size={16} className="text-ink-3/50" aria-hidden />
+        <span className="sr-only">Not included</span>
+      </>
+    );
+  return <span className={cx("text-center text-sm font-semibold text-ink", /^\d+$/.test(value) && "font-mono tabular-nums")}>{value}</span>;
 }
 
 export default async function PricingPage() {
   const market = await visitorMarket();
-  const table = rows(market);
+  const table = rows();
 
   return (
     <>
@@ -170,65 +158,31 @@ export default async function PricingPage() {
             </p>
 
             <div className="rise mt-10 grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 min-[1360px]:grid-cols-5" style={{ animationDelay: "240ms" }}>
-              {PLANS.map((p) => {
-                const rec = p.id === RECOMMENDED;
-                const price = planPrice(p, market);
-                return (
-                  <article
-                    key={p.id}
-                    className={cx("flex flex-col rounded-3xl p-6", rec ? "bg-scrub text-white shadow-[var(--shadow-lift)]" : "bg-card shadow-[var(--shadow-box)]")}
-                  >
-                    <div className="flex min-h-7 items-center justify-between gap-2">
-                      <h2 className="font-display text-2xl font-extrabold tracking-[-0.02em]">{p.name}</h2>
-                      {rec && <span className="whitespace-nowrap rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold">Recommended</span>}
-                    </div>
-                    <p className="mt-5 font-display text-[2.6rem] font-extrabold leading-none tabular-nums tracking-[-0.03em]">
-                      {priceLabel(market, price)}
-                      {price > 0 && <span className={cx("ml-1 font-sans text-sm font-medium tracking-normal", rec ? "text-white/70" : "text-ink-3")}>/month</span>}
-                    </p>
-                    <p className={cx("mt-4 text-sm", rec ? "text-white/85" : "text-ink-2")}>{p.blurb}</p>
-                    <ul className={cx("mt-5 flex-1 space-y-2.5 border-t pt-5", rec ? "border-white/20" : "border-line")}>
-                      {p.features.map((f) => (
-                        <li key={f} className="flex gap-2 text-sm">
-                          <Check size={16} className={cx("mt-0.5 shrink-0", rec ? "text-white" : "text-scrub")} aria-hidden />
-                          <span>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <Link
-                      href={signupHref(market, { plan: p.id })}
-                      className={cx(
-                        "mt-6 inline-flex items-center justify-center rounded-full px-4 py-3 text-sm font-semibold transition hover:-translate-y-0.5 motion-reduce:transition-none",
-                        rec ? "bg-white text-scrub-dark focus-visible:outline-white" : "bg-paper text-ink ring-1 ring-line hover:ring-ink-3",
-                      )}
-                    >
-                      {p.id === "free" ? "Start free" : `Choose ${p.name}`}
-                    </Link>
-                  </article>
-                );
-              })}
+              {PLANS.map((p) => (
+                <PlanCard
+                  key={p.id}
+                  plan={p}
+                  market={market}
+                  href={signupHref(market, { plan: p.id })}
+                  cta={p.id === "free" ? "Start free" : `Choose ${p.name}`}
+                  highlight={p.id === RECOMMENDED}
+                  badge={p.id === RECOMMENDED ? "Recommended" : undefined}
+                />
+              ))}
 
               {/* Top tier: the agency does it. No price on the page; it anchors the DIY plans. */}
-              <article className="flex flex-col rounded-3xl bg-ink p-6 text-white shadow-[var(--shadow-lift)] sm:col-span-2 min-[1360px]:col-span-1">
+              <article className="flex flex-col rounded-[1.75rem] bg-ink p-6 text-white shadow-[var(--shadow-lift)] sm:col-span-2 md:p-7 lg:col-span-1 min-[1360px]:col-span-1">
                 <div className="flex min-h-7 items-center justify-between gap-2">
                   <h2 className="font-display text-2xl font-extrabold leading-[1.05] tracking-[-0.02em]">Done for you</h2>
                   <RxTag light />
                 </div>
                 <p className="mt-5 font-display text-[2.6rem] font-extrabold leading-none tracking-[-0.03em]">Custom</p>
                 <p className="mt-4 text-sm text-white/80">By {BRAND.parent}, priced on your ad spend. For owners who want the work done, not a to-do list.</p>
-                <ul className="mt-5 flex-1 space-y-2.5 border-t border-white/15 pt-5">
-                  {[
-                    "PULSE implements every prescription for you",
-                    "PULSE runs your Google and Meta ads",
-                    "Monthly report and strategy call",
-                  ].map((f) => (
-                    <li key={f} className="flex gap-2 text-sm">
-                      <Check size={16} className="mt-0.5 shrink-0 text-spearmint" aria-hidden />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <StrategyCallButton tone="white" size="sm" label="Book a strategy call" className="mt-6 w-full" />
+                <StrategyCallButton tone="white" size="sm" label="Book a strategy call" className="mt-5 w-full" />
+                <div className="mt-6 flex-1 border-t border-white/15 pt-5">
+                  <p className="text-xs font-bold text-white/70">What {BRAND.parent} does for you</p>
+                  <DoneForYouServices variant="compact" className="mt-3" />
+                </div>
               </article>
             </div>
             <GuaranteeBlock className="mt-4" />
@@ -275,6 +229,7 @@ export default async function PricingPage() {
                         <tr>
                           <th scope="row" className="border-t border-line px-4 py-3 text-[15px] font-normal text-ink">
                             {r.label}
+                            {r.detail && <span className="mt-0.5 block text-[13px] text-ink-3">{r.detail}</span>}
                           </th>
                           {PLANS.map((p) => (
                             <td

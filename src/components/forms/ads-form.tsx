@@ -9,7 +9,7 @@ import { FormError, useRunAgent } from "../run-agent";
 import type { FormProps } from "./types";
 import { marketFor } from "@/lib/markets";
 
-type Source = "upload" | "windsor";
+type Source = "upload" | "live";
 type PlatformChoice = ReportInput["platform"];
 type Report = ReportInput & { id: number };
 
@@ -31,9 +31,10 @@ function readFileText(file: File): Promise<string> {
   });
 }
 
-export function AdsForm({ profile, windsorConnected, lastInput }: FormProps) {
+export function AdsForm({ profile, connected, lastInput }: FormProps) {
   const messaging = marketFor(profile.country).messaging;
-  const [source, setSource] = useState<Source>(lastInput?.source === "windsor" && windsorConnected ? "windsor" : "upload");
+  const liveReady = connected.ads && connected.livePlan;
+  const [source, setSource] = useState<Source>(liveReady && lastInput?.source !== "upload" ? "live" : "upload");
   const [days, setDays] = useState<number>(Number(lastInput?.days) || 30);
   const [notes, setNotes] = useState<string>((lastInput?.notes as string) || "");
   const [reports, setReports] = useState<Report[]>([]);
@@ -88,14 +89,14 @@ export function AdsForm({ profile, windsorConnected, lastInput }: FormProps) {
   }
 
   const readyReports = reports.filter((r) => detected.get(r.id)?.ok);
-  const canRun = source === "windsor" ? windsorConnected : readyReports.length > 0;
+  const canRun = source === "live" ? liveReady : readyReports.length > 0;
 
   return (
     <form
       className="space-y-5"
       onSubmit={(e) => {
         e.preventDefault();
-        if (source === "windsor") void start({ source, days, notes });
+        if (source === "live") void start({ source, days, notes });
         else void start({ source, notes, reports: readyReports.map(({ platform, filename, csv }) => ({ platform, filename, csv })) });
       }}
     >
@@ -105,7 +106,7 @@ export function AdsForm({ profile, windsorConnected, lastInput }: FormProps) {
           {(
             [
               ["upload", "Upload exports", FileUp],
-              ["windsor", "Windsor.ai", Plug],
+              ["live", "My connected accounts", Plug],
             ] as const
           ).map(([value, text, Icon]) => (
             <button
@@ -200,23 +201,45 @@ export function AdsForm({ profile, windsorConnected, lastInput }: FormProps) {
             </div>
           </details>
         </div>
-      ) : windsorConnected ? (
-        <Field label="Period" hint="We read Google Ads and Meta Ads through your Windsor.ai connection.">
-          <Select value={days} onChange={(e) => setDays(Number(e.target.value))}>
-            {[7, 14, 30, 90].map((d) => (
-              <option key={d} value={d}>
-                Last {d} days
-              </option>
-            ))}
-          </Select>
-        </Field>
+      ) : !connected.livePlan ? (
+        <Card className="p-4 text-sm text-ink-2">
+          Live sync from your Google Ads and Meta accounts is on the Growth and Pro plans.{" "}
+          <Link href="/app/settings#plan" className="font-semibold text-scrub underline underline-offset-2">
+            See plans
+          </Link>
+          , or upload your exports instead.
+        </Card>
+      ) : connected.ads ? (
+        <div className="space-y-3">
+          <Field label="Period" hint="We read your ad performance, read-only. We never change your ads.">
+            <Select value={days} onChange={(e) => setDays(Number(e.target.value))}>
+              {[7, 14, 30, 90].map((d) => (
+                <option key={d} value={d}>
+                  Last {d} days
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {connected.adsAccounts.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {connected.adsAccounts.map((a) => (
+                <Badge key={a}>{a}</Badge>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-ink-3">
+            <Link href="/app/settings/connections" className="font-semibold text-scrub underline underline-offset-2">
+              Change which accounts we read
+            </Link>
+          </p>
+        </div>
       ) : (
         <Card className="p-4 text-sm text-ink-2">
-          Windsor.ai isn&apos;t connected yet. Add your Windsor API key in{" "}
-          <Link href="/app/settings" className="font-semibold text-scrub underline underline-offset-2">
-            Settings
+          Connect your Google Ads or Meta ad account once in{" "}
+          <Link href="/app/settings/connections" className="font-semibold text-scrub underline underline-offset-2">
+            Connected accounts
           </Link>{" "}
-          to pull Google Ads and Meta Ads data automatically, or upload CSV exports instead.
+          and Ads Doctor reads your latest numbers itself. Until then, upload your exports instead.
         </Card>
       )}
 

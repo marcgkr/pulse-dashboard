@@ -172,8 +172,13 @@ function migrate(db: Database.Database) {
   addColumn(db, "connections", "last_error", "TEXT");
   // Google Ads accounts reached through a manager account need the manager's id on every request.
   addColumn(db, "connection_accounts", "login_customer_id", "TEXT");
-  // Ad sync used to name its data supplier in run titles; keep old titles white-labelled.
-  db.exec("UPDATE runs SET title = REPLACE(title, 'Windsor.ai, ', 'live sync, ') WHERE agent = 'ads' AND title LIKE '%Windsor.ai, %'");
+  // Ads reports saved before native connections named the old sync supplier. Keep them white-labelled.
+  db.exec(`UPDATE runs SET
+      title = REPLACE(title, 'Windsor.ai, ', 'live sync, '),
+      input_json = REPLACE(input_json, '"source":"windsor"', '"source":"live"'),
+      result_json = REPLACE(REPLACE(REPLACE(REPLACE(result_json, '"Windsor.ai Google Ads', '"Google Ads (live sync)'), '"Windsor.ai Meta Ads', '"Meta Ads (live sync)'), '"Windsor.ai returned', '"Live sync returned'), 'Windsor.ai', 'live sync'),
+      error = REPLACE(error, 'Windsor.ai', 'live sync')
+    WHERE agent = 'ads' AND (title LIKE '%Windsor%' OR input_json LIKE '%"source":"windsor"%' OR result_json LIKE '%Windsor%' OR error LIKE '%Windsor%')`);
 }
 
 function addColumn(db: Database.Database, table: string, column: string, type: string) {

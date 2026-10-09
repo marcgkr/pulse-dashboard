@@ -36,7 +36,7 @@ export type SampleBusiness = {
   kind: string;
   /** "a renovation company" */
   withArticle: string;
-  /** One line on what it sells. */
+  /** What it does, to follow its name and place: "doing kitchens, bathrooms and ..." */
   sells: string;
   platform: string;
   regulated: boolean;
@@ -48,7 +48,7 @@ export const SAMPLE_BUSINESSES: Record<SampleBusinessId, SampleBusiness> = {
     name: "Brickhouse Renovations",
     kind: "renovation company",
     withArticle: "a renovation company",
-    sells: "kitchens, bathrooms and full home renovations",
+    sells: "doing kitchens, bathrooms and full home renovations",
     platform: "WordPress",
     regulated: false,
   },
@@ -57,16 +57,16 @@ export const SAMPLE_BUSINESSES: Record<SampleBusinessId, SampleBusiness> = {
     name: "Saltwater Cafe",
     kind: "cafe",
     withArticle: "a cafe",
-    sells: "brunch and coffee, with a catering side for offices and events",
+    sells: "serving brunch and coffee, with a catering side for offices and events",
     platform: "Squarespace",
     regulated: false,
   },
   store: {
     id: "store",
-    name: "Kindle & Co.",
+    name: "Linden & Loft",
     kind: "online homeware store",
     withArticle: "an online store",
-    sells: "linen bedding, stoneware and candles, sold online through Shopify",
+    sells: "selling linen bedding, stoneware and candles online through Shopify",
     platform: "Shopify",
     regulated: false,
   },
@@ -75,7 +75,7 @@ export const SAMPLE_BUSINESSES: Record<SampleBusinessId, SampleBusiness> = {
     name: "Lumen Aesthetics",
     kind: "aesthetic clinic",
     withArticle: "a clinic",
-    sells: "skin treatments, in a category with strict advertising rules",
+    sells: "offering skin treatments in a category with strict advertising rules",
     platform: "WordPress",
     regulated: true,
   },
@@ -572,7 +572,7 @@ type Spec = {
   ads: ((c: Ctx) => ReportInput[]) | null;
   adCopy?: (c: Ctx) => { google_headlines: string[]; google_descriptions: string[] };
   compliance: (c: Ctx) => { text: string; channel: string; category?: string; what: string; rewrite: string; checklist?: string[]; fixes?: [string, string][] };
-  /** Wording swaps applied to every string the generic sample code wrote (examples, schema types). */
+  /** Wording swaps applied to every string the shared sample code wrote (examples, schema types). */
   retext: (c: Ctx) => [RegExp, string][];
   /** Last edits to the finished reports, for template output that doesn't fit the business. */
   patch?: (r: Record<AgentId, AgentResult>, c: Ctx) => void;
@@ -922,6 +922,7 @@ const SPECS: Record<SampleBusinessId, Spec> = {
       [/What should I expect at my first (.+?) appointment\?/g, "What should I expect with my first $1 order?"],
       [/book a consult if unsure/g, "message us if unsure"],
       [/'(Call or text|Message us(?: on LINE)?|WhatsApp us) to book'/g, "'$1 to order catering'"],
+      [/each service page/g, "your catering and menu pages"],
       [/\bservice page/g, "menu page"],
       [/\bService page/g, "Menu page"],
     ],
@@ -929,7 +930,7 @@ const SPECS: Record<SampleBusinessId, Spec> = {
 
   // An online homeware brand on Shopify.
   store: {
-    domain: "kindleandco.example",
+    domain: "lindenandloft.example",
     profile: (c) => ({
       industry: "Online homeware store",
       location: c.m.code === "INTL" ? c.area : `${c.area}, ${c.m.name}`,
@@ -944,9 +945,9 @@ const SPECS: Record<SampleBusinessId, Spec> = {
       platform: "Shopify",
       ms: 900,
       bytes: 820_000,
-      title: "Kindle & Co. | Homeware",
+      title: "Linden & Loft | Homeware",
       description: "Linen bedding, stoneware dinnerware and scented candles, designed in-house and delivered to your door. Free returns within 30 days.",
-      h1: ["Kindle & Co.", "Slow mornings start here", "New in: oat linen"],
+      h1: ["Linden & Loft", "Slow mornings start here", "New in: oat linen"],
       h2: ["Shop by room", "Bestsellers", "FAQs"],
       words: 610,
       images: 64,
@@ -959,13 +960,13 @@ const SPECS: Record<SampleBusinessId, Spec> = {
       trackers: ["Google Analytics 4", "Meta Pixel", "Google Ads tag"],
       schemaTypes: ["Organization", "WebSite"],
       pages: [
-        { path: "/collections/linen-bedding", title: "Linen Bedding | Kindle & Co.", description: "", words: 320 },
-        { path: "/products/stoneware-dinner-set", title: "Stoneware Dinner Set | Kindle & Co.", description: "A 12-piece stoneware dinner set in speckled oat, dishwasher safe.", words: 280 },
-        { path: "/collections/all", title: "Products | Kindle & Co.", description: "", words: 90 },
-        { path: "/collections/gift-sets", title: "Products | Kindle & Co.", description: "", words: 110 },
+        { path: "/collections/linen-bedding", title: "Linen Bedding | Linden & Loft", description: "", words: 320 },
+        { path: "/products/stoneware-dinner-set", title: "Stoneware Dinner Set | Linden & Loft", description: "A 12-piece stoneware dinner set in speckled oat, dishwasher safe.", words: 280 },
+        { path: "/collections/all", title: "Products | Linden & Loft", description: "", words: 90 },
+        { path: "/collections/gift-sets", title: "Products | Linden & Loft", description: "", words: 110 },
       ],
       summary: (missingChat) =>
-        `The shop loads quickly and its tracking is set up, but Google sees it less clearly than shoppers do. 30 of 64 product images have no alt text, so they are close to invisible in Google Images, the homepage has 3 H1 headlines, and two collection pages share the title "Products | Kindle & Co.".${
+        `The shop loads quickly and its tracking is set up, but Google sees it less clearly than shoppers do. 30 of 64 product images have no alt text, so they are close to invisible in Google Images, the homepage has 3 H1 headlines, and two collection pages share the title "Products | Linden & Loft".${
           missingChat ? ` There is also no ${c.chatThing} for size and delivery questions before checkout.` : ""
         } Fix the alt text first, then the titles, then add a quick way to ask a question.`,
       strengths: [
@@ -975,7 +976,7 @@ const SPECS: Record<SampleBusinessId, Spec> = {
         "FAQ: the homepage answers common questions, which AI assistants can quote.",
       ],
       rewrite: {
-        title: "Linen Bedding and Stoneware Homeware | Kindle & Co.",
+        title: "Linen Bedding and Stoneware Homeware | Linden & Loft",
         meta_description: `Linen bedding, stoneware dinnerware and scented candles, designed in-house and delivered across ${c.country}. Free returns within 30 days.`,
         h1: "Linen bedding and stoneware for slow mornings",
       },
@@ -1004,7 +1005,7 @@ const SPECS: Record<SampleBusinessId, Spec> = {
       // A sample Google Search Console Queries export, read by the real parser.
       data: [
         "Top queries,Clicks,Impressions,CTR,Position",
-        "kindle and co,412,1960,21.02%,1.2",
+        "linden and loft,412,1960,21.02%,1.2",
         "linen bedding,38,4210,0.9%,9.4",
         "linen sheets,29,3880,0.75%,11.2",
         "stoneware dinner set,44,2140,2.06%,6.8",
@@ -1033,7 +1034,7 @@ const SPECS: Record<SampleBusinessId, Spec> = {
     }),
     content: {
       platforms: ["Instagram", "TikTok"],
-      avoid: "first visit, slot, meet the person, before you book",
+      avoid: "first visit, slot, meet the person, before you book, plan your, jargon",
       summary: () =>
         "Six post ideas for Instagram and TikTok that show the products in real homes and answer what shoppers ask before they buy. Each one has the hook word for word, a shot list, a caption and hashtags to paste, and a slot in a two-week calendar at three posts a week. With live research on, ideas also use what is trending in your niche this month.",
     },
@@ -1045,7 +1046,7 @@ const SPECS: Record<SampleBusinessId, Spec> = {
           { name: "Search - Brand", type: "Search", impr: 3410, clicks: 1022, cost: 245.28, conv: 96, share: "95.20%", value: 13420.8 },
           { name: "Shopping - Linen Bedding", type: "Shopping", impr: 48900, clicks: 1288, cost: 1494.08, conv: 41, share: "52.30%", value: 7995.0 },
           { name: "Search - Linen Bedding", type: "Search", impr: 9620, clicks: 402, cost: 727.62, conv: 12, share: "38.90%", value: 2148.0 },
-          { name: "Search - Generic Homeware", type: "Search", impr: 18300, clicks: 611, cost: 1111.0, conv: 3, share: "18.40%", value: 249.0 },
+          { name: "Search - Broad Homeware", type: "Search", impr: 18300, clicks: 611, cost: 1111.0, conv: 3, share: "18.40%", value: 249.0 },
           { name: "Performance Max - Gift Sets", type: "Performance Max", impr: 61200, clicks: 905, cost: 1276.05, conv: 22, share: "--", value: 2618.0 },
           { name: "Search - Competitors", type: "Search", impr: 5880, clicks: 97, cost: 358.9, conv: 0, share: "< 10%", value: 0 },
         ],
@@ -1054,14 +1055,14 @@ const SPECS: Record<SampleBusinessId, Spec> = {
           { term: "linen duvet cover queen", match: "Phrase match", campaign: "Search - Linen Bedding", group: "Bedsheets", clicks: 88, impr: 1690, cost: 167.2, conv: 4 },
           { term: "stonewashed linen sheets", match: "Broad match", campaign: "Search - Linen Bedding", group: "Bedsheets", clicks: 61, impr: 1180, cost: 112.85, conv: 3 },
           { term: "how to wash linen sheets", match: "Broad match", campaign: "Search - Linen Bedding", group: "Bedsheets", clicks: 49, impr: 2140, cost: 71.05, conv: 0 },
-          { term: "homeware", match: "Broad match", campaign: "Search - Generic Homeware", group: "Homeware", clicks: 168, impr: 6020, cost: 302.4, conv: 1 },
-          { term: "home decor ideas", match: "Broad match", campaign: "Search - Generic Homeware", group: "Homeware", clicks: 121, impr: 4810, cost: 205.7, conv: 0 },
-          { term: "cheap home decor", match: "Broad match", campaign: "Search - Generic Homeware", group: "Homeware", clicks: 97, impr: 3220, cost: 174.6, conv: 0 },
-          { term: "homeware wholesale", match: "Broad match", campaign: "Search - Generic Homeware", group: "Homeware", clicks: 44, impr: 980, cost: 88.0, conv: 0 },
-          { term: "pottery class", match: "Broad match", campaign: "Search - Generic Homeware", group: "Homeware", clicks: 38, impr: 1130, cost: 64.6, conv: 0 },
-          { term: "free homeware samples", match: "Broad match", campaign: "Search - Generic Homeware", group: "Homeware", clicks: 29, impr: 870, cost: 52.2, conv: 0 },
-          { term: "kindle and co", match: "Exact match", campaign: "Search - Brand", group: "Brand", clicks: 512, impr: 1820, cost: 117.76, conv: 61 },
-          { term: "kindle and co discount code", match: "Phrase match", campaign: "Search - Brand", group: "Brand", clicks: 166, impr: 690, cost: 41.5, conv: 6 },
+          { term: "homeware", match: "Broad match", campaign: "Search - Broad Homeware", group: "Homeware", clicks: 168, impr: 6020, cost: 302.4, conv: 1 },
+          { term: "home decor ideas", match: "Broad match", campaign: "Search - Broad Homeware", group: "Homeware", clicks: 121, impr: 4810, cost: 205.7, conv: 0 },
+          { term: "cheap home decor", match: "Broad match", campaign: "Search - Broad Homeware", group: "Homeware", clicks: 97, impr: 3220, cost: 174.6, conv: 0 },
+          { term: "homeware wholesale", match: "Broad match", campaign: "Search - Broad Homeware", group: "Homeware", clicks: 44, impr: 980, cost: 88.0, conv: 0 },
+          { term: "pottery class", match: "Broad match", campaign: "Search - Broad Homeware", group: "Homeware", clicks: 38, impr: 1130, cost: 64.6, conv: 0 },
+          { term: "free homeware samples", match: "Broad match", campaign: "Search - Broad Homeware", group: "Homeware", clicks: 29, impr: 870, cost: 52.2, conv: 0 },
+          { term: "linden and loft", match: "Exact match", campaign: "Search - Brand", group: "Brand", clicks: 512, impr: 1820, cost: 117.76, conv: 61 },
+          { term: "linden and loft discount code", match: "Phrase match", campaign: "Search - Brand", group: "Brand", clicks: 166, impr: 690, cost: 41.5, conv: 6 },
         ],
         [
           { campaign: "Sales - Linen Bedding", adset: `Advantage+ audience - ${c.country}`, results: 38, indicator: PURCHASE, reach: 52100, impr: 98400, spend: 1402.6, clicks: 1310, value: 7410.0 },
@@ -1077,13 +1078,13 @@ const SPECS: Record<SampleBusinessId, Spec> = {
         "Shop Linen Bedsheets",
         "Stoneware Dinner Sets",
         "Free Returns Within 30 Days",
-        "Kindle & Co. Homeware",
+        "Linden & Loft Homeware",
         "Gift Sets for New Homes",
         `Delivered Across ${c.country}`,
         "Oat, Clay and Sage Linen",
       ],
       google_descriptions: [
-        `Linen bedding and stoneware from Kindle & Co., delivered across ${c.country} in 2 to 4 days.`,
+        `Linen bedding and stoneware from Linden & Loft, delivered across ${c.country} in 2 to 4 days.`,
         "Stonewashed linen that gets softer with every wash. Free returns within 30 days.",
         "Gift wrap at checkout, with prices left off the packing slip.",
       ],
@@ -1106,7 +1107,7 @@ const SPECS: Record<SampleBusinessId, Spec> = {
       // shop would never say for what an online store's live run would write.
       const kw = r.keywords as AgentResult & { aeo_questions: { question: string; answer_angle: string; where_to_answer: string; format: string }[] };
       kw.aeo_questions = [
-        ...kw.aeo_questions.filter((q) => !/ near | appointment\?|^How long does /.test(q.question)),
+        ...kw.aeo_questions.filter((q) => !/ near | appointment\?|^How long does |choose a good/.test(q.question)),
         { question: "How do I wash linen sheets so they last?", answer_angle: "Temperature, detergent, drying and how linen softens over time, in four short steps.", where_to_answer: "Linen bedding collection page FAQ", format: "how-to steps" },
         { question: "Are stoneware plates dishwasher and microwave safe?", answer_angle: "Yes or no first, then the care instructions for each product.", where_to_answer: "Stoneware dinner set product page", format: "FAQ block" },
         { question: `How long does delivery take in ${c.country}?`, answer_angle: "Working days first, then cut-off times and how tracking works.", where_to_answer: "Shipping page, linked from every product page", format: "FAQ block" },
@@ -1134,7 +1135,8 @@ const SPECS: Record<SampleBusinessId, Spec> = {
       [/Include price ranges, opening hours and how to book where it fits\./g, "Include prices, delivery times and the returns policy where it fits."],
       [/cheapest enquiries/g, "cheapest sales"],
       [/She almost didn't book/g, "She almost didn't order"],
-      [/'Lash Extensions in [^|']+\| Your Brand'/g, `'Linen Bedding, Delivered Across ${c.country} | Kindle & Co.'`],
+      [/Co\.\./g, "Co."],
+      [/'Lash Extensions in [^|']+\| Your Brand'/g, `'Linen Bedding, Delivered Across ${c.country} | Linden & Loft'`],
       [/MedicalClinic, BeautySalon,? (?:or )?LegalService/g, "OnlineStore"],
       [/'Hydrafacial treatment room at our [^']+ clinic'/g, "'Oat linen duvet cover on a queen bed'"],
       [/\(price range, downtime, how long it takes, who it suits\)/g, "(delivery times, returns, sizes, how to wash linen)"],
@@ -1397,7 +1399,7 @@ async function buildSampleReports(m: Market, id: SampleBusinessId): Promise<Samp
     .trim();
 
   const cr = compliance.result as AgentResult & {
-    issues: { rule: string; highlight: string; severity: string; why: string }[];
+    issues: { rule: string; highlight: string; severity: string; why: string; quote: string; fix: string }[];
     flags: { family: string; why: string }[];
     rewritten_copy: string;
     checklist: string[];
@@ -1408,7 +1410,7 @@ async function buildSampleReports(m: Market, id: SampleBusinessId): Promise<Samp
     cr.summary = `We checked ${comp.what} against the rules for clinics in ${m.inPhrase}. ${cr.issues.length} lines need another look${listed ? `, covering ${listed}` : ""}. The suggested rewrite keeps the call to book and drops the claims. Compliance Check is a review aid, not legal advice.`;
   } else {
     const rules = m.code === "INTL" ? "your local advertising standards" : m.adStandards;
-    const platform = comp.channel === "Website" ? "" : ` and ${comp.channel === "Instagram post" ? "Instagram's" : "Meta's"} ad policies`;
+    const platform = comp.channel === "Website" ? "" : " and Meta's ad policies";
     cr.summary = `${b.name} is not in a regulated category, so we checked ${comp.what} against general advertising rules: ${rules}${platform}. ${cr.issues.length} lines need another look${listed ? `, covering ${listed}` : ""}, because claims like these still need proof. The suggested rewrite keeps the offer and the call to action. Compliance Check is a review aid, not legal advice.`;
     cr.issues.forEach((i) => (i.why = GENERAL_WHY[i.rule] ?? i.why));
     cr.flags.forEach((f) => (f.why = GENERAL_WHY[f.family] ?? f.why));
@@ -1417,7 +1419,7 @@ async function buildSampleReports(m: Market, id: SampleBusinessId): Promise<Samp
   }
   // The rules-only rewrite is a word swap. Show the kind of rewrite the full review writes.
   cr.rewritten_copy = comp.rewrite;
-  for (const i of cr.issues as { quote: string; fix: string }[]) {
+  for (const i of cr.issues) {
     const fix = comp.fixes?.find(([start]) => i.quote.startsWith(start));
     if (fix) i.fix = fix[1];
   }

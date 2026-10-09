@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { businessContext, normalizePrescription, pick, PrescriptionSchema, research, structured } from "../ai";
-import type { AgentDef, AgentResult } from "./types";
+import type { AgentContext, AgentDef, AgentResult } from "./types";
+import { connectedSources, fetchLiveSearchConsole } from "../connectors";
 import { marketFor } from "../markets";
 import {
   type AeoQuestion,
@@ -37,6 +38,8 @@ export type KeywordsResult = AgentResult & {
   quick_wins: string[];
   data: ParsedData | null;
   score_note: string | null;
+  /** Where the data table came from when it was read from a connected account, e.g. "Search Console: example.com, last 90 days". */
+  data_from?: string | null;
   sources: { title: string; url: string }[];
 };
 
@@ -117,9 +120,26 @@ function normCluster(c: z.infer<typeof ClusterAI>): KeywordCluster | null {
 
 const RANK = { high: 0, medium: 1, low: 2 } as const;
 
-function baseResult(input: Input, data: ParsedData | null) {
+type LoadedData = { data: ParsedData | null; from: string | null; note: string | null };
+
+/** Connected Search Console first (when chosen), then whatever the owner pasted. */
+async function loadData(input: Input, ctx: AgentContext): Promise<LoadedData> {
+  if (input.gsc) {
+    ctx.progress("Reading the last 90 days from your Search Console");
+    const live = await fetchLiveSearchConsole(ctx.ws);
+    if (live?.data) return { data: live.data, from: `Search Console: ${live.site}, last 90 days`, note: null };
+    const why = live?.error ? `Search Console couldn't be read this time (${live.error})` : live ? "Search Console had no queries for this property in the last 90 days" : "No Search Console property is selected";
+    const pasted = parsePastedData(input.data);
+    return { data: pasted, from: null, note: `${why}, so this report ${pasted ? "uses the data you pasted" : "has no real search numbers"}.` };
+  }
+  return { data: parsePastedData(input.data), from: null, note: null };
+}
+
+function baseResult(input: Input, loaded: LoadedData) {
+  const { data } = loaded;
   const vis = visibilityScore(data);
   return {
+    data_from: loaded.from,
     mode: input.focus,
     seeds: input.seeds,
     location: input.location,
@@ -142,7 +162,7 @@ export const keywordsAgent: AgentDef<Input> = {
   name: "Keyword Lab",
   blurb: "Finds the searches and AI questions your customers use, and maps each to a page.",
   description:
-    "Looks at what ranks today and what people ask Google and AI assistants in your area, then groups keywords by intent, maps each group to a page to fix or create, and writes briefs for the new pages. Paste your Search Console or Keyword Planner export to ground it in your real numbers. Click Expand on any keyword to drill deeper.",
+    "Looks at what ranks today and what people ask Google and AI assistants in your area, then groups keywords by intent, maps each group to a page to fix or create, and writes briefs for the new pages. Connect Search Console, or paste a Search Console or Keyword Planner export, to ground it in your real numbers. Click Expand on any keyword to drill deeper.",
 
   parseInput(raw, ws) {
     const r = (raw ?? {}) as Record<string, unknown>;
@@ -157,14 +177,17 @@ export const keywordsAgent: AgentDef<Input> = {
     const location = String(r.location ?? "").trim().slice(0, 120) || ws.location?.trim() || (m.code === "INTL" ? "your area" : m.name);
     let data = typeof r.data === "string" ? r.data : "";
     if (data.length > MAX_DATA_CHARS) data = data.slice(0, MAX_DATA_CHARS);
-    return { seeds, location, focus, expand, data };
+    // On by default whenever a Search Console property is selected; the form can switch it off.
+    const gsc = r.gsc !== false && connectedSources(ws).searchConsole !== null;
+    return { seeds, location, focus, expand, data, gsc };
   },
 
   runTitle: (input) => title(input),
 
   async run(input, ctx) {
-    const data = parsePastedData(input.data);
-    if (data) ctx.progress(`Read ${data.total_rows} rows from your pasted data`);
+    const loaded = await loadData(input, ctx);
+    const data = loaded.data;
+    if (data) ctx.progress(`Read ${data.total_rows} rows from your ${loaded.from ? "Search Console" : "pasted"} data`);
     const computedWins = dataQuickWins(data, 10);
     const expanding = Boolean(input.expand);
     const focusLine = expanding
@@ -221,7 +244,7 @@ MODE: ${
           : "Discover. Cover buy, local, compare and learn intent across the seed topics. Include long-tail phrases a small business can actually win."
       }
 
-PASTED DATA FROM THE OWNER (the ONLY real numbers available; use it to set priority and demand)
+${loaded.from ? `SEARCH CONSOLE DATA FROM THE OWNER'S CONNECTED ACCOUNT (${loaded.from})` : "PASTED DATA FROM THE OWNER"} (the ONLY real numbers available; use it to set priority and demand)
 ${dataForPrompt(data)}
 
 ${computedWins.length ? `QUICK WIN CANDIDATES FROM THE DATA (queries at positions 5-15, or top-3 with weak click rate)\n${computedWins.map((w) => `- ${w}`).join("\n")}\n` : ""}
@@ -256,8 +279,8 @@ Write the keyword strategy. Quick wins: ${computedWins.length ? "turn the candid
 
     const result: KeywordsResult = {
       title: title(input),
-      summary: ai.summary,
-      ...baseResult(input, data),
+      summary: loaded.note ? `${ai.summary} ${loaded.note}` : ai.summary,
+      ...baseResult(input, loaded),
       clusters,
       aeo_questions,
       content_briefs,
@@ -270,17 +293,20 @@ Write the keyword strategy. Quick wins: ${computedWins.length ? "turn the candid
 
   async demo(input, ctx) {
     ctx.progress("Building sample keyword map");
-    const data = parsePastedData(input.data);
-    const base = baseResult(input, data);
+    const loaded = await loadData(input, ctx);
+    const data = loaded.data;
+    const base = baseResult(input, loaded);
     const what = input.expand ? `"${input.expand}"` : input.seeds.slice(0, 3).join(", ");
-    const dataLine = data
+    const dataLine = loaded.from && data
+      ? ` ${data.total_rows} queries from your connected Search Console (last 90 days) were read for real${base.score != null ? `, and the visibility score comes from them` : ""}.`
+      : data
       ? ` Your pasted ${data.source === "search_console" ? "Search Console" : data.source === "keyword_planner" ? "Keyword Planner" : "keyword"} data (${data.total_rows} rows) was read for real${
           base.score != null ? `, and the visibility score comes from it` : ""
         }.`
-      : " Paste a Search Console or Keyword Planner export to ground it in real numbers.";
+      : " Paste a Search Console or Keyword Planner export, or connect Search Console, to ground it in real numbers.";
     const result: KeywordsResult = {
       title: title(input),
-      summary: `Sample output: this keyword map for ${what} in ${input.location} was built from your business profile without live search research, so treat the clusters as a starting point.${dataLine} Demand and difficulty labels are estimates, not search volumes.`,
+      summary: `Sample output: this keyword map for ${what} in ${input.location} was built from your business profile without live search research, so treat the clusters as a starting point.${dataLine} Demand and difficulty labels are estimates, not search volumes.${loaded.note ? ` ${loaded.note}` : ""}`,
       ...base,
       clusters: sampleClusters(input, ctx.ws),
       aeo_questions: sampleQuestions(input, ctx.ws),

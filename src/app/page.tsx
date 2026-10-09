@@ -1,17 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Repeat } from "lucide-react";
-import { BRAND, PLANS, planPrice } from "@/lib/config";
-import { MARKETS, formatPrice, type Market } from "@/lib/markets";
+import { BRAND, PLANS } from "@/lib/config";
+import { MARKETS, type Market } from "@/lib/markets";
 import { visitorMarket } from "@/lib/market-server";
 import { Checkup } from "@/components/landing/checkup";
 import { CompactCheckup } from "@/components/landing/compact-checkup";
 import { DoneForYou, GuaranteeBlock, TimeChips } from "@/components/landing/offer";
 import { Heartbeat } from "@/components/landing/heartbeat";
-import { messagingFix, signupHref } from "@/components/landing/market-copy";
+import { signupHref } from "@/components/landing/market-copy";
 import { FaqList, SectionHead, SiteFooter, SiteNav } from "@/components/landing/site-chrome";
-import { HeroPacks, SpecialistShelf } from "@/components/landing/specialists";
-import { RxSlip, type SlipData } from "@/components/rx-slip";
+import { HeroPacks, SpecialistShelf, sampleHref } from "@/components/landing/specialists";
+import { PlanCard } from "@/components/plan-card";
+import { RxSlip } from "@/components/rx-slip";
+import { AGENTS } from "@/lib/agents";
+import { homeSampleSlips } from "@/lib/sample-data";
 import { cx } from "@/components/ui";
 
 export const metadata: Metadata = {
@@ -20,9 +23,9 @@ export const metadata: Metadata = {
     "Run a free website checkup and get your first fixes in about a minute. Six AI specialists check your website, Google search, AI answers, social and ads, then hand you the exact clicks and copy to paste. Built by PULSE Digital.",
 };
 
-/** A real place for sample copy; "Anywhere else" has none, so it reads "town". */
+/** Where the fictional sample businesses are; "Anywhere else" has no real place, so they get a made-up one. */
 function area(m: Market) {
-  return m.code === "INTL" ? "town" : m.exampleArea;
+  return m.code === "INTL" ? "Riverside" : m.exampleArea;
 }
 
 function cap(s: string) {
@@ -52,68 +55,17 @@ const LOOP = [
   },
 ];
 
-function sampleSlips(m: Market): SlipData[] {
-  const msg = messagingFix(m);
-  return [
-    {
-      agent: "compliance",
-      title: "Review the before-and-after photos and the 'guaranteed' line on your pigmentation page",
-      diagnosis: `The page shows patient before-and-after photos next to 'Guaranteed clear skin, zero downtime'. Both are flagged for review against ${m.healthAdRules}. Check them with your medical director before your next ad points here.`,
-      steps: [
-        "Open the pigmentation treatment page in your website editor.",
-        "Remove the before-and-after gallery, or keep it only if your medical director confirms it is allowed.",
-        "Replace 'Guaranteed clear skin, zero downtime' with factual wording, e.g. 'Results vary between patients. Your doctor will explain expected downtime at consultation.'",
-        "Check your Meta and Google ads that link here for the same wording.",
-      ],
-      where: "WordPress > Pages > Treatments > Pigmentation",
-      priority: "urgent",
-      impact: "high",
-      effort: "quick",
-      category: "Compliance",
-      recheck_days: 7,
-      agentName: "Compliance Check",
-    },
-    {
-      agent: "site",
-      ...msg,
-      priority: "high",
-      impact: "high",
-      effort: "quick",
-      category: "Conversion",
-      recheck_days: 14,
-      agentName: "Site Doctor",
-    },
-    {
-      agent: "visibility",
-      title: "Answer the questions patients ask AI assistants about pigmentation treatment",
-      diagnosis: `When asked to recommend a pigmentation clinic in ${area(m)}, AI assistants named two other clinics and not yours. Both have pages that answer downtime, number of sessions and suitability questions directly.`,
-      steps: [
-        "Add an FAQ section to the pigmentation page with 5 to 6 real questions your front desk hears.",
-        "Answer each in 2 to 4 factual sentences. Avoid promises about results.",
-        "Add FAQ schema using your SEO plugin's FAQ block.",
-        "Re-run AI Visibility in a month to see if you are mentioned.",
-      ],
-      where: "WordPress > Pages > Treatments > Pigmentation",
-      priority: "medium",
-      impact: "medium",
-      effort: "half-day",
-      category: "AI search",
-      recheck_days: 30,
-      agentName: "AI Visibility",
-    },
-  ];
-}
-
+/** A draft ad from a fictional supplement brand, with the lines Compliance Check flags. */
 function flagged(m: Market): { text: string; flag?: string }[] {
   return [
     { text: "The " },
-    { text: "best", flag: "Superlative" },
-    { text: ` pico laser clinic in ${area(m)}. ` },
-    { text: "Guaranteed results", flag: "Outcome guarantee" },
-    { text: " with " },
-    { text: "zero downtime", flag: "Absolute claim" },
+    { text: "No. 1", flag: "Ranking claim" },
+    { text: ` collagen drink in ${m.code === "INTL" ? "town" : m.name}, ` },
+    { text: "clinically proven", flag: "Unproven health claim" },
+    { text: " to " },
+    { text: "reverse ageing in 14 days", flag: "Medical claim" },
     { text: ". " },
-    { text: "Read what our happy patients say!", flag: "Patient testimonial" },
+    { text: "Loved by 50,000 customers!", flag: "Customer count" },
   ];
 }
 
@@ -154,7 +106,8 @@ function faq(m: Market) {
         <p>
           Every specialist reads your business profile first: what you sell, where, to whom, and whether your business is in a regulated category. If a slip still does
           not fit, mark it &ldquo;Not relevant&rdquo; and it leaves your board. You can also ask PULSE why it suggested a fix and how it applies to your business. For
-          clinics and other regulated businesses, Compliance Check is a review aid, and the final call sits with you and your professional adviser.
+          regulated businesses such as clinics, law firms and financial advisers, Compliance Check is a review aid, and the final call sits with you and your professional
+          adviser.
         </p>
       ),
     },
@@ -162,8 +115,8 @@ function faq(m: Market) {
       q: "Do you store my ad account data?",
       a: (
         <p>
-          Ads Doctor reads your performance data, from an export you upload or a Windsor.ai connection, and keeps the reports it makes in your account so you can
-          compare months. It never changes anything in your ad accounts; you make the changes. Your data is not shared with other customers, and you can disconnect an
+          Ads Doctor reads your performance data, from an export you upload or a live sync from your Google Ads and Meta Ads accounts, and keeps the reports it makes
+          in your account so you can compare months. It never changes anything in your ad accounts; you make the changes. Your data is not shared with other customers, and you can disconnect an
           account or delete your data at any time. Details are in our <Link href="/privacy">privacy policy</Link>.
         </p>
       ),
@@ -188,11 +141,13 @@ function faq(m: Market) {
       ),
     },
     {
-      q: "Does it work for businesses that are not clinics?",
+      q: "Does it work for my kind of business?",
       a: (
         <p>
-          Yes. Salons, law firms, tuition centres, restaurants, shops and service businesses all use the same specialists. Compliance Check matters most for clinics and
-          other regulated businesses in {m.inPhrase}; the rest apply to any business that gets customers online.
+          Yes. The same six specialists work for renovation contractors, cafes, online stores, salons, tuition centres, law firms and clinics, and each one reads your
+          business profile first. Compliance Check goes deeper for regulated businesses in {m.inPhrase}, such as clinics, law firms, financial advisers and supplement
+          brands; everyone else is checked against general advertising standards. See the <Link href="/sample">sample report</Link> for a renovation company, a cafe,
+          an online store or a clinic.
         </p>
       ),
     },
@@ -219,7 +174,7 @@ function faq(m: Market) {
 
 export default async function LandingPage() {
   const market = await visitorMarket();
-  const slips = sampleSlips(market);
+  const slips = await homeSampleSlips(market);
   const flags = flagged(market);
 
   return (
@@ -257,9 +212,17 @@ export default async function LandingPage() {
               }
             />
             <p className="mt-8 text-[15px] text-ink-2 md:ml-auto md:w-[min(36rem,60%)] md:pl-6">
-              Want to see a full report first?{" "}
-              <Link href="/sample" className="font-semibold text-scrub-dark underline underline-offset-4 hover:text-scrub">
-                Read the sample report for a fictional clinic
+              Want to see a full report first? Read the sample for{" "}
+              <Link href={sampleHref("site", "renovation")} className="font-semibold text-scrub-dark underline underline-offset-4 hover:text-scrub">
+                a renovation company
+              </Link>
+              ,{" "}
+              <Link href={sampleHref("site", "cafe")} className="font-semibold text-scrub-dark underline underline-offset-4 hover:text-scrub">
+                a cafe
+              </Link>{" "}
+              or{" "}
+              <Link href={sampleHref("site", "store")} className="font-semibold text-scrub-dark underline underline-offset-4 hover:text-scrub">
+                an online store
               </Link>
               .
             </p>
@@ -280,8 +243,8 @@ export default async function LandingPage() {
             <div className="mx-auto max-w-7xl">
               <SectionHead id="sample-title" title="What a prescription looks like.">
                 <p>
-                  Three slips from the board of Lumen Aesthetics, a made-up clinic in {market.exampleArea}. Each carries its
-                  specialist&apos;s colour. Open one to see the steps.
+                  Three slips from three made-up businesses in {area(market)}: a renovation company, a cafe and an online store. Each carries its specialist&apos;s
+                  colour. Open one to see the steps.
                 </p>
                 <Link
                   href="/sample"
@@ -290,11 +253,25 @@ export default async function LandingPage() {
                   Read the full sample report <ArrowRight size={16} aria-hidden />
                 </Link>
               </SectionHead>
-              <div className="grid items-start gap-5 lg:grid-cols-3">
+              <ul className="grid items-start gap-5 lg:grid-cols-3">
                 {slips.map((s, i) => (
-                  <RxSlip key={s.title} data={s} defaultOpen={i === 1} />
+                  <li key={s.business.id} className="flex flex-col gap-2.5">
+                    <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-1 text-sm">
+                      <span>
+                        <span className="font-semibold text-ink">{s.business.name}</span>
+                        <span className="text-ink-3">, {s.business.kind}</span>
+                      </span>
+                      <Link
+                        href={`${sampleHref(s.agent, s.business.id)}#report`}
+                        className="inline-flex items-center gap-1 font-semibold text-scrub-dark underline-offset-4 hover:underline"
+                      >
+                        Its full sample <ArrowRight size={14} aria-hidden />
+                      </Link>
+                    </p>
+                    <RxSlip data={{ ...s.prescription, agent: s.agent, agentName: AGENTS[s.agent].name }} defaultOpen={i === 0} />
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           </div>
         </section>
@@ -333,11 +310,16 @@ export default async function LandingPage() {
           <div className="mx-auto grid max-w-[90rem] gap-10 rounded-[2rem] bg-ink px-5 py-14 text-white md:rounded-[2.75rem] md:px-14 md:py-20 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-16">
             <div>
               <h2 id="rules-title" className="max-w-xl font-display text-[2.25rem] font-extrabold leading-[1] tracking-[-0.03em] sm:text-5xl md:text-[3.5rem]">
-                Knows the rules clinics advertise under.
+                Knows the rules regulated businesses advertise under.
               </h2>
               <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-white/75">
-                Compliance Check reads your ads and pages, flags wording for review, explains why, and suggests safer wording. Every other specialist knows when your
-                business is in a regulated category and keeps its suggestions inside those rules.
+                Clinics, law firms, financial advisers, supplement and beauty brands work under stricter advertising rules than most. Compliance Check reads your ads and
+                pages, flags wording for review, explains why, and suggests safer wording. Every other specialist knows when your business is in a regulated category
+                and keeps its suggestions inside those rules.
+              </p>
+              <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-white/60">
+                Not regulated? Your ads still get checked against general advertising standards, so a &ldquo;cheapest in town&rdquo; or &ldquo;only 3 slots left&rdquo;
+                line gets flagged before a customer or a competitor does.
               </p>
               <div className="mt-8 rounded-3xl bg-white/[0.07] p-5 ring-1 ring-white/10 md:p-6">
                 <p className="text-[15px] font-semibold text-white">
@@ -369,7 +351,7 @@ export default async function LandingPage() {
                 </span>
               </div>
               <div className="rounded-[1.25rem] bg-card p-5 md:p-6">
-                <p className="text-[13px] font-semibold text-ink-3">Ad copy under review</p>
+                <p className="text-[13px] font-semibold text-ink-3">Ad copy under review, from a fictional supplement brand</p>
                 <p className="mt-2 text-lg leading-loose text-ink md:text-xl md:leading-loose">
                   {flags.map((f, i) =>
                     f.flag ? (
@@ -393,7 +375,7 @@ export default async function LandingPage() {
                 <div className="mt-5 rounded-2xl bg-mint p-4">
                   <p className="text-[13px] font-semibold text-scrub-dark">Suggested rewrite</p>
                   <p className="mt-1 text-[15px] leading-relaxed text-ink">
-                    Pico laser treatment for pigmentation in {area(market)}. Your doctor will assess your skin and explain expected results and downtime at consultation.
+                    A daily marine collagen drink, one sachet a day. See the full ingredient list, how to take it, and who should check with a doctor first.
                   </p>
                 </div>
               </div>
@@ -406,36 +388,18 @@ export default async function LandingPage() {
           <SectionHead id="fees-title" title="Start free. Pay when you want every specialist.">
             Monthly plans, no contract. Every plan includes the prescription board. Prices in {market.currency}.
           </SectionHead>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {PLANS.map((p) => {
-              const rec = p.id === "growth";
-              const price = planPrice(p, market);
-              return (
-                <div key={p.id} className={cx("flex flex-col rounded-3xl p-6", rec ? "bg-scrub text-white shadow-[var(--shadow-lift)]" : "bg-card shadow-[var(--shadow-box)]")}>
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-display text-xl font-extrabold tracking-[-0.02em]">{p.name}</h3>
-                    {rec && <span className="rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold">Recommended</span>}
-                  </div>
-                  <p className="mt-5 font-display text-4xl font-extrabold tabular-nums tracking-[-0.03em]">
-                    {price === 0 ? "Free" : formatPrice(market, price)}
-                    {price > 0 && <span className={cx("ml-1 font-sans text-sm font-medium tracking-normal", rec ? "text-white/70" : "text-ink-3")}>/month</span>}
-                  </p>
-                  <p className={cx("mt-3 flex-1 text-sm", rec ? "text-white/85" : "text-ink-2")}>{p.blurb}</p>
-                  <p className={cx("mt-4 text-[13px] font-semibold", rec ? "text-white/70" : "text-ink-3")}>
-                    <span className="font-mono">{p.runsPerMonth}</span> agent runs a month
-                  </p>
-                  <Link
-                    href={signupHref(market, { plan: p.id })}
-                    className={cx(
-                      "mt-5 inline-flex items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold transition hover:-translate-y-0.5 motion-reduce:transition-none",
-                      rec ? "bg-white text-scrub-dark focus-visible:outline-white" : "bg-paper text-ink ring-1 ring-line hover:ring-ink-3",
-                    )}
-                  >
-                    {p.id === "free" ? "Start free" : `Choose ${p.name}`}
-                  </Link>
-                </div>
-              );
-            })}
+          <div className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {PLANS.map((p) => (
+              <PlanCard
+                key={p.id}
+                plan={p}
+                market={market}
+                href={signupHref(market, { plan: p.id })}
+                cta={p.id === "free" ? "Start free" : `Choose ${p.name}`}
+                highlight={p.id === "growth"}
+                badge={p.id === "growth" ? "Recommended" : undefined}
+              />
+            ))}
           </div>
           <GuaranteeBlock className="mt-4" />
           <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2">

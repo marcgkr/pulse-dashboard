@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { FileUp, Search } from "lucide-react";
 import { Button, Field, Input, Select, Textarea } from "../ui";
 import { FormError, useRunAgent } from "../run-agent";
@@ -26,7 +27,7 @@ async function readExport(file: File): Promise<string> {
   return new TextDecoder("utf-8").decode(buf);
 }
 
-export function KeywordsForm({ profile, lastInput }: FormProps) {
+export function KeywordsForm({ profile, connected, lastInput }: FormProps) {
   const li = lastInput ?? {};
   const [seeds, setSeeds] = useState(seedsText(li.seeds, profile.offers || profile.industry));
   const market = marketFor(profile.country);
@@ -37,6 +38,8 @@ export function KeywordsForm({ profile, lastInput }: FormProps) {
   const [expand, setExpand] = useState((li.expand as string) || "");
   const [data, setData] = useState((li.data as string) || "");
   const [fileNote, setFileNote] = useState<string | null>(null);
+  const [gsc, setGsc] = useState(connected.searchConsole !== null && li.gsc !== false);
+  const useGsc = gsc && connected.searchConsole !== null;
   const { start, pending, error } = useRunAgent("keywords");
 
   return (
@@ -44,7 +47,7 @@ export function KeywordsForm({ profile, lastInput }: FormProps) {
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        void start({ seeds, location, focus, expand: focus === "expand" ? expand : "", data });
+        void start({ seeds, location, focus, expand: focus === "expand" ? expand : "", data: useGsc ? "" : data, gsc: useGsc });
       }}
     >
       <Field label="What do you want to do?">
@@ -68,46 +71,73 @@ export function KeywordsForm({ profile, lastInput }: FormProps) {
         <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={country || "Your city"} />
       </Field>
 
-      <Field
-        label="Your search data (optional)"
-        hint="Search Console: Performance > Search results > Queries tab > Export. Keyword Planner: download the results. Paste the table or upload the CSV. This is where real numbers come from."
-      >
-        <Textarea
-          value={data}
-          onChange={(e) => setData(e.target.value)}
-          rows={5}
-          className="font-mono text-xs"
-          placeholder={`Top queries,Clicks,Impressions,CTR,Position\nhydrafacial ${area ? area.toLowerCase() : "near me"},12,340,3.5%,8.2`}
-        />
-      </Field>
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-line bg-card px-3 py-1.5 font-semibold text-ink-2 hover:border-ink-3">
-          <FileUp size={15} /> Upload CSV
-          <input
-            type="file"
-            accept=".csv,.tsv,.txt,text/csv,text/plain"
-            className="sr-only"
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              try {
-                const text = await readExport(f);
-                setData(text.slice(0, 120_000));
-                setFileNote(`Loaded ${f.name}`);
-              } catch {
-                setFileNote("Couldn't read that file. Paste the table instead.");
-              }
-              e.target.value = "";
-            }}
-          />
+      {connected.searchConsole ? (
+        <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-sun/20 px-4 py-3 text-sm">
+          <input type="checkbox" checked={gsc} onChange={(e) => setGsc(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--color-scrub)]" />
+          <span>
+            <span className="block font-semibold text-ink">Use my Search Console data (last 90 days)</span>
+            <span className="block text-xs text-ink-2">
+              From {connected.searchConsole}. Quick wins and your visibility score use these real numbers.{" "}
+              <Link href="/app/settings/connections" className="font-semibold text-scrub underline underline-offset-2">
+                Change property
+              </Link>
+            </span>
+          </span>
         </label>
-        {fileNote && <span className="text-xs text-ink-3">{fileNote}</span>}
-        {data && (
-          <button type="button" className="text-xs text-ink-3 underline hover:text-ink" onClick={() => { setData(""); setFileNote(null); }}>
-            Clear data
-          </button>
-        )}
-      </div>
+      ) : (
+        <p className="text-xs text-ink-3">
+          Use Google Search Console?{" "}
+          <Link href="/app/settings/connections" className="font-semibold text-scrub underline underline-offset-2">
+            Connect it once
+          </Link>{" "}
+          and Keyword Lab reads your last 90 days itself, or paste an export below.
+        </p>
+      )}
+
+      {!useGsc && (
+        <>
+          <Field
+            label="Your search data (optional)"
+            hint="Search Console: Performance > Search results > Queries tab > Export. Keyword Planner: download the results. Paste the table or upload the CSV. This is where real numbers come from."
+          >
+            <Textarea
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              rows={5}
+              className="font-mono text-xs"
+              placeholder={`Top queries,Clicks,Impressions,CTR,Position\nhydrafacial ${area ? area.toLowerCase() : "near me"},12,340,3.5%,8.2`}
+            />
+          </Field>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-line bg-card px-3 py-1.5 font-semibold text-ink-2 hover:border-ink-3">
+              <FileUp size={15} /> Upload CSV
+              <input
+                type="file"
+                accept=".csv,.tsv,.txt,text/csv,text/plain"
+                className="sr-only"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  try {
+                    const text = await readExport(f);
+                    setData(text.slice(0, 120_000));
+                    setFileNote(`Loaded ${f.name}`);
+                  } catch {
+                    setFileNote("Couldn't read that file. Paste the table instead.");
+                  }
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {fileNote && <span className="text-xs text-ink-3">{fileNote}</span>}
+            {data && (
+              <button type="button" className="text-xs text-ink-3 underline hover:text-ink" onClick={() => { setData(""); setFileNote(null); }}>
+                Clear data
+              </button>
+            )}
+          </div>
+        </>
+      )}
 
       <FormError error={error} />
       <Button type="submit" disabled={pending}>

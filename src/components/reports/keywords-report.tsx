@@ -18,6 +18,7 @@ type KeywordsResult = {
   content_briefs?: ContentBrief[];
   quick_wins?: string[];
   data?: ParsedData | null;
+  data_from?: string | null;
   score_note?: string | null;
   sources?: { title: string; url: string }[];
 };
@@ -334,7 +335,7 @@ export function KeywordsReport({ result, run }: { result: KeywordsResult; run?: 
         </div>
         <p className="mt-3 text-xs text-ink-3">
           Demand and difficulty are estimates for comparing clusters, not search volumes.
-          {result.data ? " Numbers in the data table come from the export you pasted." : " For real monthly searches, check Google Keyword Planner."}
+          {result.data_from ? ` Numbers in the data table come from your connected ${result.data_from}.` : result.data ? " Numbers in the data table come from the export you pasted." : " For real monthly searches, check Google Keyword Planner."}
           {runRef && " Click Expand on any keyword to drill deeper; the new report links back here."}
         </p>
         {result.score_note && <p className="mt-2 border-t border-line pt-2 text-sm text-ink-2">{result.score_note}</p>}

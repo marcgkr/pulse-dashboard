@@ -12,6 +12,7 @@ import { Badge, Card, EmptyState, Label, scoreColor, scoreTone } from "@/compone
 import { agentColor } from "@/lib/agent-colors";
 import { SiteForm } from "@/components/forms/site-form";
 import { Sparkline } from "@/components/sparkline";
+import { connectedSources } from "@/lib/connectors";
 
 export const metadata = { title: "Chart" };
 
@@ -95,7 +96,7 @@ export default async function Dashboard() {
             </p>
           </div>
           <div className="rounded-3xl bg-white p-6 shadow-[var(--shadow-box)]">
-            <SiteForm profile={profile} windsorConnected={!!ws.windsor_api_key} lastInput={null} />
+            <SiteForm profile={profile} connected={connectedSources(ws)} lastInput={null} />
           </div>
         </section>
       )}

@@ -1,0 +1,79 @@
+{
+  "data": [
+    {
+      "campaign_name": "Leads - Hydrafacial Offer",
+      "spend": "1478.29",
+      "impressions": "90016",
+      "reach": "31250",
+      "frequency": "2.880512",
+      "clicks": "1433",
+      "inline_link_clicks": "1013",
+      "actions": [
+        { "action_type": "link_click", "value": "1013" },
+        { "action_type": "landing_page_view", "value": "702" },
+        { "action_type": "onsite_conversion.lead_grouped", "value": "31" },
+        { "action_type": "offsite_conversion.fb_pixel_lead", "value": "16" },
+        { "action_type": "lead", "value": "47" },
+        { "action_type": "page_engagement", "value": "1688" },
+        { "action_type": "post_engagement", "value": "1675" }
+      ],
+      "date_start": "2026-09-09",
+      "date_stop": "2026-10-08"
+    },
+    {
+      "campaign_name": "WhatsApp - Consult Booking",
+      "spend": "385.66",
+      "impressions": "20383",
+      "reach": "2980",
+      "frequency": "6.839933",
+      "clicks": "301",
+      "inline_link_clicks": "233",
+      "actions": [
+        { "action_type": "link_click", "value": "233" },
+        { "action_type": "onsite_conversion.messaging_first_reply", "value": "19" },
+        { "action_type": "onsite_conversion.messaging_conversation_started_7d", "value": "22" },
+        { "action_type": "post_engagement", "value": "260" }
+      ],
+      "date_start": "2026-09-09",
+      "date_stop": "2026-10-08"
+    },
+    {
+      "campaign_name": "Shop - Skincare Bundles",
+      "spend": "642.10",
+      "impressions": "38810",
+      "reach": "17044",
+      "frequency": "2.277048",
+      "clicks": "702",
+      "inline_link_clicks": "590",
+      "actions": [
+        { "action_type": "link_click", "value": "590" },
+        { "action_type": "offsite_conversion.fb_pixel_purchase", "value": "14" },
+        { "action_type": "purchase", "value": "14" },
+        { "action_type": "omni_purchase", "value": "14" }
+      ],
+      "action_values": [
+        { "action_type": "offsite_conversion.fb_pixel_purchase", "value": "2387.40" },
+        { "action_type": "purchase", "value": "2387.40" },
+        { "action_type": "omni_purchase", "value": "2387.40" }
+      ],
+      "date_start": "2026-09-09",
+      "date_stop": "2026-10-08"
+    },
+    {
+      "campaign_name": "Traffic - Website",
+      "spend": "934.05",
+      "impressions": "118355",
+      "reach": "64200",
+      "frequency": "1.843536",
+      "clicks": "1311",
+      "inline_link_clicks": "1058",
+      "actions": [
+        { "action_type": "link_click", "value": "1058" },
+        { "action_type": "landing_page_view", "value": "611" }
+      ],
+      "date_start": "2026-09-09",
+      "date_stop": "2026-10-08"
+    }
+  ],
+  "paging": { "cursors": { "before": "MAZDZD", "after": "MwZDZD" } }
+}

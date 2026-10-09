@@ -4,8 +4,9 @@ import { formatPrice, marketFor } from "@/lib/markets";
 import { stripeEnabled } from "@/lib/billing";
 import { usage } from "@/lib/runs";
 import { ProfileForm } from "@/components/profile-form";
-import { WindsorForm, PlanButtons } from "@/components/settings-forms";
-import { Badge, Card, Label, PageHeader } from "@/components/ui";
+import { PlanButtons } from "@/components/settings-forms";
+import { Badge, ButtonLink, Card, Label, PageHeader } from "@/components/ui";
+import { clientConnections } from "@/lib/connectors/store";
 
 export const metadata = { title: "Settings" };
 
@@ -14,6 +15,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const { ws } = await requireWorkspace();
   const u = usage(ws);
   const market = marketFor(ws.country);
+  const conns = clientConnections(ws.id);
+  const summary = conns
+    .filter((c) => c.connected)
+    .map((c) => `${c.provider === "google" ? "Google" : "Meta"}${c.needsReconnect ? " (reconnect needed)" : ""}`);
   return (
     <div className="space-y-10">
       <PageHeader eyebrow="Settings" title="Your business" />
@@ -41,15 +46,20 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </Card>
       </section>
 
-      <section>
-        <Label className="mb-2">Connections</Label>
-        <Card className="p-5 md:p-6">
-          <h2 className="font-display text-lg font-semibold">Windsor.ai (Google Ads and Meta Ads sync)</h2>
-          <p className="mb-4 mt-1 text-sm text-ink-2">
-            Connect your ad accounts to Windsor.ai, then paste your Windsor API key here. Ads Doctor will pull your last 30 days automatically instead of you uploading
-            exports. Your key is stored on our server and only used to read your ad data.
-          </p>
-          <WindsorForm connected={!!ws.windsor_api_key} />
+      <section id="connections">
+        <Label className="mb-2">Connected accounts</Label>
+        <Card className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between md:p-6">
+          <div>
+            <h2 className="font-display text-lg font-semibold">Google and Meta</h2>
+            <p className="mt-1 max-w-xl text-sm text-ink-2">
+              Connect once and Ads Doctor and Keyword Lab read your latest numbers themselves. We read ad performance and search performance, read-only; we never change
+              your ads. You can disconnect any time.
+            </p>
+            <p className="mt-2 text-sm font-semibold text-ink">{summary.length ? `Connected: ${summary.join(", ")}` : "Nothing connected yet."}</p>
+          </div>
+          <ButtonLink href="/app/settings/connections" variant="secondary" className="shrink-0">
+            Manage connected accounts
+          </ButtonLink>
         </Card>
       </section>
 

@@ -1,0 +1,43 @@
+{
+  "data": [
+    {
+      "campaign_name": "Leads - Hydrafacial Offer",
+      "adset_name": "Women 25-45 - Broad Singapore",
+      "spend": "924.16",
+      "impressions": "49434",
+      "reach": "21400",
+      "frequency": "2.31",
+      "clicks": "802",
+      "inline_link_clicks": "611",
+      "actions": [
+        { "action_type": "link_click", "value": "611" },
+        { "action_type": "lead", "value": "38" },
+        { "action_type": "onsite_conversion.lead_grouped", "value": "24" },
+        { "action_type": "offsite_conversion.fb_pixel_lead", "value": "14" }
+      ],
+      "date_start": "2026-09-09",
+      "date_stop": "2026-10-08"
+    },
+    {
+      "campaign_name": "Leads - Hydrafacial Offer",
+      "adset_name": "Interests - Beauty & Wellness",
+      "spend": "554.13",
+      "impressions": "40582",
+      "reach": "9850",
+      "frequency": "4.12",
+      "clicks": "631",
+      "inline_link_clicks": "402",
+      "actions": [
+        { "action_type": "link_click", "value": "402" },
+        { "action_type": "onsite_conversion.lead_grouped", "value": "7" },
+        { "action_type": "offsite_conversion.fb_pixel_lead", "value": "2" }
+      ],
+      "date_start": "2026-09-09",
+      "date_stop": "2026-10-08"
+    }
+  ],
+  "paging": {
+    "cursors": { "before": "MAZDZD", "after": "MQZDZD" },
+    "next": "https://graph.facebook.com/v23.0/act_1234567890/insights?access_token=EAABwzLixnjYBO1recordedtokenvalue0000000&fields=campaign_name%2Cadset_name%2Cad_name%2Cspend%2Cimpressions%2Creach%2Cfrequency%2Cclicks%2Cinline_link_clicks%2Cactions%2Caction_values&level=adset&date_preset=last_30d&limit=2&after=MQZDZD"
+  }
+}

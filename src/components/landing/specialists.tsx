@@ -6,9 +6,13 @@ import { agentColor } from "@/lib/agent-colors";
 import { cx } from "../ui";
 import { RxTag } from "./rx-tag";
 
-/** Sample report page for one specialist. Site Doctor is the default tab at /sample. */
-export function sampleHref(agent: string): string {
-  return agent === "site" ? "/sample" : `/sample/${agent}`;
+/**
+ * Sample report page for one specialist. Site Doctor is the default tab at /sample, and the
+ * renovation company is the default business, so neither needs a parameter.
+ */
+export function sampleHref(agent: string, business?: string): string {
+  const path = agent === "site" ? "/sample" : `/sample/${agent}`;
+  return business && business !== "renovation" ? `${path}?business=${business}` : path;
 }
 
 type Specialist = { agent: string; checks: string; hands: string[] };
@@ -47,7 +51,7 @@ function specialists(m: Market): Specialist[] {
     },
     {
       agent: "compliance",
-      checks: "Ad and page copy for clinics and other regulated businesses.",
+      checks: "Your ads and pages, against your country's advertising standards and the stricter rules for regulated trades.",
       hands: [`Lines flagged against the rules in ${m.inPhrase}`, "Why each line is a risk", "A safer rewrite to paste"],
     },
   ];

@@ -83,11 +83,12 @@ export function PlanCard({
             return (
               <li key={row.label} className={cx("flex gap-2.5 text-sm leading-snug", !on && (highlight ? "text-white/45" : "text-ink-3/70"))}>
                 {on ? (
-                  <Check size={16} className={cx("mt-0.5 shrink-0", highlight ? "text-white" : "text-good")} aria-label="Included" />
+                  <Check size={16} className={cx("mt-0.5 shrink-0", highlight ? "text-white" : "text-good")} aria-hidden />
                 ) : (
-                  <Minus size={16} className="mt-0.5 shrink-0" aria-label="Not included" />
+                  <Minus size={16} className="mt-0.5 shrink-0" aria-hidden />
                 )}
                 <span>
+                  <span className="sr-only">{on ? "Included: " : "Not included: "}</span>
                   {row.label}
                   {typeof v === "string" && <span className={cx("font-semibold", highlight ? "text-white" : "text-ink")}>: {v}</span>}
                 </span>

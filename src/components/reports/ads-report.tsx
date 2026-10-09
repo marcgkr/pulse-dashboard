@@ -273,7 +273,7 @@ export function AdsReport({ result }: { result: AdsResult }) {
             {s.ok && s.rows > 0 ? ` · ${s.rows} rows` : " · failed"}
           </Badge>
         ))}
-        {result.sample && <p className="w-full text-xs text-ink-3">These numbers come from a built-in sample account, not yours. Upload your own exports to get your real checkup.</p>}
+        {result.sample && <p className="w-full text-xs text-ink-3">These numbers come from a built-in sample account, not yours. Connect your ad accounts or upload your own exports to get your real checkup.</p>}
       </Card>
 
       {/* Tracking warnings */}

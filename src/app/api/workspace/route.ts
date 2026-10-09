@@ -92,10 +92,6 @@ export async function PATCH(req: Request) {
     sets.push("regulated = ?");
     vals.push(body.regulated ? 1 : 0);
   }
-  if (typeof body.windsor_api_key === "string") {
-    sets.push("windsor_api_key = ?");
-    vals.push(body.windsor_api_key.trim().slice(0, 300) || null);
-  }
   if (sets.length) db().prepare(`UPDATE workspaces SET ${sets.join(", ")} WHERE id = ?`).run(...vals, ws.id);
   return NextResponse.json({ ok: true });
 }

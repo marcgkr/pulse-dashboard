@@ -1,0 +1,33 @@
+{
+  "data": [
+    {
+      "campaign_name": "Leads - Hydrafacial Offer",
+      "adset_name": "Women 25-45 - Broad Singapore",
+      "ad_name": "Reel - Before you book",
+      "spend": "611.40",
+      "impressions": "31022",
+      "reach": "15870",
+      "frequency": "1.95",
+      "clicks": "540",
+      "inline_link_clicks": "410",
+      "actions": [{ "action_type": "lead", "value": "29" }],
+      "date_start": "2026-09-09",
+      "date_stop": "2026-10-08"
+    },
+    {
+      "campaign_name": "Leads - Hydrafacial Offer",
+      "adset_name": "Women 25-45 - Broad Singapore",
+      "ad_name": "Carousel - Price list",
+      "spend": "312.76",
+      "impressions": "18412",
+      "reach": "9930",
+      "frequency": "1.85",
+      "clicks": "262",
+      "inline_link_clicks": "201",
+      "actions": [{ "action_type": "lead", "value": "9" }],
+      "date_start": "2026-09-09",
+      "date_stop": "2026-10-08"
+    }
+  ],
+  "paging": { "cursors": { "before": "MAZDZD", "after": "MQZDZD" } }
+}

@@ -1,0 +1,7 @@
+{
+  "data": [
+    { "name": "Glow Aesthetics", "account_id": "1234567890", "currency": "SGD", "account_status": 1, "id": "act_1234567890" },
+    { "name": "Glow Aesthetics (old)", "account_id": "2223334445", "currency": "SGD", "account_status": 101, "id": "act_2223334445" }
+  ],
+  "paging": { "cursors": { "before": "QVFIUmJ4", "after": "QVFIUmZA" } }
+}
