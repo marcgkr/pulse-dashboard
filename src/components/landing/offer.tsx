@@ -1,10 +1,8 @@
-import { Check, ClipboardCopy, Clock, ExternalLink, ShieldCheck, Timer } from "lucide-react";
+import { Check, ClipboardCopy, Clock, Mail, ShieldCheck, Timer } from "lucide-react";
 import { BRAND } from "@/lib/config";
 import { cx } from "../ui";
 import { RxTag } from "./rx-tag";
 
-/** True when the done-for-you link opens WhatsApp, so the button can say so. */
-const DFY_WHATSAPP = /wa\.me|whatsapp/i.test(BRAND.doneForYouUrl);
 
 /** The three effort and time promises, as capsules (same shape as the dosage capsules on a slip). */
 export function TimeChips({ className, tone = "light" }: { className?: string; tone?: "light" | "dark" }) {
@@ -66,8 +64,6 @@ export function StrategyCallButton({
   return (
     <a
       href={BRAND.doneForYouUrl}
-      target="_blank"
-      rel="noreferrer"
       className={cx(
         "inline-flex items-center gap-2 rounded-full font-semibold transition hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
         size === "md" ? "w-fit px-6 py-3.5 text-[15px]" : "justify-center px-3 py-3 text-center text-sm",
@@ -77,8 +73,8 @@ export function StrategyCallButton({
         className,
       )}
     >
-      {label} {size === "md" && <ExternalLink size={15} aria-hidden />}
-      {DFY_WHATSAPP && <span className="sr-only">(opens WhatsApp)</span>}
+      {label} {size === "md" && <Mail size={15} aria-hidden />}
+      <span className="sr-only">(opens an email to {BRAND.contactEmail})</span>
     </a>
   );
 }
@@ -141,7 +137,13 @@ export function DoneForYou() {
           <DoneForYouServices className="mt-7" />
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
             <StrategyCallButton />
-            <p className="text-sm text-ink/70">Pricing is custom, based on your ad spend.{DFY_WHATSAPP ? " Opens a WhatsApp chat." : ""}</p>
+            <p className="text-sm text-ink/70">
+              Pricing is custom, based on your ad spend. Or email{" "}
+              <a href={`mailto:${BRAND.contactEmail}`} className="font-semibold text-ink underline underline-offset-4">
+                {BRAND.contactEmail}
+              </a>
+              .
+            </p>
           </div>
         </div>
 

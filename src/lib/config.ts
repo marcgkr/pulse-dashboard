@@ -8,12 +8,14 @@ export const BRAND = {
   domain: "marketingrx.ai",
   parent: "PULSE Digital",
   parentUrl: "https://pulsedigital.sg",
-  contactEmail: "hello@marketingrx.ai",
-  // Done-for-you upsell: where "Get PULSE to do this" sends people.
+  // Every enquiry (contact links, done-for-you, guarantee claims, privacy requests) goes to this inbox.
+  contactEmail: "info@pulsedigital.sg",
+  // Done-for-you upsell: where "Get PULSE to do this" sends people. Opens an email to contactEmail.
   doneForYouUrl:
-    "https://wa.me/?text=" +
-    encodeURIComponent("Hi PULSE Digital, I'd like to book a free strategy call about MarketingRx."),
-  // TODO before launch: add PULSE's WhatsApp number after wa.me/ (e.g. wa.me/65XXXXXXXX) or swap in a calendar link.
+    "mailto:info@pulsedigital.sg?subject=" +
+    encodeURIComponent("MarketingRx: done-for-you enquiry") +
+    "&body=" +
+    encodeURIComponent("Hi PULSE Digital,\n\nI'd like to book a free strategy call about MarketingRx.\n\nBusiness name:\nWebsite:\nMonthly ad spend (roughly):\n"),
   // FOUNDER TO APPROVE OR EDIT before launch: this is a promise to customers. Set to null to hide
   // the guarantee block on the homepage and pricing page.
   guarantee: {

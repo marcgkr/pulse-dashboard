@@ -237,7 +237,7 @@ export async function SampleView({ agent, business }: { agent: AgentId; business
               </h2>
               <p className="mt-3 text-white/80">
                 The free checkup runs Site Doctor on your website and writes your first prescriptions in about a minute. Rather have it done for you?{" "}
-                <a href={BRAND.doneForYouUrl} target="_blank" rel="noreferrer" className="font-semibold text-white underline underline-offset-4 focus-visible:outline-white">
+                <a href={BRAND.doneForYouUrl} className="font-semibold text-white underline underline-offset-4 focus-visible:outline-white">
                   Talk to {BRAND.parent}
                 </a>
                 .

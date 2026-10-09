@@ -105,7 +105,7 @@ function billingFaq(m: Market) {
         <p>
           Yes. {BRAND.parent} can implement every prescription for you and run the work behind it: Google, Meta, TikTok and LinkedIn ads, SEO, AI search, your Google
           Business Profile, landing pages and tracking, with a monthly report and call. It is priced separately from the plans here, based on your ad spend.{" "}
-          <a href={BRAND.doneForYouUrl} target="_blank" rel="noreferrer">
+          <a href={BRAND.doneForYouUrl}>
             Book a free strategy call
           </a>{" "}
           to talk it through.

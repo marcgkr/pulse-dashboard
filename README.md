@@ -40,7 +40,7 @@ See `.env.example`. The important ones:
 - `GOOGLE_PSI_KEY` (optional) adds Google PageSpeed mobile scores to Site Doctor.
 - `STRIPE_*` (optional) turns on self-serve upgrades. Create one recurring price per paid plan and point the webhook at `/api/billing/webhook` with events `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`.
 
-Plans and prices live in `src/lib/config.ts`. The brand name, domain and the done-for-you WhatsApp link are there too.
+Plans and prices live in `src/lib/config.ts`. The brand name, domain and the enquiry email (used by every contact and done-for-you link) are there too.
 
 ## Connecting Google and Meta
 

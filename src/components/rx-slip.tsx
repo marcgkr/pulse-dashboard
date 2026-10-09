@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronDown, Clock, ExternalLink, MapPin, RotateCcw, Zap } from "lucide-react";
+import { Check, ChevronDown, Clock, Mail, MapPin, RotateCcw, Zap } from "lucide-react";
 import { BRAND } from "@/lib/config";
 import { agentColor } from "@/lib/agent-colors";
 import { Badge, cx } from "./ui";
@@ -149,11 +149,9 @@ export function RxSlip({ data, defaultOpen = false }: { data: SlipData; defaultO
           )}
           <a
             href={BRAND.doneForYouUrl}
-            target="_blank"
-            rel="noreferrer"
             className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-ink-3 hover:text-scrub"
           >
-            Rather have PULSE do it? <ExternalLink size={12} />
+            Rather have PULSE do it? <Mail size={12} aria-hidden />
           </a>
         </div>
       </div>
