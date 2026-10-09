@@ -59,9 +59,9 @@ export function SiteReport({ result }: { result: SiteResult }) {
                 ["H1 headline", result.rewrite.h1],
               ] as const
             ).map(([k, v]) => (
-              <div key={k} className="flex items-start gap-4 p-4">
-                <div className="w-36 shrink-0 text-sm font-semibold">{k}</div>
-                <div className="flex-1 text-sm">{v}</div>
+              <div key={k} className="flex flex-wrap items-start gap-x-4 gap-y-1 p-4 sm:flex-nowrap">
+                <div className="w-full shrink-0 text-sm font-semibold sm:w-36">{k}</div>
+                <div className="min-w-0 flex-1 break-words text-sm">{v}</div>
                 <CopyButton text={v} />
               </div>
             ))}

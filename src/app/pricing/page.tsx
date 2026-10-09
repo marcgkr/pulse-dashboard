@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { Fragment } from "react";
 import Link from "next/link";
-import { Check, ExternalLink, Minus } from "lucide-react";
+import { Check, Minus } from "lucide-react";
 import { BRAND, PLANS, planPrice, type PlanId } from "@/lib/config";
 import { formatPrice, type Market } from "@/lib/markets";
 import { visitorMarket } from "@/lib/market-server";
 import { signupHref } from "@/components/landing/market-copy";
+import { GuaranteeBlock, StrategyCallButton } from "@/components/landing/offer";
+import { RxTag } from "@/components/landing/rx-tag";
 import { ColourRow, FaqList, SectionHead, SiteFooter, SiteNav } from "@/components/landing/site-chrome";
 import { cx } from "@/components/ui";
 
@@ -89,6 +91,20 @@ function billingFaq(m: Market) {
       q: "Can I change plans?",
       a: <p>Yes. Upgrade or downgrade from your billing page whenever you like. Upgrades apply straight away.</p>,
     },
+    ...(BRAND.guarantee
+      ? [
+          {
+            q: "How does the guarantee work?",
+            a: (
+              <p>
+                {BRAND.guarantee.body} Your Pulse Score is on your dashboard. It combines your latest Site Doctor, AI Visibility and Ads Doctor scores with how many of
+                your prescriptions are done. To claim, email{" "}
+                <a href={`mailto:${BRAND.contactEmail}`}>{BRAND.contactEmail}</a>.
+              </p>
+            ),
+          },
+        ]
+      : []),
     {
       q: "Is there a contract? Can I cancel?",
       a: (
@@ -102,11 +118,12 @@ function billingFaq(m: Market) {
       q: "Can PULSE Digital do the work for me instead?",
       a: (
         <p>
-          Yes. Send any prescription to {BRAND.parent} and we will quote to implement it. That work is billed separately from your plan.{" "}
+          Yes. {BRAND.parent} can implement every prescription and run your Google and Meta ads for you, with a monthly report and call. It is priced separately from
+          the plans here, based on your ad spend.{" "}
           <a href={BRAND.doneForYouUrl} target="_blank" rel="noreferrer">
-            Message us on WhatsApp
-          </a>
-          .
+            Book a free strategy call
+          </a>{" "}
+          to talk it through.
         </p>
       ),
     },
@@ -152,7 +169,7 @@ export default async function PricingPage() {
               Start with a free checkup. Move up when you want every specialist working on your marketing. Month to month, no contract.
             </p>
 
-            <div className="rise mt-10 grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4" style={{ animationDelay: "240ms" }}>
+            <div className="rise mt-10 grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 min-[1360px]:grid-cols-5" style={{ animationDelay: "240ms" }}>
               {PLANS.map((p) => {
                 const rec = p.id === RECOMMENDED;
                 const price = planPrice(p, market);
@@ -161,11 +178,11 @@ export default async function PricingPage() {
                     key={p.id}
                     className={cx("flex flex-col rounded-3xl p-6", rec ? "bg-scrub text-white shadow-[var(--shadow-lift)]" : "bg-card shadow-[var(--shadow-box)]")}
                   >
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-h-7 items-center justify-between gap-2">
                       <h2 className="font-display text-2xl font-extrabold tracking-[-0.02em]">{p.name}</h2>
-                      {rec && <span className="whitespace-nowrap rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold">For ad spenders</span>}
+                      {rec && <span className="whitespace-nowrap rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold">Recommended</span>}
                     </div>
-                    <p className="mt-5 font-display text-[2.75rem] font-extrabold leading-none tabular-nums tracking-[-0.03em]">
+                    <p className="mt-5 font-display text-[2.6rem] font-extrabold leading-none tabular-nums tracking-[-0.03em]">
                       {priceLabel(market, price)}
                       {price > 0 && <span className={cx("ml-1 font-sans text-sm font-medium tracking-normal", rec ? "text-white/70" : "text-ink-3")}>/month</span>}
                     </p>
@@ -190,7 +207,31 @@ export default async function PricingPage() {
                   </article>
                 );
               })}
+
+              {/* Top tier: the agency does it. No price on the page; it anchors the DIY plans. */}
+              <article className="flex flex-col rounded-3xl bg-ink p-6 text-white shadow-[var(--shadow-lift)] sm:col-span-2 min-[1360px]:col-span-1">
+                <div className="flex min-h-7 items-center justify-between gap-2">
+                  <h2 className="font-display text-2xl font-extrabold leading-[1.05] tracking-[-0.02em]">Done for you</h2>
+                  <RxTag light />
+                </div>
+                <p className="mt-5 font-display text-[2.6rem] font-extrabold leading-none tracking-[-0.03em]">Custom</p>
+                <p className="mt-4 text-sm text-white/80">By {BRAND.parent}, priced on your ad spend. For owners who want the work done, not a to-do list.</p>
+                <ul className="mt-5 flex-1 space-y-2.5 border-t border-white/15 pt-5">
+                  {[
+                    "PULSE implements every prescription for you",
+                    "PULSE runs your Google and Meta ads",
+                    "Monthly report and strategy call",
+                  ].map((f) => (
+                    <li key={f} className="flex gap-2 text-sm">
+                      <Check size={16} className="mt-0.5 shrink-0 text-spearmint" aria-hidden />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <StrategyCallButton tone="white" size="sm" label="Book a strategy call" className="mt-6 w-full" />
+              </article>
             </div>
+            <GuaranteeBlock className="mt-4" />
             <p className="mt-5 text-sm text-ink-2">The free plan needs no card. Paid plans are billed monthly.</p>
           </div>
         </section>
@@ -284,14 +325,7 @@ export default async function PricingPage() {
               >
                 Start free
               </Link>
-              <a
-                href={BRAND.doneForYouUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[15px] font-semibold text-white ring-1 ring-white/30 transition hover:ring-white focus-visible:outline-white motion-reduce:transition-none"
-              >
-                Rather have PULSE do it? <ExternalLink size={15} aria-hidden />
-              </a>
+              <StrategyCallButton label="Book a strategy call" tone="outline" />
             </div>
           </div>
         </section>

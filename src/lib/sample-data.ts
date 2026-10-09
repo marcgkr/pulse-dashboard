@@ -60,18 +60,22 @@ function ctxFor(ws: WorkspaceRow): AgentContext {
 // ---------- Site Doctor fixture ----------
 
 function siteChecks(m: Market): Check[] {
+  // Same wording as buildChecks() in site-audit.ts, for a site with one enquiry form and no
+  // tap-to-call or chat links.
+  const where = m.code === "INTL" ? "For many customers" : `In ${m.inPhrase}`;
   const chat =
     m.messaging === "SMS"
-      ? { id: "messaging", label: "Tap-to-text or click-to-call", detail: "Tap-to-call links: 1, tap-to-text links: 0. The number is only linked in the footer." }
+      ? {
+          id: "messaging",
+          label: "Tap-to-text or click-to-call",
+          count: "WhatsApp links: 0, text (sms:) links: 0, forms: ",
+          detail: `No tap-to-call or tap-to-text link. ${where} many customers call or text a local business straight from their phone.`,
+        }
       : m.messaging === "Messenger"
-        ? { id: "messaging", label: "Messenger click-to-chat", detail: `No Messenger (m.me) link. In ${m.inPhrase} this is often the fastest way customers enquire.` }
+        ? { id: "messaging", label: "Messenger click-to-chat", count: "Messenger links: 0, WhatsApp links: 0, forms: ", detail: `No Messenger (m.me) link. ${where} this is often the fastest way customers enquire.` }
         : m.messaging === "LINE"
-          ? { id: "messaging", label: "LINE click-to-chat", detail: "No LINE link." }
-          : {
-              id: "whatsapp",
-              label: "WhatsApp click-to-chat",
-              detail: `No WhatsApp link. ${m.code === "INTL" ? "For many customers" : `In ${m.inPhrase}`} this is often the fastest way customers enquire.`,
-            };
+          ? { id: "messaging", label: "LINE click-to-chat", count: "LINE links: 0, WhatsApp links: 0, forms: ", detail: `No LINE link. ${where} this is often the fastest way customers enquire.` }
+          : { id: "whatsapp", label: "WhatsApp click-to-chat", count: "WhatsApp links: 0, forms: ", detail: `No WhatsApp link. ${where} this is often the fastest way customers enquire.` };
   const c = (id: string, group: Check["group"], label: string, status: Check["status"], detail: string, weight: number): Check => ({ id, group, label, status, detail, weight });
   return [
     c("https", "Technical", "Secure connection (HTTPS)", "pass", "Site loads over HTTPS.", 3),
@@ -91,11 +95,11 @@ function siteChecks(m: Market): Check[] {
     c("inner-meta", "On-page", "Inner page titles and descriptions", "warn", "0 duplicate title(s), 2 page(s) missing a meta description, out of 3 checked.", 2),
     c("og", "On-page", "Social share preview", "pass", "Open Graph title and image set.", 1),
     c("canonical", "On-page", "Canonical tag", "pass", "Set.", 1),
-    c("contact", "Conversion", "Easy ways to get in touch", "warn", `Tap-to-call links: ${m.messaging === "SMS" ? 1 : 0}, enquiry forms: 1.`, 4),
+    c("contact", "Conversion", "Easy ways to get in touch", "warn", `Tap-to-call links: 0, ${chat.count}1.`, 4),
     c(chat.id, "Conversion", chat.label, "warn", chat.detail, 2),
     c("booking", "Conversion", "Online booking or enquiry form", "pass", "Enquiry form found.", 2),
-    c("analytics", "Tracking", "Website analytics", "pass", "Google Tag Manager, Google Analytics 4", 3),
-    c("ad-pixels", "Tracking", "Ad conversion tracking", "warn", "Google Tag Manager found, but no Meta Pixel. Meta ads can't learn who books.", 2),
+    c("analytics", "Tracking", "Website analytics", "pass", "Google Analytics 4", 3),
+    c("ad-pixels", "Tracking", "Ad conversion tracking", "warn", "No Meta Pixel or Google Ads tag found. Ads can't learn who converts.", 2),
     c("schema-biz", "AI search", "Business schema markup", "fail", "No structured data. AI assistants and Google have to guess what you are.", 3),
     c("faq", "AI search", "Answers to common questions", "warn", "No FAQ section. Question-and-answer content is what AI assistants quote.", 2),
     c("llms", "AI search", "llms.txt file", "warn", "No /llms.txt. It's a simple file that tells AI assistants what your business does.", 1),
@@ -138,7 +142,7 @@ function siteAudit(m: Market): SiteAudit {
       imagesTotal: 14,
       imagesMissingAlt: 4,
       internalLinks: 38,
-      phoneLinks: m.messaging === "SMS" ? 1 : 0,
+      phoneLinks: 0,
       whatsappLinks: 0,
       smsLinks: 0,
       messengerLinks: 0,
@@ -146,7 +150,7 @@ function siteAudit(m: Market): SiteAudit {
       emailLinks: 1,
       forms: 1,
       bookingWidget: "",
-      trackers: ["Google Tag Manager", "Google Analytics 4"],
+      trackers: ["Google Analytics 4"],
       textSample: "",
     },
     pages: [
@@ -169,15 +173,15 @@ function siteAudit(m: Market): SiteAudit {
 function siteResult(m: Market): AgentResult {
   const audit = siteAudit(m);
   const area = sampleArea(m);
-  const chatName = m.messaging === "SMS" ? "tap-to-text" : m.messaging;
+  const chatThing = m.messaging === "SMS" ? "tap-to-call or tap-to-text link" : `${m.messaging} button`;
   return {
     title: `Site checkup: ${audit.host}`,
     score: audit.score,
-    summary: `The site loads well and is set up for Google to read, but it makes booking harder than it needs to be. There is no ${chatName} button, the homepage title is just "Home | Lumen", and there is no meta description, so the search listing gives people little reason to click. Start with the contact button and the title, then add the FAQ and schema so AI assistants can quote you.`,
+    summary: `The site loads well and is set up for Google to read, but it makes booking harder than it needs to be. There is no ${chatThing}, the homepage title is just "Home | Lumen", and there is no meta description, so the search listing gives people little reason to click. Start with the contact button and the title, then add the FAQ and schema so AI assistants can quote you.`,
     strengths: [
       "Secure connection (HTTPS): site loads over HTTPS.",
       "Mobile-friendly viewport: pages fit phone screens.",
-      "Website analytics: Google Tag Manager and Google Analytics 4 are installed.",
+      "Website analytics: Google Analytics 4 is installed, so you can see where visitors come from.",
       "XML sitemap: found, so Google can discover every treatment page.",
     ],
     rewrite: {
@@ -246,8 +250,25 @@ async function demoOf(agent: AgentId, raw: Record<string, unknown>, ws: Workspac
   };
 }
 
+// The demos are cheap but not free (the content calendar is date-based), so keep one set per
+// market per day.
+const cache = new Map<string, Promise<SampleReport[]>>();
+
 /** Every specialist's report for the fictional clinic, in the visitor's market. */
-export async function sampleReports(m: Market): Promise<SampleReport[]> {
+export function sampleReports(m: Market): Promise<SampleReport[]> {
+  const key = `${m.code}:${new Date().toISOString().slice(0, 10)}`;
+  let hit = cache.get(key);
+  if (!hit) {
+    if (cache.size > 50) cache.clear();
+    // Round-trip through JSON, as a stored run would, so client report components get plain data.
+    hit = buildSampleReports(m).then((r) => JSON.parse(JSON.stringify(r)) as SampleReport[]);
+    hit.catch(() => cache.delete(key));
+    cache.set(key, hit);
+  }
+  return hit;
+}
+
+async function buildSampleReports(m: Market): Promise<SampleReport[]> {
   const ws = sampleWorkspace(m);
   const area = sampleArea(m);
 

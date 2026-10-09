@@ -17,8 +17,9 @@ export function SiteNav({ market }: { market: Market }) {
         <div className="flex items-center gap-1 sm:gap-2">
           <div className="mr-2 hidden items-center gap-1 lg:flex">
             <NavLink href="/#specialists">Specialists</NavLink>
-            <NavLink href="/#how">How it works</NavLink>
+            <NavLink href="/sample">Sample report</NavLink>
             <NavLink href="/pricing">Pricing</NavLink>
+            <NavLink href="/#done-for-you">Done for you</NavLink>
           </div>
           <MarketPicker current={market.code} />
           <Link href="/login" className="rounded-full px-3 py-2 text-sm font-semibold text-ink-2 transition hover:bg-card hover:text-ink">
@@ -63,7 +64,9 @@ export function SiteFooter({ market }: { market: Market }) {
             <ul className="space-y-2.5 text-[15px]">
               <FooterLink href="/#checkup">Free website checkup</FooterLink>
               <FooterLink href="/#specialists">The specialists</FooterLink>
+              <FooterLink href="/sample">Sample report</FooterLink>
               <FooterLink href="/pricing">Pricing</FooterLink>
+              <FooterLink href="/#done-for-you">Done for you by {BRAND.parent}</FooterLink>
               <FooterLink href={signupHref(market)}>Start free</FooterLink>
               <FooterLink href="/login">Log in</FooterLink>
             </ul>

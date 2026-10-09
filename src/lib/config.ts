@@ -12,7 +12,20 @@ export const BRAND = {
   // Done-for-you upsell: where "Get PULSE to do this" sends people.
   doneForYouUrl:
     "https://wa.me/?text=" +
-    encodeURIComponent("Hi PULSE Digital, I'd like you to implement a MarketingRx prescription for me."),
+    encodeURIComponent("Hi PULSE Digital, I'd like to book a free strategy call about MarketingRx."),
+  // TODO before launch: add PULSE's WhatsApp number after wa.me/ (e.g. wa.me/65XXXXXXXX) or swap in a calendar link.
+  // FOUNDER TO APPROVE OR EDIT before launch: this is a promise to customers. Set to null to hide
+  // the guarantee block on the homepage and pricing page.
+  guarantee: {
+    title: "The do-five guarantee",
+    // Tied to the website score after a re-check, not the overall Pulse Score, because ticking slips
+    // as done raises the Pulse Score by itself.
+    body: "Do the first five prescriptions Site Doctor gives you, then run the checkup again. If your website score hasn't gone up within 30 days, tell us and we'll refund that month.",
+  } as { title: string; body: string } | null,
+  // DRAFT for Marcus to rewrite in his own words. Shown on the homepage next to the done-for-you
+  // offer. Set to "" to hide it.
+  founderNote:
+    "Most businesses that come to PULSE Digital don't need a bigger ad budget first. They need the fixes we make for almost every new client: a clear headline, an easy way to message them, tracking that works and ads that stop paying for the wrong clicks. I built MarketingRx so owners who aren't ready for an agency can get that same list and do the work themselves.",
 };
 
 export type PlanId = "free" | "starter" | "growth" | "pro";

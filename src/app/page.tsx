@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Check, ExternalLink, Repeat } from "lucide-react";
+import { ArrowRight, Repeat } from "lucide-react";
 import { BRAND, PLANS, planPrice } from "@/lib/config";
 import { MARKETS, formatPrice, type Market } from "@/lib/markets";
 import { visitorMarket } from "@/lib/market-server";
 import { Checkup } from "@/components/landing/checkup";
+import { CompactCheckup } from "@/components/landing/compact-checkup";
+import { DoneForYou, GuaranteeBlock, TimeChips } from "@/components/landing/offer";
 import { Heartbeat } from "@/components/landing/heartbeat";
 import { messagingFix, signupHref } from "@/components/landing/market-copy";
 import { FaqList, SectionHead, SiteFooter, SiteNav } from "@/components/landing/site-chrome";
@@ -13,9 +15,9 @@ import { RxSlip, type SlipData } from "@/components/rx-slip";
 import { cx } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: { absolute: `${BRAND.name} | Free website checkup and DIY marketing prescriptions` },
+  title: { absolute: `${BRAND.name} | More customers from the marketing you already have` },
   description:
-    "Run a free checkup on your website, then get a prescription of fixes for your site, SEO, AI search, content and Google and Meta ads, with exact steps to do them yourself. Built by PULSE Digital.",
+    "Run a free website checkup and get your first fixes in about a minute. Six AI specialists check your website, Google search, AI answers, social and ads, then hand you the exact clicks and copy to paste. Built by PULSE Digital.",
 };
 
 /** A real place for sample copy; "Anywhere else" has none, so it reads "town". */
@@ -30,19 +32,23 @@ function cap(s: string) {
 const LOOP = [
   {
     name: "Checkup",
-    body: "Add your website and business profile. If you run ads, connect Google and Meta. The specialists look at what customers, Google and AI assistants see.",
+    time: "About a minute",
+    body: "Enter your website for the free checkup. Add your business profile, and connect Google and Meta if you run ads, so every specialist can look.",
   },
   {
     name: "Prescription",
-    body: "Every finding becomes a slip: what is wrong, why it costs you enquiries, and the steps for your platform. Slips are ranked so you know what to do first.",
+    time: "",
+    body: "Every finding becomes a slip: what is wrong, why it costs you enquiries, and the exact clicks and copy for your platform. The slips are ranked so you know what to do first.",
   },
   {
     name: "You fix it",
-    body: "Work through the board when it suits you. Many slips take under 30 minutes. Stuck on a step? Ask PULSE. Rather not do it? Hand it to us.",
+    time: "Most under 30 minutes",
+    body: "Work through the board when it suits you. Stuck on a step? Ask PULSE. Rather not do it? Hand the slip to PULSE Digital.",
   },
   {
     name: "Re-check",
-    body: "Each slip has a re-check date. Run the specialist again and see whether the score moved. The board keeps a record of what you fixed and when.",
+    time: "",
+    body: "Each slip has a re-check date. Run the specialist again and see whether your score moved. The board keeps a record of what you fixed and when.",
   },
 ];
 
@@ -111,22 +117,54 @@ function flagged(m: Market): { text: string; flag?: string }[] {
   ];
 }
 
-const COMPARE: [string, string, string][] = [
-  ["Finding problems", "An account team audits when they have time", "Specialists run whenever you want, in minutes"],
-  ["Deciding priority", "Their plan, their reporting", "Every slip ranked by urgency and impact"],
-  ["Doing the work", "Their team, billed monthly", "You, with steps for your exact platform"],
-  ["Checking it worked", "A monthly report", "A re-check date on every slip"],
-];
-
 function faq(m: Market) {
   const countries = MARKETS.filter((x) => x.code !== "INTL").map((x) => x.name);
   return [
     {
-      q: "Do I need to be technical?",
+      q: "I'm not technical. Can I still do the fixes?",
       a: (
         <p>
-          No. If you can log in to your website builder and your ads account, you can follow the steps. Each slip says where to click and what to type. When something
-          still is not clear, ask PULSE inside the app and it explains that step for your setup.
+          Yes. If you can log in to your website builder and your ads account, you can follow the steps. Each slip says where to click and what to type or paste. When
+          a step still is not clear, ask PULSE inside the app and it explains that step for your setup.
+        </p>
+      ),
+    },
+    {
+      q: "I already have an agency. Why would I use this?",
+      a: (
+        <p>
+          As a second opinion you can act on. Run the specialists, then send the board to your agency as a list of what to fix, or do the small fixes yourself and
+          leave them the bigger work. Each slip has a re-check date, so you can see whether a change was made and whether it moved your score.
+        </p>
+      ),
+    },
+    {
+      q: "How is this different from free SEO tools?",
+      a: (
+        <p>
+          Free SEO tools give you a score and a list of warnings. {BRAND.name} turns each problem into a prescription: why it costs you customers, where to click on your
+          website builder or ads account, and the copy to paste. It also covers what SEO tools leave out: AI answers, social posts, Google and Meta ads, and the
+          advertising rules for regulated businesses.
+        </p>
+      ),
+    },
+    {
+      q: "What if the advice is wrong for my industry?",
+      a: (
+        <p>
+          Every specialist reads your business profile first: what you sell, where, to whom, and whether your business is in a regulated category. If a slip still does
+          not fit, mark it &ldquo;Not relevant&rdquo; and it leaves your board. You can also ask PULSE why it suggested a fix and how it applies to your business. For
+          clinics and other regulated businesses, Compliance Check is a review aid, and the final call sits with you and your professional adviser.
+        </p>
+      ),
+    },
+    {
+      q: "Do you store my ad account data?",
+      a: (
+        <p>
+          Ads Doctor reads your performance data, from an export you upload or a Windsor.ai connection, and keeps the reports it makes in your account so you can
+          compare months. It never changes anything in your ad accounts; you make the changes. Your data is not shared with other customers, and you can disconnect an
+          account or delete your data at any time. Details are in our <Link href="/privacy">privacy policy</Link>.
         </p>
       ),
     },
@@ -146,25 +184,6 @@ function faq(m: Market) {
         <p>
           Site Doctor detects WordPress, Shopify, Wix, Squarespace and Webflow and writes steps using their menus. For anything else, including custom-built sites, you
           get steps a web developer can follow without extra explanation.
-        </p>
-      ),
-    },
-    {
-      q: "Is my ads data safe?",
-      a: (
-        <p>
-          Ads Doctor reads performance data so it can diagnose your campaigns. It does not make changes in your ad accounts; you do. Your data is used to produce your
-          reports and is not shared with other customers. You can disconnect an account or delete your data at any time. Details are in our{" "}
-          <Link href="/privacy">privacy policy</Link>.
-        </p>
-      ),
-    },
-    {
-      q: "How is this different from hiring an agency?",
-      a: (
-        <p>
-          An agency finds what is wrong and does the work for you, on a monthly retainer. {BRAND.name} does the first part and hands you the second, so you pay for
-          software instead of hours. If you would rather have the work done for you, {BRAND.parent} (the team behind {BRAND.name}) can quote for it.
         </p>
       ),
     },
@@ -207,53 +226,69 @@ export default async function LandingPage() {
     <>
       <SiteNav market={market} />
       <main>
-        {/* Hero: a soft violet block with the live checkup */}
+        {/* Hero: the outcome, the live checkup and the heartbeat */}
         <section id="checkup" aria-labelledby="hero-title" className="scroll-mt-16 px-3 pb-3 md:px-4 md:pb-4">
-          <div className="chart-grid mx-auto max-w-[90rem] overflow-hidden rounded-[2rem] bg-lilac/45 px-5 pb-10 pt-10 md:rounded-[2.75rem] md:px-14 md:pb-16 md:pt-16">
+          <div className="chart-grid mx-auto max-w-[90rem] overflow-hidden rounded-[2rem] bg-lilac/45 px-5 pb-8 pt-9 md:rounded-[2.75rem] md:px-14 md:pb-12 md:pt-14">
             <Checkup
               market={market}
               intro={
                 <div className="xl:flex xl:items-start xl:justify-between xl:gap-10">
-                <div className="xl:min-w-0 xl:flex-1">
-                  <p className="rise inline-flex rounded-full bg-white/75 px-4 py-1.5 text-sm font-semibold text-scrub-dark ring-1 ring-scrub/10">
-                    For business owners in {market.inPhrase}
-                  </p>
-                  <h1
-                    id="hero-title"
-                    className="rise mt-5 font-display text-[2.6rem] font-extrabold leading-[0.92] tracking-[-0.035em] sm:text-6xl md:text-7xl lg:text-[5.5rem] xl:text-[5.1rem] 2xl:text-[5.75rem]"
-                    style={{ animationDelay: "80ms" }}
-                  >
-                    Your marketing, diagnosed. The fixes, <span className="text-scrub">prescribed.</span>
-                  </h1>
-                  <p className="rise mt-6 max-w-2xl text-lg leading-relaxed text-ink-2 md:text-xl" style={{ animationDelay: "180ms" }}>
-                    Six AI specialists check your website, search, AI answers, content and ads. Then they write you a prescription: what is wrong, why it costs you
-                    customers, and the steps to fix it yourself.
-                  </p>
-                </div>
-                <div className="hidden xl:block">
-                  <HeroPacks />
-                </div>
+                  <div className="xl:min-w-0 xl:flex-1">
+                    <p className="rise inline-flex rounded-full bg-white/75 px-4 py-1.5 text-sm font-semibold text-scrub-dark ring-1 ring-scrub/10">
+                      For business owners in {market.inPhrase}
+                    </p>
+                    <h1
+                      id="hero-title"
+                      className="rise mt-5 max-w-[14ch] font-display text-[2.7rem] font-extrabold leading-[0.92] tracking-[-0.035em] sm:text-6xl md:text-7xl lg:text-[5.5rem] xl:text-[5.1rem] 2xl:text-[5.75rem]"
+                      style={{ animationDelay: "80ms" }}
+                    >
+                      More customers from the marketing you <span className="text-scrub">already have.</span>
+                    </h1>
+                    <p className="rise mt-6 max-w-2xl text-lg leading-relaxed text-ink-2 md:text-xl" style={{ animationDelay: "180ms" }}>
+                      Six AI specialists check your website, Google search, AI answers, social posts and ads, then write down every fix to the click, so you can do it
+                      yourself.
+                    </p>
+                    <TimeChips className="rise mt-6" />
+                  </div>
+                  <div className="hidden xl:block">
+                    <HeroPacks />
+                  </div>
                 </div>
               }
             />
+            <p className="mt-8 text-[15px] text-ink-2 md:ml-auto md:w-[min(36rem,60%)] md:pl-6">
+              Want to see a full report first?{" "}
+              <Link href="/sample" className="font-semibold text-scrub-dark underline underline-offset-4 hover:text-scrub">
+                Read the sample report for a fictional clinic
+              </Link>
+              .
+            </p>
           </div>
         </section>
 
-        {/* Specialists: the shelf */}
-        <section id="specialists" aria-labelledby="specialists-title" className="scroll-mt-16 mx-auto max-w-7xl px-4 py-20 md:px-8 md:py-28">
-          <SectionHead id="specialists-title" title="Six specialists. One prescription board.">
-            Each one examines a different part of how customers find and choose you. They all read your business profile and write their fixes to the same board.
+        {/* Value stack: each specialist and the finished work it hands over */}
+        <section id="specialists" aria-labelledby="specialists-title" className="scroll-mt-16 mx-auto max-w-7xl px-4 py-16 md:px-8 md:py-24">
+          <SectionHead id="specialists-title" title="Six specialists. Each one hands you finished work.">
+            Not a list of warnings. You get the rewritten copy, the keyword map, the ads to pause and the posts to film, all on one prescription board.
           </SectionHead>
           <SpecialistShelf market={market} />
         </section>
 
         {/* Sample prescriptions, in their specialists' colours */}
         <section aria-labelledby="sample-title" className="px-3 md:px-4">
-          <div className="mx-auto max-w-[90rem] rounded-[2rem] bg-card px-4 py-16 shadow-[var(--shadow-box)] md:rounded-[2.75rem] md:px-8 md:py-24">
+          <div className="mx-auto max-w-[90rem] rounded-[2rem] bg-card px-4 py-14 shadow-[var(--shadow-box)] md:rounded-[2.75rem] md:px-8 md:py-20">
             <div className="mx-auto max-w-7xl">
               <SectionHead id="sample-title" title="What a prescription looks like.">
-                Three slips from the board of Lumen Aesthetics, a made-up clinic in {market.exampleArea}. Each carries its specialist&apos;s colour. Open one to see
-                the steps.
+                <p>
+                  Three slips from the board of Lumen Aesthetics, a made-up clinic in {market.exampleArea}. Each carries its
+                  specialist&apos;s colour. Open one to see the steps.
+                </p>
+                <Link
+                  href="/sample"
+                  className="mt-6 inline-flex w-fit items-center gap-2 rounded-full bg-paper px-5 py-3 text-[15px] font-semibold text-ink ring-1 ring-line transition hover:-translate-y-0.5 hover:ring-ink-3 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                >
+                  Read the full sample report <ArrowRight size={16} aria-hidden />
+                </Link>
               </SectionHead>
               <div className="grid items-start gap-5 lg:grid-cols-3">
                 {slips.map((s, i) => (
@@ -265,7 +300,7 @@ export default async function LandingPage() {
         </section>
 
         {/* The loop */}
-        <section id="how" aria-labelledby="how-title" className="scroll-mt-16 mx-auto max-w-7xl px-4 py-20 md:px-8 md:py-28">
+        <section id="how" aria-labelledby="how-title" className="scroll-mt-16 mx-auto max-w-7xl px-4 py-16 md:px-8 md:py-24">
           <SectionHead id="how-title" title="Checkup, prescription, you fix it, re-check.">
             The same loop a good doctor runs. You stay in charge of your marketing and always know what to do next.
           </SectionHead>
@@ -274,13 +309,13 @@ export default async function LandingPage() {
               const yours = i === 2;
               return (
                 <li key={s.name} className={cx("flex flex-col rounded-3xl p-6", yours ? "bg-scrub text-white shadow-[var(--shadow-lift)]" : "bg-card shadow-[var(--shadow-box)]")}>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span
-                      className={cx("grid h-10 w-10 place-items-center rounded-full font-mono text-sm font-semibold", yours ? "bg-white text-scrub" : "bg-paper text-ink")}
+                      className={cx("grid h-10 w-10 shrink-0 place-items-center rounded-full font-mono text-sm font-semibold", yours ? "bg-white text-scrub" : "bg-paper text-ink")}
                     >
                       {i + 1}
                     </span>
-                    {yours && <span className="rounded-full bg-white/15 px-3 py-1 text-[13px] font-semibold">Your part</span>}
+                    {s.time && <span className={cx("rounded-full px-3 py-1 text-[13px] font-semibold", yours ? "bg-white/15" : "bg-mint text-scrub-dark")}>{s.time}</span>}
                   </div>
                   <h3 className="mt-6 font-display text-2xl font-extrabold tracking-[-0.02em]">{s.name}</h3>
                   <p className={cx("mt-2 text-[15px] leading-relaxed", yours ? "text-white/85" : "text-ink-2")}>{s.body}</p>
@@ -295,7 +330,7 @@ export default async function LandingPage() {
 
         {/* Compliance */}
         <section aria-labelledby="rules-title" className="px-3 md:px-4">
-          <div className="mx-auto grid max-w-[90rem] gap-10 rounded-[2rem] bg-ink px-5 py-16 text-white md:rounded-[2.75rem] md:px-14 md:py-24 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-16">
+          <div className="mx-auto grid max-w-[90rem] gap-10 rounded-[2rem] bg-ink px-5 py-14 text-white md:rounded-[2.75rem] md:px-14 md:py-20 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-16">
             <div>
               <h2 id="rules-title" className="max-w-xl font-display text-[2.25rem] font-extrabold leading-[1] tracking-[-0.03em] sm:text-5xl md:text-[3.5rem]">
                 Knows the rules clinics advertise under.
@@ -366,54 +401,8 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        {/* Why do it yourself */}
-        <section aria-labelledby="why-title" className="mx-auto max-w-7xl px-4 py-20 md:px-8 md:py-28">
-          <SectionHead id="why-title" title="Agency-level diagnosis, without the retainer.">
-            Most of what a marketing retainer pays for is two things: knowing what to fix, and the hours to fix it. {BRAND.name} gives you the first. You put in the
-            second, on your schedule.
-          </SectionHead>
-          <div className="grid gap-5 lg:grid-cols-[1.45fr_1fr]">
-            <div className="rounded-3xl bg-card p-2 shadow-[var(--shadow-box)]">
-              <div className="grid grid-cols-2 gap-2 px-3 pb-2 pt-3 sm:grid-cols-[10rem_1fr_1fr]">
-                <span className="hidden sm:block" />
-                <p className="text-[13px] font-semibold text-ink-3">Agency retainer</p>
-                <p className="text-[13px] font-semibold text-scrub">{BRAND.name}</p>
-              </div>
-              <div className="space-y-2">
-                {COMPARE.map(([row, agency, rx]) => (
-                  <div key={row} className="grid grid-cols-2 gap-x-2 rounded-2xl bg-paper p-3 sm:grid-cols-[10rem_1fr_1fr] sm:items-center">
-                    <p className="col-span-2 mb-1.5 font-semibold sm:col-span-1 sm:mb-0">{row}</p>
-                    <p className="text-sm text-ink-2">{agency}</p>
-                    <p className="flex gap-1.5 rounded-xl bg-card px-3 py-2 text-sm text-ink">
-                      <Check size={16} className="mt-0.5 shrink-0 text-scrub" aria-hidden />
-                      {rx}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-col justify-between rounded-3xl bg-sun p-6 shadow-[var(--shadow-box)] md:p-8">
-              <div>
-                <h3 className="font-display text-3xl font-extrabold leading-[1.02] tracking-[-0.03em]">Rather have {BRAND.parent} do it?</h3>
-                <p className="mt-4 text-[15px] leading-relaxed text-ink/80">
-                  Some fixes are not worth your evening. {BRAND.parent} is the marketing agency behind {BRAND.name}. Send us any slip and we will quote to do it for you.
-                  No obligation.
-                </p>
-              </div>
-              <a
-                href={BRAND.doneForYouUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-8 inline-flex w-fit items-center gap-2 rounded-full bg-ink px-5 py-3 text-[15px] font-semibold text-white transition hover:-translate-y-0.5 motion-reduce:transition-none"
-              >
-                Message {BRAND.parent} on WhatsApp <ExternalLink size={15} aria-hidden />
-              </a>
-            </div>
-          </div>
-        </section>
-
-        {/* Pricing teaser */}
-        <section aria-labelledby="fees-title" className="mx-auto max-w-7xl px-4 pb-20 md:px-8 md:pb-28">
+        {/* Plans, with the guarantee beside them */}
+        <section id="plans" aria-labelledby="fees-title" className="scroll-mt-16 mx-auto max-w-7xl px-4 py-16 md:px-8 md:py-24">
           <SectionHead id="fees-title" title="Start free. Pay when you want every specialist.">
             Monthly plans, no contract. Every plan includes the prescription board. Prices in {market.currency}.
           </SectionHead>
@@ -425,7 +414,7 @@ export default async function LandingPage() {
                 <div key={p.id} className={cx("flex flex-col rounded-3xl p-6", rec ? "bg-scrub text-white shadow-[var(--shadow-lift)]" : "bg-card shadow-[var(--shadow-box)]")}>
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="font-display text-xl font-extrabold tracking-[-0.02em]">{p.name}</h3>
-                    {rec && <span className="rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold">For ad spenders</span>}
+                    {rec && <span className="rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold">Recommended</span>}
                   </div>
                   <p className="mt-5 font-display text-4xl font-extrabold tabular-nums tracking-[-0.03em]">
                     {price === 0 ? "Free" : formatPrice(market, price)}
@@ -448,13 +437,22 @@ export default async function LandingPage() {
               );
             })}
           </div>
-          <Link href="/pricing" className="mt-6 inline-flex items-center gap-1.5 text-[15px] font-semibold text-scrub hover:underline">
-            Compare every plan <ArrowRight size={16} aria-hidden />
-          </Link>
+          <GuaranteeBlock className="mt-4" />
+          <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2">
+            <Link href="/pricing" className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-scrub hover:underline">
+              Compare every plan <ArrowRight size={16} aria-hidden />
+            </Link>
+            <Link href="#done-for-you" className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-ink-2 hover:text-ink hover:underline">
+              Or have {BRAND.parent} do it for you <ArrowRight size={16} aria-hidden />
+            </Link>
+          </div>
         </section>
 
-        {/* FAQ */}
-        <section aria-labelledby="faq-title" className="mx-auto max-w-7xl px-4 pb-20 md:px-8 md:pb-28">
+        {/* Done for you, with the founder's note */}
+        <DoneForYou />
+
+        {/* FAQ: the objections */}
+        <section aria-labelledby="faq-title" className="mx-auto max-w-7xl px-4 py-16 md:px-8 md:py-24">
           <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:gap-14">
             <SectionHead id="faq-title" title="Before you start." className="lg:sticky lg:top-24 lg:self-start">
               Anything else, email{" "}
@@ -467,27 +465,29 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        {/* Closing call */}
+        {/* Closing call: the checkup again, so nobody has to scroll back up */}
         <section aria-labelledby="close-title" className="px-3 pb-3 md:px-4 md:pb-4">
           <div className="mx-auto max-w-[90rem] overflow-hidden rounded-[2rem] bg-scrub px-5 pb-6 pt-14 text-white md:rounded-[2.75rem] md:px-14 md:pb-10 md:pt-20">
-            <div className="max-w-3xl">
-              <h2 id="close-title" className="font-display text-[2.25rem] font-extrabold leading-[1] tracking-[-0.03em] sm:text-5xl md:text-6xl">
-                See what your website is missing.
-              </h2>
-              <p className="mt-4 text-lg text-white/80">The checkup takes under a minute and needs no account.</p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link
-                  href="/#checkup"
-                  className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3.5 text-[15px] font-semibold text-scrub-dark transition hover:-translate-y-0.5 focus-visible:outline-white motion-reduce:transition-none"
-                >
-                  Run the free checkup <ArrowRight size={17} aria-hidden />
-                </Link>
-                <Link
-                  href={signupHref(market)}
-                  className="inline-flex items-center rounded-full px-6 py-3.5 text-[15px] font-semibold text-white ring-1 ring-white/40 transition hover:ring-white focus-visible:outline-white motion-reduce:transition-none"
-                >
-                  Create a free account
-                </Link>
+            <div className="grid gap-8 lg:grid-cols-2 lg:items-end lg:gap-14">
+              <div>
+                <h2 id="close-title" className="font-display text-[2.25rem] font-extrabold leading-[1] tracking-[-0.03em] sm:text-5xl md:text-6xl">
+                  See what your website is missing.
+                </h2>
+                <p className="mt-4 text-lg text-white/80">Your first fixes arrive in about a minute. No account needed.</p>
+              </div>
+              <div>
+                <CompactCheckup market={market} />
+                <p className="mt-5 text-[15px] text-white/75">
+                  Not ready?{" "}
+                  <Link href="/sample" className="font-semibold text-white underline underline-offset-4 focus-visible:outline-white">
+                    Read the sample report
+                  </Link>{" "}
+                  or{" "}
+                  <Link href={signupHref(market)} className="font-semibold text-white underline underline-offset-4 focus-visible:outline-white">
+                    create a free account
+                  </Link>
+                  .
+                </p>
               </div>
             </div>
             <div aria-hidden className="-mx-5 mt-12 h-20 md:-mx-14 md:h-28">

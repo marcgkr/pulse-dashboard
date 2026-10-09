@@ -1,50 +1,61 @@
 import { Fragment } from "react";
-import { MessageCircle } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Check, MessageCircle } from "lucide-react";
 import type { Market } from "@/lib/markets";
 import { agentColor } from "@/lib/agent-colors";
 import { cx } from "../ui";
 import { RxTag } from "./rx-tag";
 
-type Specialist = { agent: string; checks: string; hands: string };
+/** Sample report page for one specialist. Site Doctor is the default tab at /sample. */
+export function sampleHref(agent: string): string {
+  return agent === "site" ? "/sample" : `/sample/${agent}`;
+}
 
+type Specialist = { agent: string; checks: string; hands: string[] };
+
+// The value stack: what each specialist looks at, and the finished work it hands over.
 function specialists(m: Market): Specialist[] {
   return [
     {
       agent: "site",
       checks: "Your website: speed, mobile layout, SEO basics, contact options and tracking tags.",
-      hands: "A fix list with steps for your site builder, plus a better title, headline and FAQ to paste in.",
+      hands: [
+        "A ranked fix list with steps for your site builder",
+        "A rewritten homepage title, meta description and headline to paste",
+        "FAQ answers drafted for your service pages",
+      ],
     },
     {
       agent: "keywords",
       checks: `What people in ${m.inPhrase} type into Google when they need what you sell.`,
-      hands: "Keyword groups sorted by intent, and which page on your site should target each one.",
+      hands: ["Keyword groups sorted by what the searcher wants", "The page on your site that should rank for each group", "Briefs for the pages you are missing"],
     },
     {
       agent: "visibility",
       checks: "Whether ChatGPT, Perplexity and Google's AI answers mention you or a competitor.",
-      hands: "The questions you are missing from, and content that gives AI assistants something to quote.",
+      hands: ["The questions AI assistants name you for, and who they name instead", "The sites those answers quote", "FAQ and schema fixes that give assistants something to quote"],
     },
     {
       agent: "content",
       checks: "Your services, offers and the way your business talks.",
-      hands: "Social posts and captions written for your business, ready to edit and schedule.",
+      hands: ["Post ideas with the opening hook written word for word", "Captions and hashtags to paste", "A two-week posting calendar"],
     },
     {
       agent: "ads",
       checks: "Your Google and Meta ads results, from an export or a live connection.",
-      hands: "What to pause, what to give more budget, and new ad copy to test.",
+      hands: ["The campaigns and ad sets to pause, by name", "Negative keywords to add", "New headlines and ad copy to test"],
     },
     {
       agent: "compliance",
       checks: "Ad and page copy for clinics and other regulated businesses.",
-      hands: `Phrases flagged for review against the rules that apply in ${m.inPhrase}, with safer wording.`,
+      hands: [`Lines flagged against the rules in ${m.inPhrase}`, "Why each line is a risk", "A safer rewrite to paste"],
     },
   ];
 }
 
 // Each box leans a little and stands at its own height, like packs on a pharmacy shelf.
 const TILT = ["lg:-rotate-2", "lg:rotate-[1.25deg]", "lg:-rotate-1", "lg:rotate-1", "lg:-rotate-[1.5deg]", "lg:rotate-2"];
-const HEIGHT = ["lg:min-h-[25rem]", "lg:min-h-[22rem]", "lg:min-h-[24rem]", "lg:min-h-[23rem]", "lg:min-h-[25.5rem]", "lg:min-h-[21.5rem]"];
+const HEIGHT = ["lg:min-h-[31rem]", "lg:min-h-[28rem]", "lg:min-h-[30rem]", "lg:min-h-[29rem]", "lg:min-h-[31.5rem]", "lg:min-h-[27.5rem]"];
 const MOBILE_TILT = ["-rotate-1", "rotate-1"];
 
 function Box({ s, i }: { s: Specialist; i: number }) {
@@ -80,7 +91,20 @@ function Box({ s, i }: { s: Specialist; i: number }) {
       <div className="mt-auto pt-5">
         <div className="rounded-2xl bg-white/85 p-4">
           <p className="text-[13px] font-bold text-ink">Hands you</p>
-          <p className="mt-1 text-[15px] leading-snug text-ink-2">{s.hands}</p>
+          <ul className="mt-2 space-y-1.5">
+            {s.hands.map((h) => (
+              <li key={h} className="flex gap-2 text-[15px] leading-snug text-ink-2">
+                <Check size={16} strokeWidth={2.5} className="mt-0.5 shrink-0 text-ink" aria-hidden />
+                {h}
+              </li>
+            ))}
+          </ul>
+          <Link
+            href={sampleHref(s.agent)}
+            className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-scrub-dark underline-offset-4 hover:underline"
+          >
+            See it in the sample report <ArrowRight size={14} aria-hidden />
+          </Link>
         </div>
       </div>
     </article>
