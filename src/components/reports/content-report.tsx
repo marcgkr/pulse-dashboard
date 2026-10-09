@@ -68,6 +68,8 @@ export function ContentReport({ result, run }: ReportProps) {
   const ideaIndex = (title: string) => ideas.findIndex((x) => x.title.toLowerCase() === title.toLowerCase());
 
   const moreLike = (title: string) => {
+    // The public sample report (/sample) has no account behind it: send visitors to sign up.
+    if (run.id === "sample") return window.location.assign("/signup?from=sample");
     setMoreFor(title);
     void start({ ...run.input, more_like: title }, run.id);
   };

@@ -36,6 +36,8 @@ function useExpand(run: RunRef) {
   const { start, pending, error } = useRunAgent("keywords");
   const go = (keyword: string) => {
     if (!run) return;
+    // The public sample report (/sample) has no account behind it: send visitors to sign up.
+    if (run.id === "sample") return window.location.assign("/signup?from=sample");
     void start({ ...run.input, focus: "expand", expand: keyword }, run.id);
   };
   return { go, pending, error, enabled: Boolean(run) };
