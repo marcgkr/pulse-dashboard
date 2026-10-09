@@ -16,6 +16,7 @@ import { RxSlip } from "@/components/rx-slip";
 import { AGENTS } from "@/lib/agents";
 import { homeSampleSlips } from "@/lib/sample-data";
 import { cx } from "@/components/ui";
+import { LoopProgress, Reveal } from "@/components/motion";
 
 export const metadata: Metadata = {
   title: { absolute: `${BRAND.name} | More customers from the marketing you already have` },
@@ -253,7 +254,7 @@ export default async function LandingPage() {
                   Read the full sample report <ArrowRight size={16} aria-hidden />
                 </Link>
               </SectionHead>
-              <ul className="grid items-start gap-5 lg:grid-cols-3">
+              <Reveal as="ul" className="grid items-start gap-5 lg:grid-cols-3">
                 {slips.map((s, i) => (
                   <li key={s.business.id} className="flex flex-col gap-2.5">
                     <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-1 text-sm">
@@ -271,7 +272,7 @@ export default async function LandingPage() {
                     <RxSlip data={{ ...s.prescription, agent: s.agent, agentName: AGENTS[s.agent].name }} defaultOpen={i === 0} />
                   </li>
                 ))}
-              </ul>
+              </Reveal>
             </div>
           </div>
         </section>
@@ -281,7 +282,8 @@ export default async function LandingPage() {
           <SectionHead id="how-title" title="Checkup, prescription, you fix it, re-check.">
             The same loop a good doctor runs. You stay in charge of your marketing and always know what to do next.
           </SectionHead>
-          <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative">
+            <Reveal as="ol" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {LOOP.map((s, i) => {
               const yours = i === 2;
               return (
@@ -299,8 +301,10 @@ export default async function LandingPage() {
                 </li>
               );
             })}
-          </ol>
-          <p className="mt-6 inline-flex items-center gap-2 text-[15px] font-semibold text-ink-2">
+            </Reveal>
+            <LoopProgress />
+          </div>
+          <p className="mt-6 inline-flex items-center gap-2 text-[15px] font-semibold text-ink-2 lg:mt-10">
             <Repeat size={17} className="text-scrub" aria-hidden /> Then run it again next month.
           </p>
         </section>
@@ -388,7 +392,7 @@ export default async function LandingPage() {
           <SectionHead id="fees-title" title="Start free. Pay when you want every specialist.">
             Monthly plans, no contract. Every plan includes the prescription board. Prices in {market.currency}.
           </SectionHead>
-          <div className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Reveal className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {PLANS.map((p) => (
               <PlanCard
                 key={p.id}
@@ -400,7 +404,7 @@ export default async function LandingPage() {
                 badge={p.id === "growth" ? "Recommended" : undefined}
               />
             ))}
-          </div>
+          </Reveal>
           <GuaranteeBlock className="mt-4" />
           <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2">
             <Link href="/pricing" className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-scrub hover:underline">

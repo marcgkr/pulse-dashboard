@@ -4,6 +4,7 @@ import { ArrowRight, Check, MessageCircle } from "lucide-react";
 import type { Market } from "@/lib/markets";
 import { agentColor } from "@/lib/agent-colors";
 import { cx } from "../ui";
+import { PointerDepth, Reveal } from "../motion";
 import { RxTag } from "./rx-tag";
 
 /**
@@ -120,7 +121,7 @@ export function SpecialistShelf({ market }: { market: Market }) {
   const list = specialists(market);
   return (
     <div>
-      <div className="isolate grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:items-end lg:gap-x-10 lg:gap-y-8 lg:px-8">
+      <Reveal className="isolate grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:items-end lg:gap-x-10 lg:gap-y-8 lg:px-8">
         {list.map((s, i) => (
           <Fragment key={s.agent}>
             <Box s={s} i={i} />
@@ -133,7 +134,7 @@ export function SpecialistShelf({ market }: { market: Market }) {
             )}
           </Fragment>
         ))}
-      </div>
+      </Reveal>
 
       <div className="mt-10 flex flex-col gap-5 rounded-[1.75rem] bg-ink p-6 text-white shadow-[var(--shadow-box)] md:flex-row md:items-center md:gap-8 md:p-8 lg:mt-14">
         <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-pulse text-white">
@@ -153,40 +154,43 @@ export function SpecialistShelf({ market }: { market: Market }) {
   );
 }
 
-const HERO_PACKS: { agent: string; hands: string; className: string; delay: number }[] = [
-  { agent: "ads", hands: "What to pause, what to scale", className: "left-0 top-16 -rotate-[14deg]", delay: 380 },
-  { agent: "visibility", hands: "Questions you are missing from", className: "right-0 top-6 rotate-[9deg]", delay: 460 },
-  { agent: "site", hands: "A fix list for your site builder", className: "left-1/2 top-24 -ml-[6.5rem] -rotate-[3deg]", delay: 540 },
+// depth: how far each pack drifts with the pointer (the front pack moves most).
+const HERO_PACKS: { agent: string; hands: string; className: string; delay: number; depth: number }[] = [
+  { agent: "ads", hands: "What to pause, what to scale", className: "left-0 top-16 -rotate-[14deg]", delay: 380, depth: 0.45 },
+  { agent: "visibility", hands: "Questions you are missing from", className: "right-0 top-6 rotate-[9deg]", delay: 460, depth: 0.3 },
+  { agent: "site", hands: "A fix list for your site builder", className: "left-1/2 top-24 -ml-[6.5rem] -rotate-[3deg]", delay: 540, depth: 0.8 },
 ];
 
 /** Hero product shot: three specialist packs leaning together, with a pack sticker. Decorative. */
 export function HeroPacks() {
   return (
-    <div aria-hidden className="relative h-[25rem] w-[24rem] shrink-0">
+    <PointerDepth className="relative h-[25rem] w-[24rem] shrink-0">
       {HERO_PACKS.map((p) => {
         const c = agentColor(p.agent);
         const [first, ...rest] = c.label.split(" ");
         return (
-          <div key={p.agent} className={cx("absolute", p.className)}>
-            <div
-              className={cx("rise flex h-[17rem] w-[13rem] flex-col rounded-[1.5rem] p-4 shadow-[var(--shadow-lift)]", c.box)}
-              style={{ animationDelay: `${p.delay}ms` }}
-            >
-              <RxTag className="self-start" />
-              <p className="mt-4 font-display text-[2.1rem] font-extrabold leading-[0.88] tracking-[-0.04em] text-ink">
-                {first}
-                <br />
-                {rest.join(" ")}
-              </p>
-              <div className="mt-auto rounded-xl bg-white/85 px-3 py-2.5">
-                <p className="text-[11px] font-bold text-ink">Hands you</p>
-                <p className="text-[13px] leading-snug text-ink-2">{p.hands}</p>
+          <div key={p.agent} aria-hidden className={cx("absolute", p.className)}>
+            <div data-depth={p.depth}>
+              <div
+                className={cx("rise flex h-[17rem] w-[13rem] flex-col rounded-[1.5rem] p-4 shadow-[var(--shadow-lift)]", c.box)}
+                style={{ animationDelay: `${p.delay}ms` }}
+              >
+                <RxTag className="self-start" />
+                <p className="mt-4 font-display text-[2.1rem] font-extrabold leading-[0.88] tracking-[-0.04em] text-ink">
+                  {first}
+                  <br />
+                  {rest.join(" ")}
+                </p>
+                <div className="mt-auto rounded-xl bg-white/85 px-3 py-2.5">
+                  <p className="text-[11px] font-bold text-ink">Hands you</p>
+                  <p className="text-[13px] leading-snug text-ink-2">{p.hands}</p>
+                </div>
               </div>
             </div>
           </div>
         );
       })}
-      <div className="absolute -right-6 bottom-6 rotate-[10deg]">
+      <div aria-hidden className="absolute -right-6 bottom-6 rotate-[10deg]" data-depth="1">
         <div
           className="rise grid h-32 w-32 place-items-center rounded-full bg-sun text-center shadow-[var(--shadow-box)]"
           style={{ animationDelay: "680ms" }}
@@ -200,6 +204,6 @@ export function HeroPacks() {
           </span>
         </div>
       </div>
-    </div>
+    </PointerDepth>
   );
 }
