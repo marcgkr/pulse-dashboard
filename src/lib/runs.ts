@@ -1,5 +1,5 @@
 import { aiEnabled } from "./ai";
-import { planById } from "./config";
+import { planById, LIVE_SYNC_PLANS, type PlanId } from "./config";
 import { db, id, now, type RunRow, type TaskRow, type WorkspaceRow } from "./db";
 import { getAgent, type AgentResult } from "./agents";
 
@@ -68,6 +68,11 @@ export function startRun(ws: WorkspaceRow, agentId: string, rawInput: unknown, p
   }
   const active = (db().prepare("SELECT COUNT(*) AS n FROM runs WHERE workspace_id = ? AND status IN ('queued','running')").get(ws.id) as { n: number }).n;
   if (active >= MAX_ACTIVE_RUNS) throw new RunError("You already have two checkups running. Wait for one to finish, then try again.", 429);
+
+  const source = (rawInput as { source?: unknown } | null)?.source;
+  if (agent.id === "ads" && (source === "windsor" || source === "live") && !LIVE_SYNC_PLANS.includes(ws.plan as PlanId)) {
+    throw new RunError("Live ad sync is on the Growth and Pro plans. Upload your Google or Meta exports instead, or upgrade in Settings.", 402);
+  }
 
   let input: unknown;
   try {
