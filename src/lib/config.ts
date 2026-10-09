@@ -1,3 +1,5 @@
+import type { Market } from "./markets";
+
 // Brand + commercial settings live here so the name, domain and plans can change in one place.
 
 export const BRAND = {
@@ -18,7 +20,7 @@ export type PlanId = "free" | "starter" | "growth" | "pro";
 export type Plan = {
   id: PlanId;
   name: string;
-  priceMonthly: number; // SGD
+  priceMonthly: number; // SGD reference price; per-country prices live in src/lib/markets.ts
   blurb: string;
   runsPerMonth: number;
   /** Ask PULSE messages a month (live AI only). */
@@ -49,7 +51,7 @@ export const PLANS: Plan[] = [
       "Every specialist included",
       "40 agent runs a month",
       "Ask PULSE strategist chat",
-      "Compliance check for SG healthcare ads",
+      "Compliance check against your country's ad rules",
     ],
     stripePriceEnv: "STRIPE_PRICE_STARTER",
   },
@@ -84,6 +86,12 @@ export const PLANS: Plan[] = [
     stripePriceEnv: "STRIPE_PRICE_PRO",
   },
 ];
+
+/** Monthly price of a plan in a market's currency (0 for the free plan). */
+export function planPrice(plan: Plan, market: Market): number {
+  if (plan.id === "free") return 0;
+  return market.prices[plan.id];
+}
 
 export function planById(id: string | null | undefined): Plan {
   return PLANS.find((p) => p.id === id) ?? PLANS[0];

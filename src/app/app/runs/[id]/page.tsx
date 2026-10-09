@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getAgent } from "@/lib/agents";
 import { requireWorkspace } from "@/lib/auth";
+import { marketFor } from "@/lib/markets";
 import { db, type RunRow, type TaskRow } from "@/lib/db";
 import { parseTask } from "@/lib/runs";
 import { AGENT_REPORTS } from "@/components/reports";
@@ -10,6 +11,7 @@ import { RunProgress } from "@/components/run-agent";
 import { RxSlip } from "@/components/rx-slip";
 import { ScoreDial } from "@/components/brand";
 import { Badge, ButtonLink, Card, Label } from "@/components/ui";
+import { agentColor } from "@/lib/agent-colors";
 import { RerunButton } from "@/components/rerun-button";
 import type { AgentId } from "@/lib/agents/types";
 import { clientInput } from "@/lib/client-input";
@@ -19,6 +21,7 @@ export const metadata = { title: "Report" };
 export default async function RunPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { ws } = await requireWorkspace();
+  const tz = marketFor(ws.country).timeZone;
   const run = db().prepare("SELECT * FROM runs WHERE id = ? AND workspace_id = ?").get(id, ws.id) as RunRow | undefined;
   if (!run) notFound();
   const agent = getAgent(run.agent);
@@ -31,10 +34,11 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
         <ArrowLeft size={14} /> {agent?.name ?? "Back"}
       </Link>
       <div className="flex flex-wrap items-center gap-2">
-        <Label>{new Date(run.created_at).toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Singapore" })}</Label>
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${agentColor(run.agent).box}`}>℞ {agent?.name ?? run.agent}</span>
+        <Label>{new Date(run.created_at).toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short", timeZone: tz })}</Label>
         {run.demo ? <Badge tone="amber">Sample output</Badge> : null}
       </div>
-      <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight">{run.title}</h1>
+      <h1 className="mt-2 font-display text-3xl font-extrabold tracking-[-0.03em] md:text-4xl">{run.title}</h1>
       {parent && (
         <p className="mt-1 text-sm text-ink-3">
           Follow-up to <Link href={`/app/runs/${parent.id}`} className="text-scrub hover:underline">{parent.title}</Link>
@@ -77,11 +81,11 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
   return (
     <div>
       {header}
-      <Card className="mb-8 flex flex-col gap-5 p-5 md:flex-row md:items-center md:p-6">
+      <Card className="mb-10 flex flex-col gap-6 p-6 md:flex-row md:items-center md:p-8">
         {run.score != null && <ScoreDial score={run.score} label="Score" />}
         <div className="flex-1">
-          <Label className="mb-1">Diagnosis</Label>
-          <p className="text-[17px] leading-relaxed">{result.summary}</p>
+          <Label className="mb-1.5 text-scrub">Diagnosis</Label>
+          <p className="font-display text-xl font-semibold leading-snug tracking-[-0.01em] md:text-[22px]">{result.summary}</p>
           {result.demo && (
             <p className="mt-2 text-sm text-amber">
               This is sample output because no Anthropic API key is set. Real checks (like the website crawl) still ran where possible.
@@ -95,8 +99,8 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
 
       {tasks.length > 0 && (
         <section className="mb-10">
-          <Label className="mb-1">Prescriptions from this visit</Label>
-          <p className="mb-3 text-sm text-ink-2">These are on your Prescriptions board. Mark them done as you go.</p>
+          <h2 className="font-display text-2xl font-extrabold tracking-[-0.02em]">Your prescriptions</h2>
+          <p className="mb-4 mt-1 text-sm text-ink-2">They&apos;re on your Prescriptions board too. Mark them done as you go.</p>
           <div className="grid gap-4 xl:grid-cols-2">
             {tasks.map((t, i) => (
               <RxSlip key={t.id} defaultOpen={i === 0} data={{ ...t, where: t.where_to }} />

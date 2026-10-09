@@ -151,6 +151,7 @@ async function main() {
     website: SITE_URL,
     industry: "Aesthetic clinic",
     location: "Singapore (Tampines and Orchard)",
+    country: "SG",
     audience: "Working women 28-45, first-timers worried about downtime and pain",
     offers: "Pico laser for pigmentation, Hydrafacial, skin boosters, acne scar treatment",
     competitors: "Glow Aesthetics, The Skin Lab SG",

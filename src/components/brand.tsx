@@ -37,14 +37,14 @@ export function ScoreDial({ score, size = 132, label }: { score: number | null; 
   return (
     <div className="relative inline-grid place-items-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90" aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-line)" strokeWidth="6" />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-mint)" strokeWidth="9" />
         <circle
           cx={size / 2}
           cy={size / 2}
           r={r}
           fill="none"
           stroke={color}
-          strokeWidth="6"
+          strokeWidth="9"
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={c * (1 - pct)}
@@ -52,10 +52,10 @@ export function ScoreDial({ score, size = 132, label }: { score: number | null; 
         />
       </svg>
       <div className="absolute text-center">
-        <div className="font-mono text-3xl font-semibold tabular-nums" style={{ color }}>
+        <div className="font-display text-4xl font-extrabold tabular-nums tracking-[-0.03em]" style={{ color }}>
           {score ?? "--"}
         </div>
-        {label && <div className="font-mono text-[10px] uppercase tracking-widest text-ink-3">{label}</div>}
+        {label && <div className="text-[11px] font-semibold text-ink-3">{label}</div>}
       </div>
     </div>
   );
@@ -67,11 +67,11 @@ export function Meter({ value, label }: { value: number | null; label: string })
     <div>
       <div className="mb-1 flex items-baseline justify-between text-sm">
         <span className="text-ink-2">{label}</span>
-        <span className="font-mono tabular-nums" style={{ color: scoreColor(value) }}>
+        <span className="font-bold tabular-nums" style={{ color: scoreColor(value) }}>
           {value ?? "--"}
         </span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-line">
+      <div className="h-2.5 overflow-hidden rounded-full bg-mint">
         <div className="h-full rounded-full" style={{ width: `${value ?? 0}%`, background: scoreColor(value) }} />
       </div>
     </div>

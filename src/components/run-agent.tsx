@@ -77,7 +77,7 @@ export function RunProgress({ runId, initial }: { runId: string; initial: string
 
   return (
     <div className="rounded-lg border border-line bg-card p-6">
-      <div className="flex items-center justify-between font-mono text-xs uppercase tracking-widest text-ink-3">
+      <div className="flex items-center justify-between text-xs font-semibold text-ink-3">
         <span className="inline-flex items-center gap-2">
           <span className="blip h-2 w-2 rounded-full bg-pulse" /> Working
         </span>

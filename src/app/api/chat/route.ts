@@ -5,7 +5,8 @@ import { db, id, now, type RunRow, type TaskRow } from "@/lib/db";
 import { getAgent } from "@/lib/agents";
 import { planById } from "@/lib/config";
 import { errorResponse, readJson } from "@/lib/http";
-import { recordUsage, todaySgt, usedThisMonth } from "@/lib/runs";
+import { recordUsage, usedThisMonth } from "@/lib/runs";
+import { marketFor } from "@/lib/markets";
 
 // One reply at a time per business, so a script can't fan out parallel requests.
 const inFlight = new Set<string>();
@@ -121,7 +122,7 @@ export async function POST(req: Request) {
             ...history.map((m) => ({ role: m.role, content: m.content })),
             { role: "user", content: message },
           ];
-          const system = `${SYSTEM}\n\nBUSINESS PROFILE\n${businessContext(ws)}\n\n${contextFor(ws.id)}\n\nToday is ${todaySgt()} (Singapore time).`;
+          const system = `${SYSTEM}\n\nBUSINESS PROFILE\n${businessContext(ws)}\n\n${contextFor(ws.id)}\n\nToday is ${new Date().toLocaleDateString("en-CA", { timeZone: marketFor(ws.country).timeZone })} (${marketFor(ws.country).timeZone}).`;
           for await (const delta of chatStream({ system, messages })) {
             full += delta;
             send(delta);

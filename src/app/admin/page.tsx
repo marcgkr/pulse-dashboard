@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { currentUser, isAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { PLANS } from "@/lib/config";
+import { PLANS, planPrice } from "@/lib/config";
+import { formatPrice, marketFor } from "@/lib/markets";
 import { aiEnabled, MODEL } from "@/lib/ai";
 import { Logo } from "@/components/brand";
 import { Card, Label, PageHeader } from "@/components/ui";
@@ -10,7 +11,7 @@ import { AdminPlanSelect } from "@/components/admin-plan-select";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin" };
 
-type Row = { id: string; name: string; website: string; industry: string; plan: string; created_at: string; email: string; owner: string; runs: number; runs_month: number; done: number; open: number; last_run: string | null };
+type Row = { id: string; name: string; website: string; industry: string; country: string; plan: string; created_at: string; email: string; owner: string; runs: number; runs_month: number; done: number; open: number; last_run: string | null };
 
 export default async function AdminPage() {
   const user = await currentUser();
@@ -20,7 +21,7 @@ export default async function AdminPage() {
   month.setUTCHours(0, 0, 0, 0);
   const rows = db()
     .prepare(
-      `SELECT w.id, w.name, w.website, w.industry, w.plan, w.created_at, u.email, u.name AS owner,
+      `SELECT w.id, w.name, w.website, w.industry, w.country, w.plan, w.created_at, u.email, u.name AS owner,
         (SELECT COUNT(*) FROM runs r WHERE r.workspace_id = w.id) AS runs,
         (SELECT COUNT(*) FROM runs r WHERE r.workspace_id = w.id AND r.created_at >= ?) AS runs_month,
         (SELECT COUNT(*) FROM tasks t WHERE t.workspace_id = w.id AND t.status = 'done') AS done,
@@ -29,7 +30,17 @@ export default async function AdminPage() {
        FROM workspaces w JOIN users u ON u.id = w.owner_id ORDER BY w.created_at DESC`,
     )
     .all(month.toISOString()) as Row[];
-  const mrr = rows.reduce((n, r) => n + (PLANS.find((p) => p.id === r.plan)?.priceMonthly ?? 0), 0);
+  // List-price MRR per currency (comped plans included, so treat it as an upper bound).
+  const mrrByCurrency = new Map<string, { market: ReturnType<typeof marketFor>; total: number }>();
+  for (const r of rows) {
+    const plan = PLANS.find((p) => p.id === r.plan);
+    if (!plan || plan.id === "free") continue;
+    const m = marketFor(r.country);
+    const cur = mrrByCurrency.get(m.currency) ?? { market: m, total: 0 };
+    cur.total += planPrice(plan, m);
+    mrrByCurrency.set(m.currency, cur);
+  }
+  const mrr = [...mrrByCurrency.values()].map((v) => formatPrice(v.market, v.total)).join(" + ") || "0";
   const byAgent = db().prepare("SELECT agent, COUNT(*) n FROM runs WHERE created_at >= ? GROUP BY agent ORDER BY n DESC").all(month.toISOString()) as { agent: string; n: number }[];
 
   return (
@@ -42,12 +53,12 @@ export default async function AdminPage() {
         {[
           ["Businesses", rows.length],
           ["Paying", rows.filter((r) => r.plan !== "free").length],
-          ["List-price MRR (SGD)", mrr],
+          ["List-price MRR", mrr],
           ["Runs this month", rows.reduce((n, r) => n + r.runs_month, 0)],
         ].map(([k, v]) => (
           <Card key={k} className="p-4">
             <Label>{k}</Label>
-            <div className="mt-1 font-mono text-2xl tabular-nums">{v}</div>
+            <div className="mt-1 font-display text-2xl font-extrabold tabular-nums">{v}</div>
           </Card>
         ))}
       </div>
@@ -71,7 +82,7 @@ export default async function AdminPage() {
               <tr key={r.id} className="border-b border-line last:border-0">
                 <td className="px-3 py-2">
                   <div className="font-semibold">{r.name}</div>
-                  <div className="text-xs text-ink-3">{r.industry} · {r.website}</div>
+                  <div className="text-xs text-ink-3">{marketFor(r.country).name} · {r.industry} · {r.website}</div>
                 </td>
                 <td className="px-3 py-2">
                   <div>{r.owner}</div>

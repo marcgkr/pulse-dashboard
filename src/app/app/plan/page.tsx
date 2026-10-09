@@ -5,6 +5,7 @@ import { db, type TaskRow } from "@/lib/db";
 import { parseTask } from "@/lib/runs";
 import { RxSlip } from "@/components/rx-slip";
 import { ButtonLink, EmptyState, PageHeader, cx } from "@/components/ui";
+import { agentColor } from "@/lib/agent-colors";
 
 export const metadata = { title: "Prescriptions" };
 
@@ -55,21 +56,22 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           <Link
             key={t.id}
             href={href({ tab: t.id })}
-            className={cx("rounded-md px-3 py-1.5 text-sm font-semibold", t.id === tab.id ? "bg-ink text-white" : "text-ink-2 hover:bg-mint")}
+            className={cx("rounded-full px-4 py-2 text-sm font-semibold transition", t.id === tab.id ? "bg-ink text-white" : "bg-card text-ink-2 ring-1 ring-line hover:ring-ink-3")}
           >
             {t.label}
           </Link>
         ))}
         <span className="mx-2 hidden h-5 w-px bg-line sm:block" />
-        <Link href={href({ agent: null })} className={cx("rounded px-2 py-1 font-mono text-[11px] uppercase tracking-wider", !agentFilter ? "bg-mint text-scrub-dark" : "text-ink-3 hover:text-ink")}>
+        <Link href={href({ agent: null })} className={cx("rounded-full px-3 py-1.5 text-xs font-semibold", !agentFilter ? "bg-mint text-scrub-dark" : "text-ink-3 hover:text-ink")}>
           All
         </Link>
         {byAgent.map((b) => (
           <Link
             key={b.agent}
             href={href({ agent: b.agent })}
-            className={cx("rounded px-2 py-1 font-mono text-[11px] uppercase tracking-wider", agentFilter === b.agent ? "bg-mint text-scrub-dark" : "text-ink-3 hover:text-ink")}
+            className={cx("inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold", agentFilter === b.agent ? "bg-ink text-white" : "text-ink-2 hover:bg-card")}
           >
+            <span className={cx("h-2.5 w-2.5 rounded-full", agentColor(b.agent).dot)} aria-hidden />
             {AGENTS[b.agent as keyof typeof AGENTS]?.name ?? b.agent} ({b.n})
           </Link>
         ))}

@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import type { WorkspaceRow } from "./db";
+import { marketFor } from "./markets";
 
 export const MODEL = process.env.PULSERX_MODEL || "claude-opus-5-5";
 
@@ -28,7 +29,7 @@ Rules for everything you write:
 - Write for a busy small-business owner, not a marketer. Short sentences, concrete nouns, no jargon.
 - Every recommendation must be something the owner can do themselves this week. Give exact clicks, menu paths, or copy they can paste.
 - Never invent statistics, search volumes, prices, benchmarks or dates. If a number would help but you do not have data for it, say what data to look at instead. Relative judgements ("higher", "one of your weakest") are fine.
-- Default market is Singapore unless the business profile says otherwise. Use local context (Singapore English, SGD, local platforms like Google Business Profile, Carousell, Xiaohongshu, WhatsApp) where it fits.
+- Work in the business's own country (in the profile below): its currency, spelling, holidays, popular platforms and how customers there contact businesses. Never assume Singapore unless that is the country.
 - If the business is in a regulated category (medical, aesthetics, dental, legal, financial), keep advice inside the relevant advertising rules and flag anything that needs a professional check.
 - Never use em dashes. Do not use these words: leverage, transformative, seamless, unlock, streamline, robust, synergy.
 - Be direct. If something is fine, say so and move on.
@@ -36,8 +37,10 @@ Rules for everything you write:
 - Never tell the owner to paste third-party scripts or code from anywhere except the official site of a tool they already use (Google, Meta, their website builder).`;
 
 export function businessContext(ws: WorkspaceRow): string {
+  const m = marketFor(ws.country);
   const lines = [
     `Business name: ${ws.name}`,
+    `Country: ${m.name}${m.code === "INTL" ? "" : ` (currency ${m.currency}; customers mostly message businesses on ${m.messaging})`}`,
     ws.website && `Website: ${ws.website}`,
     ws.industry && `Industry / niche: ${ws.industry}`,
     ws.location && `Location / market: ${ws.location}`,
@@ -47,7 +50,9 @@ export function businessContext(ws: WorkspaceRow): string {
     ws.goals && `Goals: ${ws.goals}`,
     ws.monthly_budget && `Monthly marketing budget: ${ws.monthly_budget}`,
     ws.tone && `Brand voice: ${ws.tone}`,
-    ws.regulated ? "Regulated category: yes (healthcare/legal/financial advertising rules apply)" : "",
+    ws.regulated
+      ? `Regulated category: yes. Healthcare and similar advertising here is governed by ${m.healthAdRules}; general ads by the ${m.adStandards}. Point the owner to the official source for exact wording.`
+      : `General advertising standards: ${m.adStandards}.`,
   ].filter(Boolean);
   return lines.join("\n");
 }

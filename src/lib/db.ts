@@ -135,6 +135,7 @@ function migrate(db: Database.Database) {
   `);
   addColumn(db, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
   addColumn(db, "workspaces", "stripe_subscription_id", "TEXT");
+  addColumn(db, "workspaces", "country", "TEXT NOT NULL DEFAULT 'SG'");
 }
 
 function addColumn(db: Database.Database, table: string, column: string, type: string) {
@@ -153,6 +154,7 @@ export type WorkspaceRow = {
   website: string;
   industry: string;
   location: string;
+  country: string;
   audience: string;
   offers: string;
   competitors: string;

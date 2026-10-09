@@ -21,6 +21,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { cx } from "./ui";
+import { agentColor } from "@/lib/agent-colors";
 
 const AGENT_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   site: Stethoscope,
@@ -42,21 +43,35 @@ export type NavProps = {
   admin: boolean;
 };
 
-function Item({ href, icon: Icon, label, badge, exact }: { href: string; icon: React.ComponentType<{ size?: number }>; label: string; badge?: number; exact?: boolean }) {
+function Item({
+  href,
+  icon: Icon,
+  label,
+  badge,
+  exact,
+  dot,
+}: {
+  href: string;
+  icon: React.ComponentType<{ size?: number }>;
+  label: string;
+  badge?: number;
+  exact?: boolean;
+  dot?: string;
+}) {
   const path = usePathname();
   const active = exact ? path === href : path === href || path.startsWith(href + "/");
   return (
     <Link
       href={href}
       className={cx(
-        "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition",
-        active ? "bg-white/10 font-semibold text-white" : "text-white/65 hover:bg-white/5 hover:text-white",
+        "flex items-center gap-3 rounded-full px-3.5 py-2 text-[14.5px] transition",
+        active ? "bg-white font-semibold text-ink" : "text-white/70 hover:bg-white/10 hover:text-white",
       )}
       aria-current={active ? "page" : undefined}
     >
-      <Icon size={17} />
+      {dot ? <span className={cx("grid h-6 w-6 place-items-center rounded-full text-ink", dot)}><Icon size={14} /></span> : <Icon size={17} />}
       <span className="flex-1">{label}</span>
-      {badge ? <span className="rounded bg-pulse px-1.5 font-mono text-[11px] text-white">{badge}</span> : null}
+      {badge ? <span className="rounded-full bg-pulse px-2 py-0.5 text-[11px] font-bold text-white">{badge}</span> : null}
     </Link>
   );
 }
@@ -74,9 +89,11 @@ export function AppNav(props: NavProps) {
         </span>
       </Link>
 
-      <div className="px-3">
-        <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/40">Patient</div>
-        <div className="truncate text-sm font-semibold text-white">{props.businessName}</div>
+      <div className="px-1">
+        <div className="rounded-2xl bg-white/[0.07] px-3.5 py-3">
+          <div className="text-[11px] font-semibold text-white/50">Your business</div>
+          <div className="truncate font-display text-[15px] font-bold text-white">{props.businessName}</div>
+        </div>
       </div>
 
       <div className="space-y-0.5" onClick={() => setOpen(false)}>
@@ -87,29 +104,29 @@ export function AppNav(props: NavProps) {
       </div>
 
       <div onClick={() => setOpen(false)}>
-        <div className="mb-1 px-3 font-mono text-[10px] uppercase tracking-[0.14em] text-white/40">Specialists</div>
+        <div className="mb-1.5 px-3.5 text-[12px] font-semibold text-white/45">Specialists</div>
         <div className="space-y-0.5">
           {props.agents.map((a) => (
-            <Item key={a.id} href={`/app/agents/${a.id}`} icon={AGENT_ICONS[a.id] ?? FileSearch} label={a.name} />
+            <Item key={a.id} href={`/app/agents/${a.id}`} icon={AGENT_ICONS[a.id] ?? FileSearch} label={a.name} dot={agentColor(a.id).box} />
           ))}
         </div>
       </div>
 
       <div className="mt-auto space-y-3" onClick={() => setOpen(false)}>
         {props.demo && (
-          <div className="rounded-md border border-amber/40 bg-amber/10 px-3 py-2 text-xs text-amber">
+          <div className="rounded-2xl bg-amber/15 px-3.5 py-2.5 text-xs leading-relaxed text-amber">
             Demo mode: agents return sample output until an Anthropic API key is set.
           </div>
         )}
         <div className="px-3">
-          <div className="flex justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-white/40">
+          <div className="flex justify-between text-[12px] font-semibold text-white/50">
             <span>{props.plan} plan</span>
             <span>
               {props.used}/{props.limit} runs
             </span>
           </div>
-          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full bg-scrub" style={{ width: `${Math.min(100, (props.used / Math.max(1, props.limit)) * 100)}%` }} />
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div className="h-full rounded-full bg-lilac" style={{ width: `${Math.min(100, (props.used / Math.max(1, props.limit)) * 100)}%` }} />
           </div>
         </div>
         <div className="space-y-0.5">

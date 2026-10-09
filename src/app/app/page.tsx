@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { requireWorkspace } from "@/lib/auth";
+import { marketFor } from "@/lib/markets";
 import { db, type RunRow, type TaskRow } from "@/lib/db";
 import { AGENTS, AGENT_ORDER } from "@/lib/agents";
 import { latestRun, parseTask, pulseScore } from "@/lib/runs";
 import { agentAllowed } from "@/lib/runs";
 import { Meter, ScoreDial } from "@/components/brand";
 import { RxSlip } from "@/components/rx-slip";
-import { Badge, ButtonLink, Card, EmptyState, Label, scoreTone } from "@/components/ui";
+import { Badge, Card, EmptyState, Label, scoreColor, scoreTone } from "@/components/ui";
+import { agentColor } from "@/lib/agent-colors";
 import { SiteForm } from "@/components/forms/site-form";
 import { Sparkline } from "@/components/sparkline";
 
@@ -17,6 +19,7 @@ const PRIORITY_ORDER = "CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WH
 
 export default async function Dashboard() {
   const { user, ws } = await requireWorkspace();
+  const tz = marketFor(ws.country).timeZone;
   const pulse = pulseScore(ws.id);
   const history = db().prepare("SELECT day, score FROM score_history WHERE workspace_id = ? ORDER BY day DESC LIMIT 30").all(ws.id).reverse() as { day: string; score: number }[];
   // Top open prescriptions, taking the best one from each specialist in turn so one report can't fill the list.
@@ -44,65 +47,82 @@ export default async function Dashboard() {
   const count = (s: string) => counts.find((c) => c.status === s)?.n ?? 0;
   const recent = db().prepare("SELECT * FROM runs WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 5").all(ws.id) as RunRow[];
   const hasRuns = recent.length > 0;
-  const today = new Date().toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Singapore" });
-  const hour = Number(new Date().toLocaleString("en-SG", { hour: "numeric", hour12: false, timeZone: "Asia/Singapore" }));
+  const today = new Date().toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "long", timeZone: tz });
+  const hour = Number(new Date().toLocaleString("en-SG", { hour: "numeric", hour12: false, timeZone: tz }));
   const partOfDay = hour < 12 ? "Morning" : hour < 18 ? "Afternoon" : "Evening";
 
+  const firstName = user.name.split(" ")[0];
+  const profile = {
+    name: ws.name,
+    website: ws.website,
+    industry: ws.industry,
+    location: ws.location,
+    country: ws.country,
+    audience: ws.audience,
+    offers: ws.offers,
+    competitors: ws.competitors,
+    goals: ws.goals,
+    regulated: !!ws.regulated,
+  };
+
   return (
-    <div className="space-y-10">
-      <div className="flex flex-col justify-between gap-2 md:flex-row md:items-end">
+    <div className="space-y-12">
+      <div className="rise flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <Label>Chart · {today}</Label>
-          <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight md:text-4xl">
-            {hasRuns ? `${partOfDay} check, ${user.name.split(" ")[0]}.` : `Welcome, ${user.name.split(" ")[0]}.`}
+          <Label className="text-scrub">{today}</Label>
+          <h1 className="mt-1 font-display text-4xl font-extrabold tracking-[-0.035em] md:text-6xl">
+            {hasRuns ? `${partOfDay} check, ${firstName}.` : `Welcome, ${firstName}.`}
           </h1>
         </div>
-        <p className="text-sm text-ink-2">
-          <span className="font-mono tabular-nums">{count("todo") + count("doing")}</span> open ·{" "}
-          <span className="font-mono tabular-nums">{count("done")}</span> done
-        </p>
+        <div className="flex gap-2 text-sm font-semibold">
+          <span className="rounded-full bg-card px-4 py-2 shadow-[var(--shadow-box)]">
+            <span className="tabular-nums">{count("todo") + count("doing")}</span> to do
+          </span>
+          <span className="rounded-full bg-good/10 px-4 py-2 text-good">
+            <span className="tabular-nums">{count("done")}</span> done
+          </span>
+        </div>
       </div>
 
       {!hasRuns && (
-        <Card className="chart-grid grid gap-6 p-6 md:grid-cols-[1fr_1.1fr] md:p-8">
+        <section className="pillbox rise grid gap-6 bg-tangerine p-6 md:grid-cols-[1fr_1.1fr] md:p-10">
           <div>
-            <Label>Step 1 of 1</Label>
-            <h2 className="mt-1 font-display text-2xl font-semibold">Run your first checkup</h2>
-            <p className="mt-2 text-ink-2">
-              Site Doctor opens your website like Google and a customer would, then writes a prescription for every problem it finds. It takes about a minute. Everything else on
-              this chart fills in from there.
+            <span className="inline-flex rounded-full bg-ink px-3 py-1 text-xs font-bold text-white">Start here</span>
+            <h2 className="mt-4 font-display text-3xl font-extrabold tracking-[-0.03em] md:text-4xl">Run your first checkup</h2>
+            <p className="mt-3 max-w-md text-[17px] leading-relaxed text-ink/80">
+              Site Doctor opens your website the way Google and your customers see it, then writes a prescription for every problem it finds. It takes about a minute, and the
+              rest of this page fills in from there.
             </p>
           </div>
-          <div className="rounded-md border border-line bg-white p-5">
-            <SiteForm
-              profile={{ name: ws.name, website: ws.website, industry: ws.industry, location: ws.location, audience: ws.audience, offers: ws.offers, competitors: ws.competitors, goals: ws.goals, regulated: !!ws.regulated }}
-              windsorConnected={!!ws.windsor_api_key}
-              lastInput={null}
-            />
+          <div className="rounded-3xl bg-white p-6 shadow-[var(--shadow-box)]">
+            <SiteForm profile={profile} windsorConnected={!!ws.windsor_api_key} lastInput={null} />
           </div>
-        </Card>
+        </section>
       )}
 
       {hasRuns && (
-        <section className="grid gap-4 lg:grid-cols-[auto_1fr_1fr]">
-          <Card className="flex items-center gap-5 p-5">
-            <ScoreDial score={pulse.score} label="Pulse" />
-            <div className="max-w-[12rem] text-sm text-ink-2">
-              Your overall marketing health, from the latest report of each specialist plus how many fixes you&apos;ve done.
+        <section className="rise grid gap-4 lg:grid-cols-[1.1fr_1fr_1fr]">
+          <div className="pillbox flex items-center gap-6 bg-ink p-6 text-white">
+            <div className="rounded-full bg-white p-1.5">
+              <ScoreDial score={pulse.score} label="Pulse" />
             </div>
-          </Card>
-          <Card className="space-y-3 p-5">
+            <div>
+              <p className="font-display text-xl font-bold">Your marketing pulse</p>
+              <p className="mt-1 text-sm leading-relaxed text-white/70">From the latest report of each specialist, plus how many fixes you&apos;ve done.</p>
+            </div>
+          </div>
+          <Card className="space-y-3.5 p-6">
             {pulse.parts.map((p) => (
               <Meter key={p.key} label={p.label} value={p.value} />
             ))}
           </Card>
-          <Card className="flex flex-col p-5">
+          <Card className="flex flex-col p-6">
             <Label>Pulse over time</Label>
             <div className="flex-1 pt-3">
               {history.length > 1 ? (
                 <Sparkline points={history.map((h) => h.score)} labels={history.map((h) => h.day)} />
               ) : (
-                <p className="text-sm text-ink-3">Your trend line starts once you have scores on two different days. Mark fixes done and re-run checkups to see it move.</p>
+                <p className="text-sm leading-relaxed text-ink-3">Your trend line starts once you have scores on two different days. Mark fixes done and re-run checkups to see it move.</p>
               )}
             </div>
           </Card>
@@ -111,22 +131,16 @@ export default async function Dashboard() {
 
       {hasRuns && (
         <section>
-          <div className="mb-3 flex items-end justify-between">
-            <div>
-              <Label>Next up</Label>
-              <h2 className="font-display text-xl font-semibold">Your most important prescriptions</h2>
-            </div>
-            <Link href="/app/plan" className="inline-flex items-center gap-1 text-sm font-semibold text-scrub hover:underline">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <h2 className="font-display text-2xl font-extrabold tracking-[-0.02em] md:text-3xl">Do these next</h2>
+            <Link href="/app/plan" className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-scrub hover:underline">
               All prescriptions <ArrowRight size={15} />
             </Link>
           </div>
           {tasks.length ? (
             <div className="grid gap-4 xl:grid-cols-2">
               {tasks.map((t) => (
-                <RxSlip
-                  key={t.id}
-                  data={{ ...t, where: t.where_to, agentName: AGENTS[t.agent as keyof typeof AGENTS]?.name }}
-                />
+                <RxSlip key={t.id} data={{ ...t, where: t.where_to, agentName: AGENTS[t.agent as keyof typeof AGENTS]?.name }} />
               ))}
             </div>
           ) : (
@@ -136,51 +150,60 @@ export default async function Dashboard() {
       )}
 
       <section>
-        <Label>Specialists</Label>
-        <h2 className="mb-3 font-display text-xl font-semibold">Who do you want to see?</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <h2 className="mb-4 font-display text-2xl font-extrabold tracking-[-0.02em] md:text-3xl">Who do you want to see?</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {AGENT_ORDER.map((id) => {
             const a = AGENTS[id];
             const last = latestRun(ws.id, id);
             const locked = !agentAllowed(ws, id);
             return (
-              <Link key={id} href={`/app/agents/${id}`} className="group rounded-lg border border-line bg-card p-4 transition hover:border-scrub">
+              <Link key={id} href={`/app/agents/${id}`} className={`pillbox group flex min-h-[176px] flex-col p-6 ${agentColor(id).box}`}>
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-display text-lg font-semibold group-hover:text-scrub">{a.name}</h3>
-                  {locked ? <Badge>Paid</Badge> : last?.score != null ? <Badge tone={scoreTone(last.score)}>{last.score}</Badge> : null}
+                  <span className="rounded-full bg-white/60 px-2.5 py-0.5 font-display text-sm font-extrabold italic">℞</span>
+                  {locked ? (
+                    <Badge className="bg-white/70 ring-transparent">Paid plans</Badge>
+                  ) : last?.score != null ? (
+                    <span className="rounded-full bg-white px-2.5 py-0.5 text-sm font-bold tabular-nums" style={{ color: scoreColor(last.score) }}>
+                      {last.score}
+                    </span>
+                  ) : null}
                 </div>
-                <p className="mt-1 text-sm text-ink-2">{a.blurb}</p>
-                <p className="mt-3 font-mono text-[11px] uppercase tracking-wider text-ink-3">
-                  {last ? `Last seen ${new Date(last.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short", timeZone: "Asia/Singapore" })}` : "Not run yet"}
+                <h3 className="mt-4 font-display text-2xl font-extrabold tracking-[-0.02em]">{a.name}</h3>
+                <p className="mt-1 text-[15px] leading-snug text-ink/75">{a.blurb}</p>
+                <p className="mt-auto pt-4 text-xs font-semibold text-ink/60">
+                  {last ? `Last visit ${new Date(last.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short", timeZone: tz })}` : "Not seen yet"}
                 </p>
               </Link>
             );
           })}
-          <Link href="/app/ask" className="group rounded-lg border border-ink bg-ink p-4 text-white transition hover:bg-ink/90">
-            <h3 className="font-display text-lg font-semibold">Ask PULSE</h3>
-            <p className="mt-1 text-sm text-white/70">A strategist that has read all your reports. Ask what to do next.</p>
-            <p className="mt-3 font-mono text-[11px] uppercase tracking-wider text-white/50">Chat</p>
+          <Link href="/app/ask" className="pillbox group flex min-h-[176px] flex-col bg-ink p-6 text-white">
+            <span className="w-fit rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-bold">Chat</span>
+            <h3 className="mt-4 font-display text-2xl font-extrabold tracking-[-0.02em]">Ask PULSE</h3>
+            <p className="mt-1 text-[15px] leading-snug text-white/70">A strategist that has read all your reports. Ask what to do next.</p>
           </Link>
         </div>
       </section>
 
       {hasRuns && (
         <section>
-          <div className="mb-3 flex items-end justify-between">
-            <Label>Recent reports</Label>
-            <ButtonLink href="/app/reports" variant="ghost" className="px-2 py-1">
+          <div className="mb-4 flex items-end justify-between">
+            <h2 className="font-display text-2xl font-extrabold tracking-[-0.02em]">Recent reports</h2>
+            <Link href="/app/reports" className="text-sm font-semibold text-scrub hover:underline">
               All reports
-            </ButtonLink>
+            </Link>
           </div>
-          <Card className="divide-y divide-line">
+          <Card className="divide-y divide-line overflow-hidden">
             {recent.map((r) => (
-              <Link key={r.id} href={`/app/runs/${r.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-paper">
+              <Link key={r.id} href={`/app/runs/${r.id}`} className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-paper">
+                <span className={`h-3 w-3 shrink-0 rounded-full ${agentColor(r.agent).dot}`} aria-hidden />
                 <span className="flex-1 truncate font-medium">{r.title}</span>
                 {r.demo ? <Badge tone="amber">Sample</Badge> : null}
                 {r.status === "error" && <Badge tone="red">Failed</Badge>}
                 {(r.status === "running" || r.status === "queued") && <Badge tone="amber">Working</Badge>}
                 {r.score != null && <Badge tone={scoreTone(r.score)}>{r.score}</Badge>}
-                <span className="hidden font-mono text-xs text-ink-3 sm:inline">{new Date(r.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short", timeZone: "Asia/Singapore" })}</span>
+                <span className="hidden text-xs text-ink-3 sm:inline">
+                  {new Date(r.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short", timeZone: tz })}
+                </span>
               </Link>
             ))}
           </Card>

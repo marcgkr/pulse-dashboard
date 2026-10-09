@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAgent } from "@/lib/agents";
 import { requireWorkspace } from "@/lib/auth";
+import { marketFor } from "@/lib/markets";
 import { db, type RunRow } from "@/lib/db";
 import { agentAllowed } from "@/lib/runs";
 import { AGENT_FORMS } from "@/components/forms";
-import { Badge, ButtonLink, Card, Label, PageHeader, scoreTone } from "@/components/ui";
+import { Badge, ButtonLink, Card, Label, scoreTone } from "@/components/ui";
+import { agentColor } from "@/lib/agent-colors";
 import type { AgentId } from "@/lib/agents/types";
 import { clientInput } from "@/lib/client-input";
 
@@ -19,6 +21,7 @@ export default async function AgentPage({ params }: { params: Promise<{ agent: s
   const agent = getAgent(agentId);
   if (!agent) notFound();
   const { ws } = await requireWorkspace();
+  const tz = marketFor(ws.country).timeZone;
   const runs = db().prepare("SELECT * FROM runs WHERE workspace_id = ? AND agent = ? ORDER BY created_at DESC LIMIT 20").all(ws.id, agent.id) as RunRow[];
   const lastInput = runs.find((r) => r.status === "done")?.input_json;
   const Form = AGENT_FORMS[agent.id as AgentId];
@@ -26,11 +29,13 @@ export default async function AgentPage({ params }: { params: Promise<{ agent: s
 
   return (
     <div>
-      <PageHeader eyebrow="Specialist" title={agent.name}>
-        {agent.description}
-      </PageHeader>
+      <header className={`pillbox rise mb-8 p-7 md:p-10 ${agentColor(agent.id).box}`}>
+        <span className="rounded-full bg-white/60 px-3 py-1 font-display text-sm font-extrabold italic">℞ Specialist</span>
+        <h1 className="mt-4 font-display text-4xl font-extrabold tracking-[-0.035em] md:text-6xl">{agent.name}</h1>
+        <p className="mt-3 max-w-2xl text-[17px] leading-relaxed text-ink/80">{agent.description}</p>
+      </header>
       <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr]">
-        <Card className="p-5 md:p-6">
+        <Card className="p-6 md:p-8">
           {allowed ? (
             <Form
               profile={{
@@ -70,7 +75,7 @@ export default async function AgentPage({ params }: { params: Promise<{ agent: s
                   {r.status === "error" && <Badge tone="red">Failed</Badge>}
                   {(r.status === "running" || r.status === "queued") && <Badge tone="amber">Working</Badge>}
                   {r.score != null && <Badge tone={scoreTone(r.score)}>{r.score}</Badge>}
-                  <span className="font-mono text-xs text-ink-3">{new Date(r.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short", timeZone: "Asia/Singapore" })}</span>
+                  <span className="font-mono text-xs text-ink-3">{new Date(r.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short", timeZone: tz })}</span>
                 </Link>
               ))}
             </Card>

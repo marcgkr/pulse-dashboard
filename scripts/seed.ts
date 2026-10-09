@@ -26,6 +26,7 @@ async function main() {
     website: process.env.SEED_SITE_URL || "",
     industry: "Aesthetic clinic",
     location: "Singapore (Tampines and Orchard)",
+    country: "SG",
     audience: "Working women 28-45, first-timers worried about downtime and pain",
     offers: "Pico laser for pigmentation, Hydrafacial, skin boosters, acne scar treatment",
     competitors: "Glow Aesthetics, The Skin Lab SG",
@@ -40,8 +41,8 @@ async function main() {
   };
   db()
     .prepare(
-      `INSERT INTO workspaces (id, owner_id, name, website, industry, location, audience, offers, competitors, goals, monthly_budget, tone, regulated, plan, created_at)
-       VALUES (@id, @owner_id, @name, @website, @industry, @location, @audience, @offers, @competitors, @goals, @monthly_budget, @tone, @regulated, @plan, @created_at)`,
+      `INSERT INTO workspaces (id, owner_id, name, website, industry, location, country, audience, offers, competitors, goals, monthly_budget, tone, regulated, plan, created_at)
+       VALUES (@id, @owner_id, @name, @website, @industry, @location, @country, @audience, @offers, @competitors, @goals, @monthly_budget, @tone, @regulated, @plan, @created_at)`,
     )
     .run(ws);
 

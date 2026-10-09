@@ -4,12 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Field, Input, Select, Textarea } from "./ui";
 import { FormError } from "./run-agent";
+import { MARKETS, marketFor } from "@/lib/markets";
 
 export type Profile = {
   name?: string;
   website?: string;
   industry?: string;
   location?: string;
+  country?: string;
   audience?: string;
   offers?: string;
   competitors?: string;
@@ -38,7 +40,8 @@ const INDUSTRIES = [
 
 export function ProfileForm({ mode, initial }: { mode: "create" | "edit"; initial: Profile }) {
   const router = useRouter();
-  const [p, setP] = useState<Profile>(initial);
+  const [p, setP] = useState<Profile>({ ...initial, country: marketFor(initial.country).code });
+  const market = marketFor(p.country);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -86,8 +89,17 @@ export function ProfileForm({ mode, initial }: { mode: "create" | "edit"; initia
             ))}
           </Select>
         </Field>
-        <Field label="Where your customers are" hint="City, area or country.">
-          <Input value={p.location ?? ""} onChange={set("location")} placeholder="Singapore (Tampines, East)" />
+        <Field label="Country" hint="Sets your currency, search results, holidays and the ad rules we check against.">
+          <Select value={p.country} onChange={set("country")}>
+            {MARKETS.map((m) => (
+              <option key={m.code} value={m.code}>
+                {m.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Areas you serve" hint="Neighbourhoods or cities. Leave blank if you serve the whole country.">
+          <Input value={p.location ?? ""} onChange={set("location")} placeholder={market.code === "INTL" ? "City or region" : `${market.exampleArea}, ${market.name}`} />
         </Field>
       </div>
       <Field label="What you sell" hint="Main services or products, with price ranges if you're comfortable.">
@@ -101,7 +113,7 @@ export function ProfileForm({ mode, initial }: { mode: "create" | "edit"; initia
           <Input value={p.competitors ?? ""} onChange={set("competitors")} />
         </Field>
         <Field label="Monthly marketing budget">
-          <Input value={p.monthly_budget ?? ""} onChange={set("monthly_budget")} placeholder="S$3,000 ads + my own time" />
+          <Input value={p.monthly_budget ?? ""} onChange={set("monthly_budget")} placeholder={`${market.symbol}3,000 ads + my own time`} />
         </Field>
       </div>
       <Field label="What you want in the next 90 days">

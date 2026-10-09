@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { currentUser, workspaceFor } from "@/lib/auth";
 import { db, id, now } from "@/lib/db";
 import { errorResponse, readJson } from "@/lib/http";
+import { MARKETS } from "@/lib/markets";
+
+const countryOf = (v: unknown) => (typeof v === "string" && MARKETS.some((m) => m.code === v) ? v : null);
 
 const FIELDS = ["name", "website", "industry", "location", "audience", "offers", "competitors", "goals", "monthly_budget", "tone"] as const;
 const REGULATED = /medical|clinic|aesthetic|dental|doctor|surgery|surgeon|health|physio|rehab|legal|law|lawyer|syariah|financ|insurance|supplement/i;
@@ -31,7 +34,8 @@ export async function POST(req: Request) {
     name: f.name,
     website: f.website ?? "",
     industry: f.industry ?? "",
-    location: f.location || "Singapore",
+    location: f.location || "",
+    country: countryOf(body.country) ?? "SG",
     audience: f.audience ?? "",
     offers: f.offers ?? "",
     competitors: f.competitors ?? "",
@@ -43,8 +47,8 @@ export async function POST(req: Request) {
   };
   db()
     .prepare(
-      `INSERT INTO workspaces (id, owner_id, name, website, industry, location, audience, offers, competitors, goals, monthly_budget, tone, regulated, created_at)
-       VALUES (@id, @owner_id, @name, @website, @industry, @location, @audience, @offers, @competitors, @goals, @monthly_budget, @tone, @regulated, @created_at)`,
+      `INSERT INTO workspaces (id, owner_id, name, website, industry, location, country, audience, offers, competitors, goals, monthly_budget, tone, regulated, created_at)
+       VALUES (@id, @owner_id, @name, @website, @industry, @location, @country, @audience, @offers, @competitors, @goals, @monthly_budget, @tone, @regulated, @created_at)`,
     )
     .run(row);
   return NextResponse.json({ ok: true, id: row.id });
@@ -67,6 +71,10 @@ export async function PATCH(req: Request) {
   for (const [k, v] of Object.entries(f)) {
     sets.push(`${k} = ?`);
     vals.push(v);
+  }
+  if (countryOf(body.country)) {
+    sets.push("country = ?");
+    vals.push(body.country);
   }
   if (typeof body.regulated === "boolean") {
     sets.push("regulated = ?");

@@ -1,5 +1,6 @@
 import { requireWorkspace } from "@/lib/auth";
-import { PLANS, BRAND } from "@/lib/config";
+import { PLANS, BRAND, planPrice } from "@/lib/config";
+import { formatPrice, marketFor } from "@/lib/markets";
 import { stripeEnabled } from "@/lib/billing";
 import { usage } from "@/lib/runs";
 import { ProfileForm } from "@/components/profile-form";
@@ -12,6 +13,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const { ws } = await requireWorkspace();
   const u = usage(ws);
+  const market = marketFor(ws.country);
   return (
     <div className="space-y-10">
       <PageHeader eyebrow="Settings" title="Your business" />
@@ -26,6 +28,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               website: ws.website,
               industry: ws.industry,
               location: ws.location,
+              country: ws.country,
               audience: ws.audience,
               offers: ws.offers,
               competitors: ws.competitors,
@@ -55,16 +58,19 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         {sp.upgraded && <p className="mb-3 rounded-md border border-scrub/30 bg-mint px-3 py-2 text-sm text-scrub-dark">Payment received. Your plan updates within a minute.</p>}
         <Card className="p-5 md:p-6">
           <p className="text-sm text-ink-2">
-            You&apos;re on <strong>{u.plan.name}</strong>. {u.used} of {u.limit} agent runs used this month (sample runs in demo mode don&apos;t count).
+            Prices in {market.currency}. You&apos;re on <strong>{u.plan.name}</strong>. {u.used} of {u.limit} agent runs used this month (sample runs in demo mode don&apos;t count).
           </p>
           <div className="mt-5 grid gap-3 md:grid-cols-4">
             {PLANS.map((p) => (
-              <div key={p.id} className={`rounded-md border p-4 ${p.id === ws.plan ? "border-scrub bg-mint/50" : "border-line"}`}>
+              <div key={p.id} className={`rounded-3xl p-5 ring-1 ${p.id === ws.plan ? "bg-mint ring-scrub" : "ring-line"}`}>
                 <div className="flex items-center justify-between">
                   <span className="font-display font-semibold">{p.name}</span>
                   {p.id === ws.plan && <Badge tone="green">Current</Badge>}
                 </div>
-                <div className="mt-1 font-mono text-xl tabular-nums">{p.priceMonthly ? `S$${p.priceMonthly}` : "Free"}<span className="text-xs text-ink-3">{p.priceMonthly ? "/mo" : ""}</span></div>
+                <div className="mt-1 font-display text-2xl font-extrabold tabular-nums">
+                  {p.id === "free" ? "Free" : formatPrice(market, planPrice(p, market))}
+                  <span className="text-xs font-semibold text-ink-3">{p.id === "free" ? "" : "/mo"}</span>
+                </div>
                 <ul className="mt-2 space-y-1 text-xs text-ink-2">
                   {p.features.map((f) => (
                     <li key={f}>{f}</li>
