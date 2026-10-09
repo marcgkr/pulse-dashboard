@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auditSite, type Check } from "@/lib/agents/site-audit";
-import { clientIp, HttpError, readJson } from "@/lib/http";
+import { clientIp, HttpError, rateLimit as globalLimit, readJson } from "@/lib/http";
+import { envInt, withGate } from "@/lib/load-guard";
 import { rulePrescriptions } from "@/lib/agents/site";
 import { normalizeUrl } from "@/lib/safe-fetch";
 import { marketFor } from "@/lib/markets";
@@ -15,6 +16,10 @@ const WINDOW_MS = 10 * 60 * 1000;
 const MAX_PER_WINDOW = 5;
 // Stay just under maxDuration so the owner gets a readable message instead of a platform timeout.
 const TIMEOUT_MS = 55_000;
+// Across all visitors: at most this many crawls at once, and this many started per minute.
+const MAX_CONCURRENT = envInt("CHECKUP_MAX_CONCURRENT", 6);
+const MAX_PER_MINUTE = envInt("CHECKUP_MAX_PER_MINUTE", 40);
+const BUSY = "Lots of people are running checkups right now. Try again in a minute.";
 
 // In-memory, per-instance limiter. Good enough to stop casual abuse; swap for a shared store if we scale out.
 const g = globalThis as unknown as { __checkupHits?: Map<string, number[]> };
@@ -87,8 +92,13 @@ export async function POST(req: Request) {
     );
   }
 
+  if (!globalLimit("global:checkup", MAX_PER_MINUTE, 60_000)) {
+    return NextResponse.json({ error: BUSY }, { status: 503, headers: { "Retry-After": "60" } });
+  }
+
   try {
-    const audit = await withTimeout((signal) => auditSite(url, { maxPages: 3, signal, market: country }), TIMEOUT_MS);
+    const audit = await withGate("checkup", MAX_CONCURRENT, () => withTimeout((signal) => auditSite(url, { maxPages: 3, signal, market: country }), TIMEOUT_MS));
+    if (!audit) return NextResponse.json({ error: BUSY }, { status: 503, headers: { "Retry-After": "30" } });
     const topIssues: Check[] = audit.checks
       .filter((c) => c.status !== "pass")
       .sort((a, b) => b.weight - a.weight || statusRank[a.status] - statusRank[b.status])

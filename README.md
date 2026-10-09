@@ -129,6 +129,23 @@ npm run test:connectors # Google Ads / Meta / Search Console mapping from record
 SEED_SITE_URL=https://a-real-site.sg npm run seed   # prints the login for a sample clinic with one report per specialist
 ```
 
+## DDoS and abuse protection
+
+No website can be made impossible to attack. What we can do is make floods cheap to absorb and fast to shut off. Four layers:
+
+1. **Railway's edge** absorbs network-level floods (layer 4 and below) for every service, with no setup.
+2. **Per-address limits in the app** (`src/middleware.ts`): every page and API request counts against the visitor's address, 240 pages and 300 API calls a minute by default (`RATE_LIMIT_PAGES_PER_MIN`, `RATE_LIMIT_API_PER_MIN`). Past that they get a 429 before any work is done. Login, signup, the free checkup, feedback and thumbnails have tighter limits of their own.
+3. **Server-wide caps on expensive work** (`src/lib/load-guard.ts`, `src/lib/runs.ts`): at most 6 free checkup crawls at once and 40 a minute across everyone (`CHECKUP_MAX_CONCURRENT`, `CHECKUP_MAX_PER_MINUTE`), at most 24 specialist runs at once (`RUNS_MAX_CONCURRENT`), and at most 120 live AI runs an hour from free accounts (`FREE_RUNS_PER_HOUR`). The last one stops a wave of fake sign-ups from running up the Anthropic bill. Paid plans keep their monthly allowances.
+4. **Under Attack Mode** for an active attack: Railway > the service > Settings > Edge > Under Attack Mode > Activate (or `railway waf under-attack enable --service marketingrx --duration 1h`). Every new visitor gets a browser check before reaching the app. While it is on, non-browser traffic is turned away, including Stripe webhooks (Stripe retries them for up to 3 days, so nothing is lost if you switch it off within that time).
+
+**After buying the domain, put Cloudflare in front.** This is the strongest layer, and the free plan is enough:
+
+1. Add the domain to Cloudflare and point it at the Railway service with the orange cloud (proxied) on.
+2. Make up a long random secret. In Cloudflare > Rules > Transform Rules > Modify request header, add `x-origin-key` set to that secret on every request.
+3. Set the same secret as `CLOUDFLARE_ORIGIN_KEY` on Railway. The app then reads the visitor's real address from `cf-connecting-ip`, and only on requests that carry the secret, so nobody can fake their address.
+4. In Railway > Settings > Edge > Edge Rules, block requests whose `x-origin-key` header is not the secret. That closes the side door: attackers can no longer skip Cloudflare by hitting the `*.up.railway.app` address directly.
+5. Optional: a Cloudflare rate-limiting rule on `/api/*`, and Bot Fight Mode.
+
 ## Limits and safety
 
 - Plans set monthly agent runs and Ask PULSE messages (`src/lib/config.ts`). Failed runs don't count; deleting a report doesn't give the run back.

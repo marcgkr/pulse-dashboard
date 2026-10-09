@@ -2,6 +2,7 @@ import { aiEnabled } from "./ai";
 import { planById, LIVE_SYNC_PLANS, type PlanId } from "./config";
 import { db, id, now, type RunRow, type TaskRow, type WorkspaceRow } from "./db";
 import { getAgent, type AgentResult } from "./agents";
+import { envInt } from "./load-guard";
 import { memoryFor } from "./memory";
 
 const SGT_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -69,6 +70,21 @@ export function startRun(ws: WorkspaceRow, agentId: string, rawInput: unknown, p
   }
   const active = (db().prepare("SELECT COUNT(*) AS n FROM runs WHERE workspace_id = ? AND status IN ('queued','running')").get(ws.id) as { n: number }).n;
   if (active >= MAX_ACTIVE_RUNS) throw new RunError("You already have two checkups running. Wait for one to finish, then try again.", 429);
+
+  // Server-wide caps, so a burst of sign-ups can't run up the AI bill or overload the server.
+  const running = (db().prepare("SELECT COUNT(*) AS n FROM runs WHERE status IN ('queued','running')").get() as { n: number }).n;
+  if (running >= envInt("RUNS_MAX_CONCURRENT", 24)) throw new RunError("The specialists are busy right now. Try again in a minute.", 503);
+  if (live && ws.plan === "free") {
+    const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const freeRuns = (
+      db()
+        .prepare("SELECT COUNT(*) AS n FROM usage_events u JOIN workspaces w ON w.id = u.workspace_id WHERE u.kind = 'run' AND u.created_at >= ? AND w.plan = 'free'")
+        .get(hourAgo) as { n: number }
+    ).n;
+    if (freeRuns >= envInt("FREE_RUNS_PER_HOUR", 120)) {
+      throw new RunError("Free checkups are very busy right now. Try again later, or upgrade to skip the queue.", 503);
+    }
+  }
 
   const source = (rawInput as { source?: unknown } | null)?.source;
   if (agent.id === "ads" && (source === "windsor" || source === "live") && !LIVE_SYNC_PLANS.includes(ws.plan as PlanId)) {

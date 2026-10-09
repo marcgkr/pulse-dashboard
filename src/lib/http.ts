@@ -35,8 +35,18 @@ export async function readJson<T = Record<string, unknown>>(req: Request, maxByt
   }
 }
 
-/** Client IP as seen by our edge proxy. Railway and most proxies set x-real-ip or append to x-forwarded-for. */
+/**
+ * Client IP as seen by our edge proxy. Railway sets x-real-ip.
+ * Behind Cloudflare, x-real-ip is a Cloudflare address, so we read cf-connecting-ip instead, but only
+ * when the request also carries the secret header our Cloudflare rule adds (CLOUDFLARE_ORIGIN_KEY).
+ * Without that check anyone could send a fake cf-connecting-ip and dodge the limits.
+ */
 export function clientIp(req: Request): string {
+  const key = process.env.CLOUDFLARE_ORIGIN_KEY;
+  if (key && req.headers.get("x-origin-key") === key) {
+    const cf = req.headers.get("cf-connecting-ip");
+    if (cf) return cf.trim();
+  }
   const real = req.headers.get("x-real-ip");
   if (real) return real.trim();
   const xff = req.headers.get("x-forwarded-for");
