@@ -93,9 +93,9 @@ export function PlanCard({
         <ul className="mt-4 space-y-2.5">
           {/* Included first, then what the plan doesn't have, so the ticks line up at the top. */}
           {[...PLAN_ROWS.slice(1)]
-            .sort((x, y) => Number(x.value(plan) === false) - Number(y.value(plan) === false))
+            .sort((x, y) => Number(x.value(plan, market) === false) - Number(y.value(plan, market) === false))
             .map((row) => {
-              const v = row.value(plan);
+              const v = row.value(plan, market);
               const on = v !== false;
               return (
                 <li key={row.label} className={cx("flex gap-2.5 text-sm leading-snug", !on && (highlight ? "text-white/45" : "text-ink-3/70"))}>

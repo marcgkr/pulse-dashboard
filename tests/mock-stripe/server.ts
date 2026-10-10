@@ -7,6 +7,9 @@
  * GET /pay/:session plays the customer paying on Stripe's checkout page: it marks the session paid,
  * creates the subscription and redirects to the session's success_url.
  * GET /__requests lists every API call received (method, path, decoded form body) for assertions.
+ *
+ * It also stands in for Resend (src/lib/email.ts) at /resend, so tests can check what the team is
+ * emailed: point RESEND_API_BASE at http://127.0.0.1:4700/resend. GET /__emails lists the JSON bodies.
  */
 import http from "node:http";
 
@@ -16,6 +19,7 @@ const sessions = new Map<string, Obj>();
 const subs = new Map<string, Obj>();
 const products = new Map<string, Obj>();
 const requests: { method: string; path: string; body: Record<string, string> }[] = [];
+const emails: { auth: string; body: unknown }[] = [];
 let n = 0;
 const nextId = (p: string) => `${p}_mock${++n}`;
 const periodEnd = () => Math.floor(Date.now() / 1000) + 30 * 86400;
@@ -45,6 +49,11 @@ const server = http.createServer((req, res) => {
   req.on("end", () => {
     const url = new URL(req.url ?? "/", `http://127.0.0.1:${PORT}`);
     const path = url.pathname;
+    if (path === "/__emails") return send(res, 200, emails);
+    if (path === "/resend/emails" && req.method === "POST") {
+      emails.push({ auth: req.headers.authorization ?? "", body: JSON.parse(raw || "{}") });
+      return send(res, 200, { id: nextId("email") });
+    }
     const b = parse(raw);
     if (path === "/__requests") return send(res, 200, requests);
     if (path.startsWith("/v1/")) requests.push({ method: req.method ?? "", path, body: b });

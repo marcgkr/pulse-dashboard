@@ -16,7 +16,7 @@ import { waitingThreads } from "@/lib/support";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin" };
 
-type Row = { id: string; name: string; website: string; industry: string; country: string; plan: string; promo_plan: string | null; promo_until: string | null; promo_code: string | null; extra_outlets: number; created_at: string; email: string; owner: string; runs: number; runs_month: number; done: number; open: number; last_run: string | null };
+type Row = { id: string; name: string; website: string; industry: string; country: string; plan: string; promo_plan: string | null; promo_until: string | null; promo_code: string | null; extra_outlets: number; webcare: number; created_at: string; email: string; owner: string; runs: number; runs_month: number; done: number; open: number; last_run: string | null };
 
 export default async function AdminPage() {
   const user = await currentUser();
@@ -26,7 +26,7 @@ export default async function AdminPage() {
   month.setUTCHours(0, 0, 0, 0);
   const rows = db()
     .prepare(
-      `SELECT w.id, w.name, w.website, w.industry, w.country, w.plan, w.promo_plan, w.promo_until, w.promo_code, w.extra_outlets, w.created_at, u.email, u.name AS owner,
+      `SELECT w.id, w.name, w.website, w.industry, w.country, w.plan, w.promo_plan, w.promo_until, w.promo_code, w.extra_outlets, w.webcare, w.created_at, u.email, u.name AS owner,
         (SELECT COUNT(*) FROM runs r WHERE r.workspace_id = w.id) AS runs,
         (SELECT COUNT(*) FROM runs r WHERE r.workspace_id = w.id AND r.created_at >= ?) AS runs_month,
         (SELECT COUNT(*) FROM tasks t WHERE t.workspace_id = w.id AND t.status = 'done') AS done,
@@ -42,7 +42,7 @@ export default async function AdminPage() {
     if (!plan || plan.id === "free") continue;
     const m = marketFor(r.country);
     const cur = mrrByCurrency.get(m.currency) ?? { market: m, total: 0 };
-    cur.total += planPrice(plan, m);
+    cur.total += planPrice(plan, m) + (plan.websiteCare && r.webcare ? m.prices.webcare : 0);
     mrrByCurrency.set(m.currency, cur);
   }
   const mrr = [...mrrByCurrency.values()].map((v) => formatPrice(v.market, v.total)).join(" + ") || "0";
@@ -84,6 +84,7 @@ export default async function AdminPage() {
       })),
   }));
   const waiting = waitingThreads();
+  const changesWaiting = (db().prepare("SELECT COUNT(*) n FROM website_change_requests WHERE status = 'submitted'").get() as { n: number }).n;
   const byAgent = db().prepare("SELECT agent, COUNT(*) n FROM runs WHERE created_at >= ? GROUP BY agent ORDER BY n DESC").all(month.toISOString()) as { agent: string; n: number }[];
 
   return (
@@ -94,11 +95,20 @@ export default async function AdminPage() {
       </PageHeader>
       <a
         href="/admin/support"
-        className="mb-8 flex items-center justify-between gap-4 rounded-3xl bg-card px-5 py-4 shadow-[var(--shadow-box)] ring-1 ring-line/70 transition hover:ring-scrub"
+        className="mb-3 flex items-center justify-between gap-4 rounded-3xl bg-card px-5 py-4 shadow-[var(--shadow-box)] ring-1 ring-line/70 transition hover:ring-scrub"
       >
         <span className="font-display text-lg font-bold">Support inbox</span>
         <span className={waiting ? "rounded-full bg-pulse px-3 py-1 text-sm font-semibold text-white" : "text-sm text-ink-3"}>
           {waiting ? `${waiting} waiting for a reply` : "Nothing waiting"}
+        </span>
+      </a>
+      <a
+        href="/admin/website-changes"
+        className="mb-8 flex items-center justify-between gap-4 rounded-3xl bg-card px-5 py-4 shadow-[var(--shadow-box)] ring-1 ring-line/70 transition hover:ring-scrub"
+      >
+        <span className="font-display text-lg font-bold">Website changes</span>
+        <span className={changesWaiting ? "rounded-full bg-pulse px-3 py-1 text-sm font-semibold text-white" : "text-sm text-ink-3"}>
+          {changesWaiting ? `${changesWaiting} not started` : "Nothing new"}
         </span>
       </a>
       <div className="mb-8 grid gap-3 sm:grid-cols-4">
@@ -187,7 +197,7 @@ export default async function AdminPage() {
                   <a className="text-xs text-scrub" href={`mailto:${r.email}`}>{r.email}</a>
                 </td>
                 <td className="px-3 py-2">
-                  <AdminPlanSelect workspaceId={r.id} plan={r.plan} outlets={r.extra_outlets} />
+                  <AdminPlanSelect workspaceId={r.id} plan={r.plan} outlets={r.extra_outlets} webcare={r.webcare === 1} />
                   {promoActive(r) && (
                     <div className="mt-1 text-xs text-scrub-dark">
                       {planById(r.promo_plan!).name} free {r.promo_until ? `until ${r.promo_until.slice(0, 10)}` : "until ended"} ({r.promo_code})

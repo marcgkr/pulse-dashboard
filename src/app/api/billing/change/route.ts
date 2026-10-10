@@ -27,19 +27,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, cancelsAt: end ? new Date(end * 1000).toISOString() : null });
     }
 
-    const { plan: item, outlets } = subscriptionItems(sub);
+    const { plan: item, outlets, webcare } = subscriptionItems(sub);
     if (!item) return NextResponse.json({ error: "That subscription has no plan on it. Use Manage billing." }, { status: 409 });
-    // Extra outlets are a Pro feature: leaving Pro stops paying for them.
+    // Extra outlets are a Pro feature: leaving Pro stops paying for them. Website changes are on
+    // Growth and Pro: moving to Starter stops that add-on too.
     const dropOutlets = outlets && !planById(plan).extraOutlets;
+    const dropWebcare = webcare && !planById(plan).websiteCare;
     await stripe().subscriptions.update(sub.id, {
-      items: [{ id: item.id, ...(await fixedOrInline(plan, ws.country)) }, ...(dropOutlets ? [{ id: outlets.id, deleted: true }] : [])],
+      items: [
+        { id: item.id, ...(await fixedOrInline(plan, ws.country)) },
+        ...(dropOutlets ? [{ id: outlets.id, deleted: true }] : []),
+        ...(dropWebcare ? [{ id: webcare.id, deleted: true }] : []),
+      ],
       metadata: { ...sub.metadata, plan, workspace_id: ws.id },
       cancel_at_period_end: false,
       proration_behavior: "always_invoice",
       // If the card is declined the switch doesn't happen and the customer sees why.
       payment_behavior: "error_if_incomplete",
     });
-    db().prepare(`UPDATE workspaces SET plan = ?${dropOutlets ? ", extra_outlets = 0" : ""} WHERE id = ?`).run(plan, ws.id);
+    db()
+      .prepare(`UPDATE workspaces SET plan = ?${dropOutlets ? ", extra_outlets = 0" : ""}${!planById(plan).websiteCare ? ", webcare = 0" : ""} WHERE id = ?`)
+      .run(plan, ws.id);
     return NextResponse.json({ ok: true, plan: planById(plan).name });
   } catch (e) {
     const err = e as { type?: string; message?: string };

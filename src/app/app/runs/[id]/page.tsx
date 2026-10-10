@@ -19,6 +19,7 @@ import { agentColor } from "@/lib/agent-colors";
 import { RerunButton } from "@/components/rerun-button";
 import type { AgentId } from "@/lib/agents/types";
 import { clientInput } from "@/lib/client-input";
+import { webcareOffer } from "@/lib/webcare";
 
 export const metadata = { title: "Report" };
 
@@ -116,7 +117,9 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
       )}
 
       <div style={{ "--rx-accent": agentColor(run.agent).accent } as CSSProperties}>
-        {Report && <Report result={result} run={{ id: run.id, agent: run.agent, title: run.title, created_at: run.created_at, input }} feedback={feedback} />}
+        {Report && (
+          <Report result={result} run={{ id: run.id, agent: run.agent, title: run.title, created_at: run.created_at, input }} feedback={feedback} webcare={webcareOffer(ws)} />
+        )}
         <div className="mt-12 print:hidden">
           <ReportNotes runId={run.id} agentName={getAgent(run.agent)?.name ?? "This specialist"} initial={feedback[""]} />
         </div>

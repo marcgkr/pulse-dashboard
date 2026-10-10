@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import type { ItemFeedback } from "../feedback-bar";
 import type { AgentId } from "@/lib/agents/types";
+import type { WebcareOffer } from "@/lib/webcare";
 import { SiteReport } from "./site-report";
 import { KeywordsReport } from "./keywords-report";
 import { VisibilityReport } from "./visibility-report";
@@ -14,6 +15,8 @@ export type ReportProps = {
   run: { id: string; agent: string; title: string; created_at: string; input: Record<string, unknown> };
   /** The owner's saved approvals, rejections and comments on this report, keyed by item. */
   feedback?: Record<string, ItemFeedback>;
+  /** Website changes by PULSE: the offer or the "Send to PULSE" link (WebsiteCareNudge). Null or missing hides it. */
+  webcare?: WebcareOffer | null;
 };
 
 export const AGENT_REPORTS: Record<AgentId, ComponentType<ReportProps>> = {
