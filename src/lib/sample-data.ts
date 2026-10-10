@@ -1463,7 +1463,7 @@ export async function homeSampleSlips(m: Market): Promise<HomeSlip[]> {
   return slips.filter((s): s is HomeSlip => s !== null);
 }
 
-// ---------- Content Studio: sample trends and reference posts ----------
+// ---------- Social Media Content: sample trends and reference posts ----------
 
 // Live runs link real posts that the trend research found, with the view counts the source showed.
 // The sample business is made up, so its references are placeholders: no links, no numbers.

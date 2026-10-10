@@ -375,7 +375,7 @@ async function main() {
     assert.ok(text.includes("WHAT THE OWNER HAS TOLD YOU"), "owner notes block missing from the prompt");
     assert.ok(text.includes("We are a dental clinic, not an aesthetics clinic."), "the owner's comment is missing from the prompt");
     assert.ok(!text.includes("CONTENT-ONLY NOTE"), "another specialist's note leaked into this prompt");
-    pass("comment saved on a report is in the next compliance prompt; content notes stay with Content Studio");
+    pass("comment saved on a report is in the next compliance prompt; content notes stay with Social Media Content");
   } catch (e) {
     fail("memory", e);
   }

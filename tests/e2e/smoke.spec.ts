@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 const email = "owner@example.com"; // DB is reset each run
+const APP = `http://127.0.0.1:${process.env.E2E_PORT || "3100"}`;
+const STRIPE = `http://127.0.0.1:${process.env.E2E_STRIPE_PORT || "4700"}`;
 
 test("owner signs up, runs Site Doctor, and works a prescription", async ({ page }) => {
   await page.goto("/signup?website=http://127.0.0.1:4555/");
@@ -103,10 +105,10 @@ test("owner notes on a report are remembered, listed in settings, and can be for
   await expect(page.getByPlaceholder(/We only serve the north/)).toHaveValue("We only serve the north of the city.");
 
   // Another account can't write feedback on this report.
-  const other = await browser.newContext({ baseURL: "http://127.0.0.1:3100" });
+  const other = await browser.newContext({ baseURL: APP });
   await other.request.post("/api/auth/signup", { data: { email: "intruder@example.com", name: "X", password: "intruder-pass-1" } });
   const runId = runUrl.split("/").pop();
-  const denied = await other.request.post(`/api/runs/${runId}/feedback`, { data: { item: "", verdict: "comment", comment: "hijack" }, headers: { origin: "http://127.0.0.1:3100" } });
+  const denied = await other.request.post(`/api/runs/${runId}/feedback`, { data: { item: "", verdict: "comment", comment: "hijack" }, headers: { origin: APP } });
   expect([401, 404]).toContain(denied.status());
   await other.close();
 
@@ -117,19 +119,19 @@ test("owner notes on a report are remembered, listed in settings, and can be for
   await expect(memory.getByText(/Nothing yet/)).toBeVisible();
 });
 
-test("sample Content Studio shows feedback buttons and reference posts", async ({ page }) => {
+test("sample Social Media Content shows feedback buttons and reference posts", async ({ page }) => {
   await page.goto("/sample/content");
   await expect(page.getByRole("heading", { name: "Post ideas" })).toBeVisible();
   await expect(page.getByText("Sample reference. Live reports link the real post.").first()).toBeVisible();
   const idea = page.locator("#idea-1");
   await idea.getByRole("button", { name: "Approve" }).click();
-  await expect(idea.getByText("Approved. Content Studio will do more like this.")).toBeVisible();
+  await expect(idea.getByText("Approved. Social Media Content will do more like this.")).toBeVisible();
   await idea.getByRole("button", { name: "Approved" }).click(); // clicking again clears it
   await expect(idea.getByRole("button", { name: "Approve" })).toBeVisible();
   await idea.getByRole("button", { name: "Reject" }).click();
   await idea.getByRole("textbox").fill("We never film customers.");
   await idea.getByRole("button", { name: "Save comment" }).click();
-  await expect(idea.getByText("Rejected. Content Studio won't suggest this again.")).toBeVisible();
+  await expect(idea.getByText("Rejected. Social Media Content won't suggest this again.")).toBeVisible();
 });
 
 test("Pro accounts can add, switch between and remove businesses", async ({ page }) => {
@@ -186,7 +188,7 @@ test("admin creates a promo code and a friend signs up with it", async ({ page, 
   await expect(promos.getByText("Pro free for 30 days · used 0 of 1")).toBeVisible();
 
   // A friend opens the signup link.
-  const friend = await browser.newContext({ baseURL: "http://127.0.0.1:3100" });
+  const friend = await browser.newContext({ baseURL: APP });
   const fp = await friend.newPage();
   await fp.goto("/signup?code=FRIENDS30");
   await expect(fp.getByRole("heading", { name: "You've been invited to try MarketingRx" })).toBeVisible();
@@ -236,7 +238,7 @@ test("owner pays for a plan, upgrades on the spot, then cancels", async ({ page 
   await expect(plan.getByText("Done. You're on Pro.")).toBeVisible();
   await expect(page.getByText(/You're on Pro/).first()).toBeVisible();
 
-  const calls = (await (await page.request.get("http://127.0.0.1:4700/__requests")).json()) as { method: string; path: string; body: Record<string, string> }[];
+  const calls = (await (await page.request.get(`${STRIPE}/__requests`)).json()) as { method: string; path: string; body: Record<string, string> }[];
   const checkout = calls.find((c) => c.path === "/v1/checkout/sessions" && c.method === "POST")!;
   expect(checkout.body["line_items[0][price_data][currency]"]).toBe("sgd");
   expect(checkout.body["line_items[0][price_data][unit_amount]"]).toBe("24900");
@@ -255,7 +257,7 @@ test("owner pays for a plan, upgrades on the spot, then cancels", async ({ page 
   await page.getByRole("button", { name: "Add this business" }).click();
   await expect(page).toHaveURL(/\/app/);
   await expect(page.getByLabel("Your business").first().locator("option:checked")).toHaveText("Payer Studio East");
-  const after = (await (await page.request.get("http://127.0.0.1:4700/__requests")).json()) as { method: string; path: string; body: Record<string, string> }[];
+  const after = (await (await page.request.get(`${STRIPE}/__requests`)).json()) as { method: string; path: string; body: Record<string, string> }[];
   const outletCall = after.filter((c) => c.path.startsWith("/v1/subscriptions/") && c.method === "POST").at(-1)!;
   expect(outletCall.body["items[0][price_data][unit_amount]"]).toBe("3000");
   expect(outletCall.body["items[0][metadata][kind]"]).toBe("outlet");

@@ -9,7 +9,7 @@ const SPECIALIST_NAMES: Record<string, string> = {
   site: "Site Doctor",
   keywords: "Keyword Lab",
   visibility: "AI Visibility",
-  content: "Content Studio",
+  content: "Social Media Content",
   ads: "Ads Doctor",
   compliance: "Compliance Check",
 };

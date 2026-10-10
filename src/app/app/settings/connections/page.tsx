@@ -55,7 +55,7 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
           <h2 className="font-display text-xl font-bold">Connecting accounts is on the paid plans</h2>
           <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-2">
             On Starter and up, connect Google, Meta and your social accounts so the specialists read your real numbers and your own posts: Ads Doctor uses your
-            campaigns, Keyword Lab your Search Console searches, and Content Studio what already works on your channels when it looks for trends.
+            campaigns, Keyword Lab your Search Console searches, and Social Media Content what already works on your channels when it looks for trends.
           </p>
           <Link href="/app/settings#plan" className="mt-5 inline-flex rounded-full bg-scrub px-5 py-2.5 text-sm font-semibold text-white hover:bg-scrub-dark">
             See the plans

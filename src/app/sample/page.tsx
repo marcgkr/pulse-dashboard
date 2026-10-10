@@ -9,7 +9,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const b = SAMPLE_BUSINESSES[sampleBusinessId((await searchParams).business)];
   return {
     title: "Sample report",
-    description: `A full ${BRAND.name} report for ${b.name}, a fictional ${b.kind}: Site Doctor, Keyword Lab, AI Visibility, Content Studio, Ads Doctor and Compliance Check, with every prescription and its steps. Also shown for a renovation company, a cafe, an online store and a clinic.`,
+    description: `A full ${BRAND.name} report for ${b.name}, a fictional ${b.kind}: Site Doctor, Keyword Lab, AI Visibility, Social Media Content, Ads Doctor and Compliance Check, with every prescription and its steps. Also shown for a renovation company, a cafe, an online store and a clinic.`,
   };
 }
 

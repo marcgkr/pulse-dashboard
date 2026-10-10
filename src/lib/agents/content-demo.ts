@@ -1,5 +1,6 @@
 import type { Prescription } from "../ai";
 import type { Reference } from "../social-links";
+import { beatsFromLines, defaultShootStyle, type Beat, type ShootStyle } from "../script-beats";
 import type { WorkspaceRow } from "../db";
 import { marketFor, type Market, type MarketCode } from "../markets";
 import type { AgentResult } from "./types";
@@ -50,6 +51,9 @@ export type Idea = {
   pillar: string;
   hook: string;
   script_or_outline: string[];
+  /** Video and carousel scripts beat by beat (see src/lib/script-beats.ts). */
+  beats?: Beat[];
+  shoot_style?: ShootStyle;
   caption: string;
   hashtags: string[];
   cta: string;
@@ -1162,6 +1166,11 @@ export function contentDemo(input: ContentInput, ws: WorkspaceRow, now = new Dat
     title = `Content plan: ${ideas.length} ideas for ${input.platforms.join(", ")}`;
   }
 
+  // Templates write one line per beat; split them into film / say / on-screen like a live report.
+  ideas = ideas.map((i) =>
+    /text post|thread/i.test(i.format) ? i : { ...i, beats: i.beats ?? beatsFromLines(i.script_or_outline), shoot_style: i.shoot_style ?? defaultShootStyle(i.format, i.platform) },
+  );
+
   const lang = input.language && !/^english$/i.test(input.language.trim()) ? ` Sample captions are in English; the live AI writes them in your language mix (${input.language}).` : "";
   return {
     title,
@@ -1174,7 +1183,7 @@ export function contentDemo(input: ContentInput, ws: WorkspaceRow, now = new Dat
     more_like: input.more_like,
     trends: [],
     trends_note: input.trends
-      ? `Trend research needs the live AI. With it switched on, Content Studio searches for this month's formats, sounds and ${m.code === "SG" ? "Singapore" : "local"} calendar moments for your niche.`
+      ? `Trend research needs the live AI. With it switched on, Social Media Content searches for this month's formats, sounds and ${m.code === "SG" ? "Singapore" : "local"} calendar moments for your niche.`
       : "",
     pillars: pillars.map(({ name, percent, description }) => ({ name, percent, description })),
     ideas,

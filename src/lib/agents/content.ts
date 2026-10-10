@@ -22,6 +22,7 @@ import {
 import { marketFor, type Market } from "../markets";
 import { searchCountryFor } from "./keywords-demo";
 import { parseSocialLink, type Reference } from "../social-links";
+import { beatsFromLines } from "../script-beats";
 
 type Input = ContentInput;
 
@@ -66,7 +67,27 @@ const ContentAI = z.object({
       hook: z.string().describe("The first 2 seconds of the video or the first line of the post, written out word for word"),
       script_or_outline: z
         .array(z.string())
-        .describe("Shot-by-shot for video (prefix with timing like '0-2s:'), slide-by-slide for carousels ('Slide 1:'), paragraph-by-paragraph for text posts. 3-8 steps."),
+        .describe("Text posts only: paragraph by paragraph, 3-8 steps. For video and carousels give an empty array and use beats instead."),
+      beats: z
+        .array(
+          z.object({
+            time: z.string().describe("Video: timing like '0-2s'. Carousel: 'Slide 1'. Story: 'Frame 1'."),
+            shot: z.string().describe("Exactly what to film or show: framing, action, location, b-roll. Empty string if nothing new is shown."),
+            say: z.string().describe("The exact words spoken in this beat, word for word, in the caption language. Empty string if nothing is said."),
+            on_screen: z.string().describe("The exact text on screen or on the slide. Empty string if none."),
+          }),
+        )
+        .describe("Video and carousel posts: the full script beat by beat, 3-10 beats, covering the whole post from the hook to the call to action. Empty array for text posts."),
+      shoot_style: z
+        .object({
+          format: z.string().describe("Aspect ratio and length, e.g. 'Vertical 9:16, 30-40 seconds' or '4:5 carousel, 7 slides'"),
+          setting: z.string().describe("Where to film or what the background is, specific to this business"),
+          camera: z.string().describe("Camera set-up and framing, e.g. 'Phone on tripod at eye level, mid shot; handheld for b-roll'"),
+          people: z.string().describe("Who appears and how they come across"),
+          sound: z.string().describe("Voice, mic and any music or trending sound"),
+          editing: z.string().describe("Pacing, captions, text style, transitions"),
+        })
+        .describe("How to shoot or design it"),
       caption: z.string().describe("Ready-to-paste caption in the platform's native style and the owner's language mix. No hashtags in the caption."),
       hashtags: z.array(z.string()).describe("8-15 hashtags (3-5 for LinkedIn): mix of local tags (the business's own city, area or country) and niche tags. No banned, spammy or overly broad tags like #fyp or #followforfollow."),
       cta: z.string().describe("The single call to action"),
@@ -167,6 +188,11 @@ function normaliseResult(ai: z.infer<typeof ContentAI>, input: Input, regulated:
       pillar: i.pillar.trim(),
       hook: i.hook.trim(),
       script_or_outline: i.script_or_outline.map((s) => s.trim()).filter(Boolean),
+      beats: (i.beats.length ? i.beats : beatsFromLines(i.script_or_outline))
+        .map((b) => ({ time: b.time.trim().slice(0, 30), shot: b.shot.trim(), say: b.say.trim(), on_screen: b.on_screen.trim() }))
+        .filter((b) => b.shot || b.say || b.on_screen)
+        .slice(0, 12),
+      shoot_style: i.shoot_style,
       caption: i.caption.trim(),
       hashtags: platform === "LinkedIn" ? tags.slice(0, 5) : tags,
       cta: i.cta.trim(),
@@ -199,7 +225,7 @@ function normaliseResult(ai: z.infer<typeof ContentAI>, input: Input, regulated:
 
 export const contentAgent: AgentDef<Input> = {
   id: "content",
-  name: "Content Studio",
+  name: "Social Media Content",
   blurb: "Ready-to-film social posts for your niche, with hooks, captions and a 2-week calendar.",
   description:
     "Checks what is trending on your platforms this month for your niche in your country, then writes post ideas you can film today: the hook word for word, a shot-by-shot script or slide outline, a caption and hashtags to paste, and a 2-week calendar that fits how often you can post. Regulated businesses get ideas that stay inside the advertising rules.",
@@ -280,12 +306,13 @@ Write bullet-point notes under 1,200 words. For each point say which platform an
     const days = postingDays(input.per_week);
     const slots = input.per_week * 2;
 
-    const system = `You are Content Studio, a social media strategist for ${m.code === "SG" ? "Singapore small businesses" : m.code === "INTL" ? "small businesses" : `small businesses in ${m.inPhrase}`}. You write ready-to-post content ideas the owner can film or design today: real hooks written out word for word, shot-by-shot scripts or slide-by-slide outlines, captions to paste, hashtags, and a posting calendar.
+    const system = `You are the Social Media Content specialist, a social media strategist for ${m.code === "SG" ? "Singapore small businesses" : m.code === "INTL" ? "small businesses" : `small businesses in ${m.inPhrase}`}. You write ready-to-post content ideas the owner can film or design today: real hooks written out word for word, shot-by-shot scripts or slide-by-slide outlines, captions to paste, hashtags, and a posting calendar.
 
 How you write:
 - Every idea must be specific to this business, its offers and its customers. No filler ideas like "share a motivational quote" or "post a holiday greeting".
 - Hooks: the exact words for the first 2 seconds (video) or first line (post). Make them stop the scroll: a specific problem, a myth, a question customers ask, a surprising angle.
-- Scripts: shot-by-shot with timings for video ("0-2s: ..."), slide-by-slide for carousels ("Slide 1: ..."), paragraph-by-paragraph for text posts. Include on-screen text and what to film. Keep videos under 45 seconds unless the format needs more.
+- Scripts: for video and carousels, write beats: for each beat the timing (or slide number), exactly what to film or show, the exact words to say (word for word, ready to read out) and the exact on-screen text. The spoken lines together must read as a complete script from the hook to the call to action. Text posts use script_or_outline paragraph by paragraph. Keep videos under 45 seconds unless the format needs more.
+- Shoot style: the format and length, where to film for this business, camera set-up and framing, who appears, sound, and editing style.
 - Captions: native to the platform. TikTok and Reels short, LinkedIn longer and story-led with line breaks, Xiaohongshu as a note with a title line and practical detail, Facebook conversational. Write in the owner's language mix. Keep emojis to a minimum. Never put hashtags inside the caption.
 - Hashtags: 8-15 per idea (3-5 for LinkedIn, none for Stories), mixing ${m.code === "SG" ? "Singapore/local" : "local (city, area or country)"} tags with niche tags. No banned, spammy or overly broad tags (#fyp, #foryou, #viral, #followforfollow, #like4like, #instagood).
 - Match formats to platforms: YouTube Shorts is video only; Xiaohongshu is image notes or video notes; LinkedIn suits text posts, document carousels and native video.
