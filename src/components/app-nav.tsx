@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity,
   BarChart3,
@@ -10,6 +10,7 @@ import {
   FileSearch,
   FileText,
   KeyRound,
+  LifeBuoy,
   Menu,
   MessageCircle,
   Settings,
@@ -45,6 +46,8 @@ export type NavProps = {
   limit: number;
   demo: boolean;
   admin: boolean;
+  /** Team replies in the Help chat the owner hasn't read yet. */
+  supportUnread: number;
 };
 
 function Item({
@@ -80,7 +83,39 @@ function Item({
   );
 }
 
+/** The unread badge on Help. Checks again on every page change and every minute; clears on the Help page itself. */
+function useSupportUnread(initial: number): number {
+  const path = usePathname();
+  const onHelp = path === "/app/help";
+  const [unread, setUnread] = useState(initial);
+  useEffect(() => {
+    if (onHelp) {
+      setUnread(0);
+      return;
+    }
+    let live = true;
+    const check = async () => {
+      if (document.hidden) return;
+      try {
+        const res = await fetch("/api/support/unread", { cache: "no-store" });
+        const data = res.ok ? ((await res.json()) as { unread?: number }) : null;
+        if (live && typeof data?.unread === "number") setUnread(data.unread);
+      } catch {
+        /* keep the last count */
+      }
+    };
+    void check();
+    const timer = setInterval(check, 60_000);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [path, onHelp]);
+  return onHelp ? 0 : unread;
+}
+
 export function AppNav(props: NavProps) {
+  const supportUnread = useSupportUnread(props.supportUnread);
   const [switching, setSwitching] = useState(false);
   async function switchTo(id: string) {
     setSwitching(true);
@@ -167,6 +202,7 @@ export function AppNav(props: NavProps) {
         </div>
         <div className="space-y-0.5">
           {props.admin && <Item href="/admin" icon={Wrench} label="Admin" />}
+          <Item href="/app/help" icon={LifeBuoy} label="Help" badge={supportUnread} />
           <Item href="/app/settings" icon={Settings} label="Settings" />
         </div>
         <form action="/api/auth/logout" method="post" className="px-3">

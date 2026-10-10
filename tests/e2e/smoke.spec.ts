@@ -276,3 +276,65 @@ test("free accounts can't connect accounts", async ({ page }) => {
   const res = await page.request.get("/api/connect/google/start", { maxRedirects: 0 });
   expect(res.headers()["location"]).toContain("error=plan");
 });
+
+test("owner messages the PULSE team on Help, the team replies from the inbox, and Pro gets WhatsApp", async ({ page, browser }) => {
+  const api = page.request;
+  await api.post("/api/auth/signup", { data: { email: "helpme@example.com", name: "Aisha", password: "help-me-pass-1" } });
+  const created = await api.post("/api/workspace", { data: { name: "Kopi Corner", industry: "Cafe", country: "SG" } });
+  const wsId = (await created.json()).id as string;
+
+  await page.goto("/app/help");
+  await expect(page.getByRole("heading", { name: "Help", exact: true })).toBeVisible();
+  await expect(page.getByText("Pro accounts also get priority support on WhatsApp.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "WhatsApp the PULSE team" })).toHaveCount(0);
+  await page.getByLabel("Your message").fill("How do I connect my Google Ads account?");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("How do I connect my Google Ads account?")).toBeVisible();
+  expect((await api.post("/api/support", { data: { body: "   " } })).status()).toBe(400);
+  expect((await api.post("/api/support", { data: { body: "x".repeat(2001) } })).status()).toBe(400);
+
+  // Owners can't open the inbox or read it through the API.
+  expect((await api.get(`/api/admin/support/${wsId}`)).status()).toBe(403);
+  await page.goto("/admin/support");
+  await expect(page).toHaveURL(/\/app$/);
+
+  // The admin from the first test replies from the inbox in another browser.
+  const team = await browser.newContext({ baseURL: APP });
+  const tp = await team.newPage();
+  expect((await tp.request.post("/api/auth/login", { data: { email, password: "correct-horse-1" } })).ok()).toBeTruthy();
+  await tp.goto("/admin");
+  await expect(tp.getByRole("link", { name: /Support inbox/ })).toContainText("1 waiting for a reply");
+  await tp.getByRole("link", { name: /Support inbox/ }).click();
+  const thread = tp.getByRole("link", { name: /Kopi Corner/ });
+  await expect(thread).toContainText("Waiting for a reply");
+  await thread.click();
+  await expect(tp.getByText("How do I connect my Google Ads account?")).toBeVisible();
+  await tp.getByLabel("Your reply").fill("Open Settings, then Connected accounts, then Connect Google.");
+  await tp.getByRole("button", { name: "Send" }).click();
+  await expect(tp.getByText("Open Settings, then Connected accounts, then Connect Google.")).toBeVisible();
+  await tp.goto("/admin/support");
+  await expect(tp.getByRole("link", { name: /Kopi Corner/ })).not.toContainText("Waiting for a reply");
+
+  // The owner's open Help page picks the reply up by polling.
+  await page.goto("/app/help");
+  await tp.request.post(`/api/admin/support/${wsId}`, { data: { body: "Tell us if anything else is unclear." } });
+  await expect(page.getByText("Open Settings, then Connected accounts, then Connect Google.")).toBeVisible();
+  await expect(page.getByText("Tell us if anything else is unclear.")).toBeVisible({ timeout: 25_000 });
+
+  // A reply while the owner is elsewhere shows as a badge on Help.
+  await page.goto("/app");
+  expect((await tp.request.post(`/api/admin/support/${wsId}`, { data: { body: "Did that work?" } })).ok()).toBeTruthy();
+  await page.reload();
+  await expect(page.locator("aside").getByRole("link", { name: /Help/ })).toContainText("1");
+
+  // Pro: a WhatsApp button with the business named in the first message.
+  expect((await tp.request.post("/api/admin/plan", { data: { workspaceId: wsId, plan: "pro" } })).ok()).toBeTruthy();
+  await team.close();
+  await page.goto("/app/help");
+  await expect(page.getByText("Did that work?")).toBeVisible();
+  const wa = page.getByRole("link", { name: "WhatsApp the PULSE team" });
+  await expect(wa).toHaveAttribute("href", `https://wa.me/6500000000?text=${encodeURIComponent("Hi PULSE, it's Kopi Corner (MarketingRx Pro).")}`);
+  await expect(wa).toHaveAttribute("target", "_blank");
+  await expect(page.getByText("Pro accounts also get priority support on WhatsApp.")).toHaveCount(0);
+  await expect(page.locator("aside").getByRole("link", { name: /Help/ })).not.toContainText("1");
+});

@@ -133,11 +133,11 @@ export const PLANS: Plan[] = [
       "Google Business Profile: fixes and post ideas",
       "Your latest 100 videos transcribed",
       "Autopilot: your website re-checked every week, your AI visibility every month",
-      "Priority support by live chat",
+      "Priority support on WhatsApp",
       "Extra outlets at a monthly fee each",
     ],
     stripePriceEnv: "STRIPE_PRICE_PRO",
-    forWho: "Owners who want every specialist, their Google Business Profile and a person on live chat when they're stuck.",
+    forWho: "Owners who want every specialist, their Google Business Profile and a person on WhatsApp when they're stuck.",
     specialists: ALL_SPECIALISTS,
     businesses: 1,
     extraOutlets: true,
@@ -146,7 +146,7 @@ export const PLANS: Plan[] = [
     exclusives: [
       "Google Business Profile connected: profile fixes and post ideas",
       "Autopilot: your website re-checked every week and your AI visibility every month",
-      "Priority support by live chat with the PULSE team",
+      "Priority support on WhatsApp with the PULSE team",
       "More outlets of the same business, at a monthly fee each",
     ],
   },
@@ -201,7 +201,8 @@ export const PLAN_ROWS: PlanRow[] = [
     detail: "Site Doctor re-checks your website every week and AI Visibility re-asks your questions every month, on their own. They don't use your monthly reports.",
     value: (p) => p.autopilot,
   },
-  { label: "Priority support by live chat", value: (p) => p.id === "pro" },
+  { label: "Live chat with the PULSE team", value: () => true },
+  { label: "Priority support on WhatsApp", value: (p) => p.id === "pro" },
 ];
 
 /** Plain-language translation of a plan's monthly report allowance. */

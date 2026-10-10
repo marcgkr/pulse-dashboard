@@ -21,6 +21,7 @@ A do-it-yourself AI marketing suite by PULSE Digital. Business owners get a chec
 | Ask PULSE | Streaming strategist chat that has read the profile, latest reports and open prescriptions |
 | Connected accounts | `/app/settings/connections`: owners connect Google (Google Ads + Search Console) and Meta (Facebook and Instagram ads) with one click, pick which accounts we read, disconnect any time |
 | Prescriptions board | Every recommendation as a task: open / done / not relevant, filter by specialist, "Rather have PULSE do it?" upsell on every card |
+| Help chat | `/app/help` on every plan: owners message the PULSE team, admins reply at `/admin/support`. One thread per business (`src/lib/support.ts`), unread replies badged on Help. Pro gets a WhatsApp button when `SUPPORT_WHATSAPP` is set; optional WhatsApp alert to the team on new messages (`src/lib/whatsapp.ts`, env in `.env.example`) |
 | Admin (`/admin`) | All businesses, plans, usage, list-price MRR, manual plan override for comped clients |
 | Billing | Stripe Checkout + customer portal + webhook (optional; without Stripe the plan page shows a contact email) |
 | Public free checkup | Landing page hero runs a real website checkup without signing up |
