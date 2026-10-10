@@ -239,6 +239,10 @@ function migrate(db: Database.Database) {
   addColumn(db, "workspaces", "promo_code", "TEXT");
   // Pro: extra outlets paid for on top of the one included (each a Stripe subscription item unit).
   addColumn(db, "workspaces", "extra_outlets", "INTEGER NOT NULL DEFAULT 0");
+  // Last time the owner's own posts were read from their connected social accounts.
+  addColumn(db, "workspaces", "videos_synced_at", "TEXT");
+  // The connected account (Page, Instagram account, channel) a video came from.
+  addColumn(db, "social_videos", "account_id", "TEXT NOT NULL DEFAULT ''");
   addColumn(db, "workspaces", "stripe_subscription_id", "TEXT");
   addColumn(db, "workspaces", "country", "TEXT NOT NULL DEFAULT 'SG'");
   addColumn(db, "connections", "last_sync_at", "TEXT");
@@ -293,6 +297,7 @@ export type WorkspaceRow = {
   promo_until?: string | null;
   promo_code?: string | null;
   extra_outlets?: number;
+  videos_synced_at?: string | null;
   /** Not a column. The plan the account pays for, when a promo lifts `plan` above it. */
   paid_plan?: string;
   stripe_customer_id: string | null;
@@ -320,6 +325,7 @@ export type VideoRow = {
   /** none: not tried; done; unavailable: the platform doesn't share the file; skipped: outside the plan's limit; error */
   transcript_status: "none" | "done" | "unavailable" | "skipped" | "error";
   transcript_note: string;
+  account_id: string;
   updated_at: string;
 };
 
@@ -366,7 +372,7 @@ export type SupportMessageRow = {
 export type ConnectionRow = {
   id: string;
   workspace_id: string;
-  provider: "google" | "meta";
+  provider: "google" | "meta" | "tiktok";
   external_user: string;
   scopes: string;
   access_token_enc: string | null;
@@ -378,10 +384,13 @@ export type ConnectionRow = {
   updated_at: string;
 };
 
+/** Ad accounts and Search Console for the specialists, and the organic social accounts for the video library. */
+export type AccountKindName = "google_ads" | "meta_ads" | "search_console" | "facebook_page" | "instagram_account" | "youtube_channel" | "tiktok_account";
+
 export type ConnectionAccountRow = {
   connection_id: string;
   provider_account_id: string;
-  kind: "google_ads" | "meta_ads" | "search_console";
+  kind: AccountKindName;
   name: string;
   currency: string | null;
   selected: number;

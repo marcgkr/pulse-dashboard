@@ -30,7 +30,7 @@ function metaError(e: GraphError, status: number, token: string): ConnectorError
  * GET against the Graph API with the token in a header and appsecret_proof in the query.
  * Retries throttling and transient errors with backoff.
  */
-async function graphGet(token: string, pathOrUrl: string, params: Record<string, string> = {}): Promise<Record<string, unknown>> {
+export async function graphGet(token: string, pathOrUrl: string, params: Record<string, string> = {}): Promise<Record<string, unknown>> {
   const u = new URL(pathOrUrl.startsWith("https://") ? pathOrUrl : `${base()}${pathOrUrl}`);
   if (u.hostname !== "graph.facebook.com") throw new ConnectorError("Unexpected paging link from Meta.", "api");
   u.searchParams.delete("access_token"); // paging links carry the token; send it in the header instead
@@ -51,7 +51,7 @@ async function graphGet(token: string, pathOrUrl: string, params: Record<string,
 }
 
 /** Follows paging.next up to MAX_PAGES pages. */
-async function graphPaged(token: string, path: string, params: Record<string, string>): Promise<{ data: Record<string, unknown>[]; truncated: boolean }> {
+export async function graphPaged(token: string, path: string, params: Record<string, string>): Promise<{ data: Record<string, unknown>[]; truncated: boolean }> {
   const data: Record<string, unknown>[] = [];
   let next: string | null = path;
   let first = true;

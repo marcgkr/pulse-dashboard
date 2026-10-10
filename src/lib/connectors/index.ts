@@ -8,7 +8,8 @@ import type { WorkspaceRow } from "../db";
 import { fetchGoogleAdsRows, listGoogleAdsAccounts, type GoogleAdsAuth } from "./google-ads";
 import { ConnectorError, type DiscoveredAccount } from "./http";
 import { fetchMetaRows, listMetaAdAccounts } from "./meta";
-import { googleAdsEnabled, GOOGLE_SCOPE_ADS, GOOGLE_SCOPE_GSC, metaScopes, type Provider } from "./oauth";
+import { googleAdsEnabled, GOOGLE_SCOPE_ADS, GOOGLE_SCOPE_GSC, GOOGLE_SCOPE_YOUTUBE, metaScopes, type Provider } from "./oauth";
+import { listMetaSocialAccounts, listTikTokAccount, listYouTubeChannels } from "./social";
 import { fetchWindsor } from "./legacy-sync";
 import { fetchSearchConsoleRows, listSearchConsoleSites } from "./search-console";
 import { accessToken, getConnection, markSync, selectedAccounts, type SelectedAccount } from "./store";
@@ -46,8 +47,12 @@ export async function discoverAccounts(p: Provider, token: string, scopes: strin
   if (p === "google") {
     if (googleAdsEnabled() && scopes.includes(GOOGLE_SCOPE_ADS)) await attempt("Google Ads accounts", () => listGoogleAdsAccounts(googleAdsAuth(token)));
     if (scopes.includes(GOOGLE_SCOPE_GSC)) await attempt("Search Console properties", () => listSearchConsoleSites(token));
+    if (scopes.includes(GOOGLE_SCOPE_YOUTUBE)) await attempt("YouTube channels", () => listYouTubeChannels(token));
+  } else if (p === "tiktok") {
+    await attempt("TikTok account", () => listTikTokAccount(token));
   } else {
-    await attempt("Meta ad accounts", () => listMetaAdAccounts(token, { businesses: metaScopes().includes("business_management") }));
+    if (scopes.includes("ads_read")) await attempt("Meta ad accounts", () => listMetaAdAccounts(token, { businesses: metaScopes().includes("business_management") }));
+    if (scopes.includes("pages_show_list")) await attempt("Facebook Pages and Instagram accounts", () => listMetaSocialAccounts(token));
   }
   return { accounts, failed };
 }

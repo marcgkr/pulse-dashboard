@@ -5,6 +5,7 @@ import { discoverAccounts } from "@/lib/connectors";
 import { ConnectorError } from "@/lib/connectors/http";
 import { appUrl, exchangeCode, GOOGLE_SCOPE_ADS, GOOGLE_SCOPE_GSC, isProvider, openState, providerSetup, stateCookieName, type Provider } from "@/lib/connectors/oauth";
 import { replaceAccounts, saveConnection } from "@/lib/connectors/store";
+import { hasSocialAccounts, syncSocialVideos } from "@/lib/social-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,6 +40,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ provider
     const conn = saveConnection(auth.ws.id, provider, tokens);
     const { accounts, failed } = await discoverAccounts(provider, tokens.access_token, tokens.scopes);
     replaceAccounts(auth.ws.id, conn.id, accounts, auth.ws.website);
+    // Read the owner's posts in the background so the library is ready for their next content plan.
+    if (hasSocialAccounts(auth.ws.id)) void syncSocialVideos(auth.ws).catch(() => {});
     if (provider === "google" && !tokens.scopes.includes(GOOGLE_SCOPE_GSC) && !tokens.scopes.includes(GOOGLE_SCOPE_ADS)) return back(provider, "connected=1&warn=scopes");
     if (failed.length) return back(provider, "connected=1&warn=discover");
     return back(provider, "connected=1");

@@ -48,9 +48,9 @@ See `.env.example`. The important ones:
 
 Plans and prices live in `src/lib/config.ts`. The brand name, domain and the enquiry email (used by every contact and done-for-you link) are there too.
 
-## Connecting Google and Meta
+## Connecting Google, Meta and TikTok
 
-Owners connect their own Google and Meta logins in **Settings > Connected accounts** (`/app/settings/connections`). Ads Doctor then reads Google Ads and Meta Ads performance for the last 7, 14, 30 or 90 days (Growth and Pro plans), and Keyword Lab reads the last 90 days of Search Console queries. Everything is read-only; the owner makes every change themselves. Tokens are stored encrypted (AES-256-GCM with `ENCRYPTION_KEY`) and never reach the browser or the logs.
+Owners connect their own Google, Meta and TikTok logins in **Settings > Connected accounts** (`/app/settings/connections`, paid plans only). Ads Doctor then reads Google Ads and Meta Ads performance for the last 7, 14, 30 or 90 days (Growth and Pro plans), Keyword Lab reads the last 90 days of Search Console queries, and the video library reads the owner's own Instagram Reels, Facebook Page videos, YouTube uploads and TikTok videos (see "Video library and transcripts" below). Everything is read-only; the owner makes every change themselves. Tokens are stored encrypted (AES-256-GCM with `ENCRYPTION_KEY`) and never reach the browser or the logs.
 
 Until a provider's env vars are set, its card says "This connection isn't switched on yet. Upload your exports instead." and everything else keeps working. **The approvals below take time (days to weeks)**, so start them early. Until they come through:
 
@@ -67,6 +67,7 @@ Set `APP_URL` to the exact public URL (for example `https://marketingrx.ai`, no 
 
 - Google: `https://marketingrx.ai/api/connect/google/callback`
 - Meta: `https://marketingrx.ai/api/connect/meta/callback`
+- TikTok: `https://marketingrx.ai/api/connect/tiktok/callback`
 
 For local testing also register `http://localhost:3000/api/connect/google/callback` and `http://localhost:3000/api/connect/meta/callback`, with `APP_URL=http://localhost:3000`. Open the app on exactly that host, or the sign-in check (state cookie) fails. Don't change `ENCRYPTION_KEY` once owners have connected: stored tokens become unreadable and everyone has to reconnect.
 
@@ -75,7 +76,7 @@ For local testing also register `http://localhost:3000/api/connect/google/callba
 1. In [Google Cloud Console](https://console.cloud.google.com/) create a project (for example "MarketingRx").
 2. **APIs & Services > Library**: enable **Google Ads API** and **Google Search Console API**.
 3. **OAuth consent screen** (Google Auth Platform): user type External; app name MarketingRx; support email; app domain and authorised domain `marketingrx.ai`; privacy policy `https://marketingrx.ai/privacy`; terms `https://marketingrx.ai/terms`.
-   - Scopes (Data access): `openid`, `email`, `https://www.googleapis.com/auth/adwords`, `https://www.googleapis.com/auth/webmasters.readonly`. Google Ads has no read-only scope; the app only ever reads.
+   - Scopes (Data access): `openid`, `email`, `https://www.googleapis.com/auth/adwords`, `https://www.googleapis.com/auth/webmasters.readonly`, `https://www.googleapis.com/auth/youtube.readonly`. Google Ads has no read-only scope; the app only ever reads. Also enable **YouTube Data API v3** in the Library. YouTube is a sensitive scope: until the app is verified Google shows an "unverified app" screen. Set `GOOGLE_YOUTUBE=0` to leave YouTube out.
    - Audience: while in Testing, add each owner who should be able to connect as a test user (up to 100).
    - To open it to everyone, publish the app and submit it for verification. Google reviews apps that ask for these scopes (privacy policy, a short video of the connect flow, domain ownership in Search Console). Plan for days to weeks.
 4. **Credentials > Create credentials > OAuth client ID**, type **Web application**. Add the redirect URIs above under **Authorised redirect URIs**. Copy the client ID and secret into `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET`.
@@ -90,20 +91,34 @@ What we read: accessible customers (`customers:listAccessibleCustomers`), each a
 1. In [Meta for Developers](https://developers.facebook.com/apps) create an app of type **Business** and connect it to PULSE Digital's business portfolio.
 2. **App settings > Basic**: app domain `marketingrx.ai`, privacy policy URL, terms URL, data deletion instructions URL, category, icon. Copy the App ID and App secret into `META_APP_ID` and `META_APP_SECRET`.
 3. Add **Facebook Login for Business**. Under its **Settings**, add the Meta redirect URI above to **Valid OAuth Redirect URIs** and keep **Use Strict Mode for redirect URIs** on.
-   - Recommended: create a **Configuration** (login variation: General; token type: User access token; permission: `ads_read`) and put its ID in `META_LOGIN_CONFIG_ID`. Without it the app sends `scope=ads_read`, which classic Facebook Login uses.
+   - Recommended: create a **Configuration** (login variation: General; token type: User access token; permissions: `ads_read`, `pages_show_list`, `pages_read_engagement`, `instagram_basic`, `instagram_manage_insights`) and put its ID in `META_LOGIN_CONFIG_ID`. Without it the app sends those permissions as `scope`, which classic Facebook Login uses. The last four read the owner's Facebook Page videos and Instagram Reels; set `META_ORGANIC=0` to ask for `ads_read` only.
 4. Add the **Marketing API** product. `ads_read` works straight away for people with a role on the app (**App roles > Roles**: add owners you want to test with as Testers).
-5. **App Review > Permissions and features**: request **Advanced Access** for `ads_read` (screencast of connecting and an Ads Doctor report, plus how the data is used). Meta also asks for **Business Verification** of PULSE Digital. Plan for days to weeks. When approved, switch the app to **Live** mode.
+5. **App Review > Permissions and features**: request **Advanced Access** for `ads_read`, `pages_show_list`, `pages_read_engagement`, `instagram_basic` and `instagram_manage_insights` (screencast of connecting and an Ads Doctor report, plus how the data is used). Meta also asks for **Business Verification** of PULSE Digital. Plan for days to weeks. When approved, switch the app to **Live** mode.
 6. Optional: `META_BUSINESS_ACCOUNTS=1` also asks for `business_management` so ad accounts owned by an owner's business portfolio are listed even if they aren't assigned to them personally. That permission needs its own App Review; without it, `ads_read` lists the ad accounts the person has a role on, which covers most small businesses.
 7. `META_GRAPH_VERSION` defaults to `v23.0` (Meta supports each version for about two years). Set a newer one when Meta announces the end of v23.0.
 
 Meta user tokens last about 60 days. When one expires, the card says "Reconnect needed" and the owner clicks Reconnect.
 
-What we read: the ad account list (`/me/adaccounts`: name, id, currency, status) and campaign, ad set and ad insights for the chosen period (spend, impressions, reach, frequency, clicks, link clicks, actions, action values). Leads, purchases and messaging conversations count as conversions, the same three result types the CSV path counts.
+What we read: the ad account list (`/me/adaccounts`: name, id, currency, status) and campaign, ad set and ad insights for the chosen period (spend, impressions, reach, frequency, clicks, link clicks, actions, action values). Leads, purchases and messaging conversations count as conversions, the same three result types the CSV path counts. With the organic permissions: the Pages the person manages and the Instagram professional account linked to each (`/me/accounts`), each Reel's caption, link, date, likes, comments and views (`/{ig-user}/media`, `/{media}/insights?metric=views`), and each Page video's title, description and length. Instagram only lists professional (business or creator) accounts linked to a Facebook Page.
+
+### 3b. TikTok (the owner's own videos)
+
+1. In [TikTok for Developers](https://developers.tiktok.com/) create an app, add **Login Kit** (Web) and the scopes `user.info.basic` and `video.list` (the Display API).
+2. Add the TikTok redirect URI above, and the app's domain. Copy the Client key and Client secret into `TIKTOK_CLIENT_KEY` and `TIKTOK_CLIENT_SECRET`.
+3. Submit the app for review (TikTok checks the privacy policy, terms and a demo of the connect flow). Until it's approved, only the sandbox's target users can connect.
+
+TikTok access tokens last a day and refresh tokens about a year; the app refreshes them itself. What we read: the display name and each video's title, description, link, date, length, views, likes and comments (`/v2/video/list/`).
+
+### Video library and transcripts
+
+When an owner ticks an Instagram account, Facebook Page, YouTube channel or TikTok account, the app reads their latest 100 videos per account into the library (`social_videos`), again whenever a Social Media Content report starts and the library is more than 12 hours old, and on **Read my posts now**. Social Media Content uses their best and latest posts to pick trends and ideas that fit what already works for them, and Keyword Lab articles link the most relevant ones.
+
+Growth transcribes the latest 20 videos and Pro the latest 100, with ElevenLabs speech to text (`ELEVENLABS_API_KEY`; model `scribe_v2` unless `ELEVENLABS_STT_MODEL` says otherwise). Instagram and Facebook share the video file; YouTube and TikTok don't, so for those the specialists use the title and caption. Videos longer than 30 minutes are skipped. Without the key, nothing is transcribed and the card says so.
 
 ### 4. How it fits together
 
-- `src/lib/connectors/oauth.ts` provider settings, PKCE, the sealed state cookie, code exchange, Google refresh, revoke. `store.ts` encrypted tokens and account choices (every query scoped to the workspace). `google-ads.ts`, `meta.ts`, `search-console.ts` fetch and map to the same `AdRow` / `DataRow` shapes the CSV parsers produce, so the analysis code is shared.
-- Routes: `GET /api/connect/[provider]/start`, `GET /api/connect/[provider]/callback`, `POST /api/connect/accounts`, `POST /api/connect/[provider]/disconnect` (also revokes access with the provider, best effort).
+- `src/lib/connectors/oauth.ts` provider settings, PKCE, the sealed state cookie, code exchange, Google and TikTok refresh, revoke. `social.ts` lists and reads the organic accounts; `src/lib/social-sync.ts` fills the video library and runs transcription (`src/lib/transcribe.ts`). `store.ts` encrypted tokens and account choices (every query scoped to the workspace). `google-ads.ts`, `meta.ts`, `search-console.ts` fetch and map to the same `AdRow` / `DataRow` shapes the CSV parsers produce, so the analysis code is shared.
+- Routes: `GET /api/connect/[provider]/start`, `GET /api/connect/[provider]/callback`, `POST /api/connect/accounts`, `POST /api/connect/[provider]/disconnect` (also revokes access with the provider, best effort, and removes that provider's videos), `POST /api/social/sync`.
 - If one provider or account fails during an Ads Doctor run, the report still uses the others and names the one that failed.
 - Workspaces that saved a key for the previous sync supplier keep syncing through it while `WINDSOR_API_KEY` is set and they haven't connected Google or Meta. Customers never see the supplier's name. Remove the variable to switch the fallback off.
 - `npm run test:connectors` checks the mapping against recorded API responses in `tests/fixtures/connectors`, plus encryption, OAuth state and PKCE. It can't reach Google or Meta, so connect one real account per provider after setup.

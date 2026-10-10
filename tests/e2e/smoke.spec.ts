@@ -275,6 +275,24 @@ test("free accounts can't connect accounts", async ({ page }) => {
   expect(res.headers()["location"]).toContain("error=plan");
 });
 
+test("paid owners can connect Meta organic, YouTube and TikTok, and see their video library", async ({ page }) => {
+  const api = page.request;
+  await api.post("/api/auth/signup", { data: { email: "socials@example.com", name: "Socials", password: "socials-pass-1" } });
+  const ws = await api.post("/api/workspace", { data: { name: "Glow Socials", industry: "Aesthetic clinic" } });
+  const workspaceId = (await ws.json()).id as string;
+  expect((await api.post("/api/admin/claim", { data: { token: "e2e-setup-token-1234567890" } })).ok()).toBeTruthy();
+  expect((await api.post("/api/admin/plan", { data: { workspaceId, plan: "growth" } })).ok()).toBeTruthy();
+  await page.goto("/app/settings/connections");
+  await expect(page.getByRole("heading", { name: "TikTok", exact: true })).toBeVisible();
+  await expect(page.getByText("Facebook and Instagram ads, plus your Page and Instagram posts and Reels")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your videos" })).toBeVisible();
+  // No social account ticked yet: nothing to sync.
+  expect((await api.post("/api/social/sync")).status()).toBe(400);
+  // TikTok isn't set up in this environment, so starting it goes back with not_ready.
+  const res = await api.get("/api/connect/tiktok/start", { maxRedirects: 0 });
+  expect(res.headers()["location"]).toContain("error=not_ready");
+});
+
 test("owner messages the PULSE team on Help, the team replies from the inbox, and Pro gets WhatsApp", async ({ page, browser }) => {
   const api = page.request;
   await api.post("/api/auth/signup", { data: { email: "helpme@example.com", name: "Aisha", password: "help-me-pass-1" } });

@@ -32,6 +32,7 @@ delete process.env.META_LOGIN_CONFIG_ID;
 delete process.env.META_BUSINESS_ACCOUNTS;
 delete process.env.GOOGLE_ADS_API_VERSION;
 delete process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
+for (const k of ["META_ORGANIC", "GOOGLE_YOUTUBE", "TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "ELEVENLABS_API_KEY", "ELEVENLABS_API_BASE", "ELEVENLABS_STT_MODEL"]) delete process.env[k];
 
 // ---------- fetch stub ----------
 
@@ -78,6 +79,11 @@ async function main() {
   const { toParsedData, visibilityScore, dataQuickWins } = await import("../src/lib/agents/keywords-demo");
   const { db, id, now } = await import("../src/lib/db");
   const { adsAgent } = await import("../src/lib/agents/ads");
+  const social = await import("../src/lib/connectors/social");
+  const sync = await import("../src/lib/social-sync");
+  const { latestVideos } = await import("../src/lib/videos");
+  const { ownPostsBlock } = await import("../src/lib/agents/content");
+  const { allowedMediaUrl } = await import("../src/lib/transcribe");
   const { keywordsAgent } = await import("../src/lib/agents/keywords");
   const { startRun, RunError } = await import("../src/lib/runs");
   type WorkspaceRow = import("../src/lib/db").WorkspaceRow;
@@ -150,8 +156,49 @@ async function main() {
     assert.ok(scopes.includes("https://www.googleapis.com/auth/adwords") && scopes.includes("https://www.googleapis.com/auth/webmasters.readonly"));
     const m = new URL(oauth.authorizeUrl("meta", "st", "ch"));
     assert.equal(m.origin + m.pathname, "https://www.facebook.com/v23.0/dialog/oauth");
-    assert.equal(m.searchParams.get("scope"), "ads_read");
+    assert.equal(m.searchParams.get("scope"), "ads_read,pages_show_list,pages_read_engagement,instagram_basic,instagram_manage_insights");
     assert.equal(m.searchParams.get("redirect_uri"), "https://app.example.test/api/connect/meta/callback");
+    assert.ok(scopes.includes(oauth.GOOGLE_SCOPE_YOUTUBE), "YouTube asked for by default");
+    process.env.META_ORGANIC = "0";
+    process.env.GOOGLE_YOUTUBE = "0";
+    try {
+      assert.equal(new URL(oauth.authorizeUrl("meta", "st", "ch")).searchParams.get("scope"), "ads_read");
+      assert.ok(!new URL(oauth.authorizeUrl("google", "st", "ch")).searchParams.get("scope")!.includes("youtube"));
+    } finally {
+      delete process.env.META_ORGANIC;
+      delete process.env.GOOGLE_YOUTUBE;
+    }
+  });
+
+  test("TikTok: authorize URL, setup check, code exchange and granted kinds", async () => {
+    assert.deepEqual(oauth.providerSetup("tiktok").missing, ["TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET"]);
+    process.env.TIKTOK_CLIENT_KEY = "awtestclientkey";
+    process.env.TIKTOK_CLIENT_SECRET = "test-tiktok-secret-value";
+    assert.equal(oauth.providerSetup("tiktok").ready, true);
+    const t = new URL(oauth.authorizeUrl("tiktok", "st", "ch"));
+    assert.equal(t.origin + t.pathname, "https://www.tiktok.com/v2/auth/authorize/");
+    assert.equal(t.searchParams.get("client_key"), "awtestclientkey");
+    assert.equal(t.searchParams.get("scope"), "user.info.basic,video.list");
+    assert.equal(t.searchParams.get("redirect_uri"), "https://app.example.test/api/connect/tiktok/callback");
+    assert.equal(t.searchParams.get("code_challenge"), null, "TikTok's web flow takes no PKCE");
+    reset((c) =>
+      c.url.href === "https://open.tiktokapis.com/v2/oauth/token/"
+        ? json({ access_token: "act.tiktokaccess000000", refresh_token: "rft.tiktokrefresh00000", expires_in: 86400, open_id: "open-1", scope: "user.info.basic,video.list", token_type: "Bearer" })
+        : null,
+    );
+    const tok = await oauth.exchangeCode("tiktok", "code-123", "unused");
+    assert.equal(tok.access_token, "act.tiktokaccess000000");
+    assert.deepEqual(tok.scopes, ["user.info.basic", "video.list"]);
+    const body = new URLSearchParams(calls[0].body);
+    assert.equal(body.get("grant_type"), "authorization_code");
+    assert.equal(body.get("client_key"), "awtestclientkey");
+    // TikTok sends some failures as HTTP 200 with an error field.
+    reset((c) => (c.url.hostname === "open.tiktokapis.com" ? json({ error: "invalid_grant", error_description: "Authorization code is expired." }) : null));
+    await assert.rejects(oauth.exchangeCode("tiktok", "code-123", "unused"), /TikTok/);
+    assert.deepEqual(store.grantedKinds("tiktok", "user.info.basic,video.list"), ["tiktok_account"]);
+    assert.deepEqual(store.grantedKinds("meta", "ads_read pages_show_list pages_read_engagement instagram_basic"), ["meta_ads", "facebook_page", "instagram_account"]);
+    assert.deepEqual(store.grantedKinds("meta", "ads_read"), ["meta_ads"]);
+    assert.deepEqual(store.grantedKinds("google", `${oauth.GOOGLE_SCOPE_GSC} ${oauth.GOOGLE_SCOPE_YOUTUBE}`), ["search_console", "youtube_channel"]);
   });
 
   test("Google without a developer token asks for Search Console only", () => {
@@ -556,6 +603,175 @@ async function main() {
     const r2 = await keywordsAgent.demo({ ...input, data: "Top queries,Clicks,Impressions,CTR,Position\nhydrafacial tampines,4,120,3.3%,8.1" }, { ws, runId: "r_kw2", progress: () => {} });
     assert.equal((r2.data as { total_rows: number }).total_rows, 1);
     assert.match(r2.summary, /couldn't be read this time/);
+  });
+
+  // ---------- organic social and the video library ----------
+
+  const IG = "17841400000000001";
+  const PAGE = "104000000000001";
+  const CHANNEL = "UCabcdefghijklmnopqrstuv";
+  const igMedia = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `180000000${String(i).padStart(8, "0")}`,
+      caption: i % 3 === 2 ? `Photo ${i}` : `Reel ${i}: why hydrafacial before an event\nmore`,
+      media_type: i % 3 === 2 ? "IMAGE" : "VIDEO",
+      media_product_type: i % 3 === 2 ? "FEED" : "REELS",
+      permalink: `https://www.instagram.com/reel/C${i}xyz/`,
+      timestamp: new Date(Date.UTC(2026, 8, 30 - i)).toISOString().replace(".000Z", "+0000"),
+      like_count: 100 - i,
+      comments_count: i,
+    }));
+  const socialRoutes = (opts: { media?: number } = {}): Route[] => [
+    (c) => {
+      if (c.url.hostname !== "graph.facebook.com") return null;
+      const p = c.url.pathname.replace(/^\/v[\d.]+/, "");
+      if (p === "/me/accounts") return json({ data: [{ id: PAGE, name: "Glow Aesthetics", instagram_business_account: { id: IG, username: "glowaesthetics.sg" } }, { id: "104000000000002", name: "Side Page" }] });
+      if (p === `/${IG}/media`) return json({ data: igMedia(opts.media ?? 9) });
+      if (/^\/\d+\/insights$/.test(p)) return json({ data: [{ name: "views", values: [{ value: 1234 }] }] });
+      if (/^\/18\d+$/.test(p)) return json({ media_url: `https://scontent.cdninstagram.com/v/t50/${p.slice(1)}.mp4?oh=signed` });
+      if (p === `/${PAGE}`) return json({ access_token: "EAApagetoken1234567890abcdefghij" });
+      if (p === `/${PAGE}/videos`) return json({ data: [{ id: "900000000000001", title: "Clinic tour", description: "Walk through", permalink_url: "/glow/videos/900000000000001/", created_time: "2026-09-01T03:00:00+0000", length: 42.5 }] });
+      if (p === "/900000000000001") return json({ source: "https://video.xx.fbcdn.net/v/t42/clinic.mp4?oh=signed" });
+      return null;
+    },
+    (c) => {
+      if (c.url.hostname !== "www.googleapis.com" || !c.url.pathname.startsWith("/youtube/v3/")) return null;
+      const p = c.url.pathname.slice("/youtube/v3/".length);
+      if (p === "channels") return json({ items: [{ id: CHANNEL, snippet: { title: "Glow Aesthetics" } }] });
+      if (p === "playlistItems") {
+        assert.equal(c.url.searchParams.get("playlistId"), `UU${CHANNEL.slice(2)}`);
+        return json({ items: [{ contentDetails: { videoId: "dQw4w9WgXcQ" } }] });
+      }
+      if (p === "videos")
+        return json({ items: [{ id: "dQw4w9WgXcQ", snippet: { title: "Pico laser explained", description: "What to expect", publishedAt: "2026-09-20T02:00:00Z" }, statistics: { viewCount: "5400", likeCount: "210", commentCount: "12" }, contentDetails: { duration: "PT1M5S" } }] });
+      return null;
+    },
+  ];
+
+  test("social: Meta lists Pages with their Instagram accounts; YouTube lists channels", async () => {
+    reset(...socialRoutes());
+    const found = await live.discoverAccounts("meta", META_TOKENS.access_token, ["pages_show_list", "pages_read_engagement", "instagram_basic"]);
+    assert.deepEqual(
+      found.accounts.map((a) => `${a.kind}:${a.name}`),
+      ["facebook_page:Glow Aesthetics", "instagram_account:@glowaesthetics.sg", "facebook_page:Side Page"],
+    );
+    assert.ok(calls.every((c) => !c.url.href.includes("EAAtest")), "token in a URL");
+    const yt = await live.discoverAccounts("google", GOOGLE_TOKENS.access_token, [oauth.GOOGLE_SCOPE_YOUTUBE]);
+    assert.deepEqual(yt.accounts, [{ id: CHANNEL, kind: "youtube_channel", name: "Glow Aesthetics", currency: null }]);
+  });
+
+  test("social: Instagram keeps videos only, with views; YouTube reads the uploads playlist", async () => {
+    reset(...socialRoutes());
+    const ig = await social.fetchInstagramVideos(META_TOKENS.access_token, IG, 100);
+    assert.equal(ig.length, 6, "images are left out");
+    assert.equal(ig[0].views, 1234);
+    assert.equal(ig[0].title, "Reel 0: why hydrafacial before an event");
+    assert.equal(ig[0].url, "https://www.instagram.com/reel/C0xyz/");
+    assert.equal(ig[0].published_at, "2026-09-30T00:00:00.000Z");
+    const yt = await social.fetchYouTubeVideos(GOOGLE_TOKENS.access_token, CHANNEL, 100);
+    assert.deepEqual([yt[0].url, yt[0].views, yt[0].duration_seconds], ["https://www.youtube.com/watch?v=dQw4w9WgXcQ", 5400, 65]);
+    await assert.rejects(social.fetchInstagramVideos(META_TOKENS.access_token, "../me", 5), /isn't valid/);
+  });
+
+  test("social: TikTok lists videos with a cursor and refreshes its token", async () => {
+    const ws = mkWorkspace("growth");
+    store.saveConnection(ws.id, "tiktok", { access_token: "act.old0000000000", refresh_token: "rft.old0000000000", expires_in: 10, scopes: ["user.info.basic", "video.list"], external_user: "" });
+    let page = 0;
+    reset((c) => {
+      if (c.url.href === "https://open.tiktokapis.com/v2/oauth/token/") return json({ access_token: "act.new0000000000", refresh_token: "rft.new0000000000", expires_in: 86400, scope: "user.info.basic,video.list" });
+      if (c.url.pathname === "/v2/video/list/") {
+        assert.equal(c.method, "POST");
+        const body = JSON.parse(c.body) as { cursor?: number };
+        page++;
+        if (page === 1) assert.equal(body.cursor, undefined);
+        else assert.equal(body.cursor, 1727000000000);
+        const v = (n: number) => ({ id: `73${n}0000000000000`, title: "", video_description: `Tip ${n} #skincare`, create_time: 1727000000 - n, share_url: `https://www.tiktok.com/@glow/video/73${n}`, duration: 30, view_count: 900 + n, like_count: 50, comment_count: 3 });
+        return json({ data: page === 1 ? { videos: [v(1), v(2)], cursor: 1727000000000, has_more: true } : { videos: [v(3)], cursor: 0, has_more: false }, error: { code: "ok", message: "" } });
+      }
+      return null;
+    });
+    const token = await store.accessToken(store.getConnection(ws.id, "tiktok")!);
+    assert.equal(token, "act.new0000000000");
+    assert.equal(store.connectionTokens(store.getConnection(ws.id, "tiktok")!).refresh, "rft.new0000000000", "rotated refresh token kept");
+    const vids = await social.fetchTikTokVideos(token, 100);
+    assert.deepEqual(vids.map((v) => v.title), ["Tip 1 #skincare", "Tip 2 #skincare", "Tip 3 #skincare"]);
+    assert.equal(vids[0].published_at, new Date((1727000000 - 1) * 1000).toISOString());
+  });
+
+  test("video library: sync, drop unticked accounts, transcribe the plan's latest videos", async () => {
+    const ws = mkWorkspace("growth");
+    const m = store.saveConnection(ws.id, "meta", { ...META_TOKENS, scopes: ["ads_read", ...oauth.META_ORGANIC_SCOPES] });
+    reset(...socialRoutes({ media: 60 }));
+    store.replaceAccounts(ws.id, m.id, (await live.discoverAccounts("meta", META_TOKENS.access_token, oauth.META_ORGANIC_SCOPES)).accounts, ws.website);
+    store.setSelected(ws.id, "meta", "instagram_account", [IG]);
+    store.setSelected(ws.id, "meta", "facebook_page", [PAGE]);
+    const g = store.saveConnection(ws.id, "google", { ...GOOGLE_TOKENS, scopes: [oauth.GOOGLE_SCOPE_YOUTUBE] });
+    store.replaceAccounts(ws.id, g.id, [{ id: CHANNEL, kind: "youtube_channel", name: "Glow Aesthetics", currency: null }], ws.website);
+    assert.ok(sync.hasSocialAccounts(ws.id));
+
+    const r = await sync.syncSocialVideos(ws, { transcribe: false });
+    assert.deepEqual(r.errors, []);
+    const count = (platform?: string) =>
+      (db().prepare(`SELECT COUNT(*) AS n FROM social_videos WHERE workspace_id = ?${platform ? " AND platform = ?" : ""}`).get(...(platform ? [ws.id, platform] : [ws.id])) as { n: number }).n;
+    assert.equal(count("instagram"), 40, "60 posts, 40 of them videos");
+    assert.equal(count("facebook"), 1);
+    assert.equal(count("youtube"), 1);
+    const fresh = db().prepare("SELECT * FROM workspaces WHERE id = ?").get(ws.id) as WorkspaceRow;
+    assert.ok(fresh.videos_synced_at);
+
+    // Transcription: Growth covers the latest 20. Instagram and Facebook by link, YouTube unavailable.
+    process.env.ELEVENLABS_API_KEY = "sk_test_elevenlabs_key_value";
+    const sent: string[] = [];
+    reset(...socialRoutes({ media: 60 }), (c) => {
+      if (c.url.href !== "https://api.elevenlabs.io/v1/speech-to-text") return null;
+      assert.equal(c.headers["xi-api-key"], "sk_test_elevenlabs_key_value");
+      sent.push(c.url.href);
+      return json({ language_code: "en", text: "Hi, I'm Dr Tan and today we're talking about hydrafacial." });
+    });
+    try {
+      const t = await sync.transcribeLatest(ws);
+      assert.equal(t.done, 19, "20 latest: 19 Instagram Reels plus the YouTube video");
+      const status = db().prepare("SELECT transcript_status AS s, COUNT(*) AS n FROM social_videos WHERE workspace_id = ? GROUP BY s ORDER BY s").all(ws.id);
+      assert.deepEqual(status, [
+        { s: "done", n: 19 },
+        { s: "skipped", n: 22 },
+        { s: "unavailable", n: 1 },
+      ]);
+      const lib = latestVideos(ws.id, 1)[0];
+      assert.match(lib.transcriptExcerpt ?? "", /hydrafacial/);
+      // Pro picks up the skipped ones (21 older Reels and the Facebook video) on the next run.
+      assert.equal((await sync.transcribeLatest({ ...ws, plan: "pro" })).done, 22);
+      assert.equal(sent.length, 41);
+      assert.equal((await sync.transcribeLatest({ ...ws, plan: "starter" })).done, 0, "Starter doesn't transcribe");
+    } finally {
+      delete process.env.ELEVENLABS_API_KEY;
+    }
+
+    // Unticking Instagram drops its videos on the next sync; disconnecting Google drops YouTube's.
+    store.setSelected(ws.id, "meta", "instagram_account", []);
+    reset(...socialRoutes({ media: 60 }));
+    await sync.syncSocialVideos(ws, { transcribe: false });
+    assert.equal(count("instagram"), 0);
+    sync.dropProviderVideos(ws.id, "google");
+    assert.equal(count("youtube"), 0);
+    assert.equal(count("facebook"), 1);
+  });
+
+  test("Social Media Content prompt block: best posts and recent posts, no duplicates", () => {
+    const v = (url: string, views: number | null, t: string | null = null) => ({ platform: "instagram" as const, url, title: `Post ${url}`, caption: "", publishedAt: "2026-09-01T00:00:00Z", views, likes: 10, transcriptExcerpt: t });
+    const block = ownPostsBlock([v("a", 900, "We start with a consult"), v("b", 300)], [v("a", 900), v("c", null)]);
+    assert.match(block, /Best performing:\n- instagram, 2026-09-01, 900 views, 10 likes: Post a\n  Said: We start with a consult/);
+    assert.match(block, /Most recent:\n- instagram, 2026-09-01, 10 likes: Post c/);
+    assert.equal(block.match(/Post a/g)?.length, 1);
+    assert.equal(ownPostsBlock([], []), "");
+  });
+
+  test("transcription only downloads from Meta's video hosts", () => {
+    assert.ok(allowedMediaUrl("https://scontent.cdninstagram.com/v/x.mp4"));
+    assert.ok(allowedMediaUrl("https://video.xx.fbcdn.net/v/x.mp4"));
+    assert.ok(!allowedMediaUrl("http://scontent.cdninstagram.com/v/x.mp4"));
+    assert.ok(!allowedMediaUrl("https://169.254.169.254/latest"));
+    assert.ok(!allowedMediaUrl("https://cdninstagram.com.evil.test/x.mp4"));
   });
 
   // ---------- run ----------

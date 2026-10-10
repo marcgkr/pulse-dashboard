@@ -7,7 +7,7 @@ import { CopyButton } from "../copy-button";
 import { FeedbackBar, type ItemFeedback } from "../feedback-bar";
 import { FormError, useRunAgent } from "../run-agent";
 import type { Reference } from "@/lib/social-links";
-import { beatsFromLines, defaultShootStyle, spokenScript, type Beat, type ShootStyle } from "@/lib/script-beats";
+import { beatsFromLines, defaultShootStyle, fixBeat, spokenScript, type Beat, type ShootStyle } from "@/lib/script-beats";
 import { ReferenceCard } from "./reference-card";
 import type { ReportProps } from "./index";
 
@@ -265,7 +265,7 @@ function IdeaCard({
   const [verdict, setVerdict] = useState(initialFeedback?.verdict ?? null);
   // Older reports have one line per beat; split them the same way a live report arrives.
   const text = /text post|thread/i.test(idea.format);
-  const beats = (text ? [] : (idea.beats ?? beatsFromLines(idea.script_or_outline))).map((b, k) =>
+  const beats = (text ? [] : (idea.beats ?? beatsFromLines(idea.script_or_outline))).map(fixBeat).map((b, k) =>
     // "Say the hook" in the first beat: put the hook's words where they're said.
     k === 0 && !b.say && /\bhook\b/i.test(b.shot) ? { ...b, say: idea.hook } : b,
   );

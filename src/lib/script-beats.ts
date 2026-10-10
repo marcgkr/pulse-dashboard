@@ -74,7 +74,26 @@ export function beatFromLine(line: string): Beat {
 }
 
 export function beatsFromLines(lines: string[]): Beat[] {
-  return lines.map((l) => l.trim()).filter(Boolean).map(beatFromLine);
+  return lines.map((l) => l.trim()).filter(Boolean).map(beatFromLine).map(fixBeat);
+}
+
+// A quoted line of three or more words inside the filming direction, e.g. Point to the left. 'SEO: people search...'
+// The opening quote must start a word, so apostrophes in "owner's" or "doesn't" don't count.
+const SPOKEN_IN_SHOT = /(^|[\s:(])["“']([^"”]*?\S\s+\S+\s+\S[^"”]*?)["”'](?=[\s.,;)]|$)/;
+
+/**
+ * Moves spoken words the model (or an older report) left inside the filming direction into the Say
+ * column, so a video beat never shows its script as part of the shot.
+ */
+export function fixBeat(b: Beat): Beat {
+  if (b.say || !/\d+s$|^$/.test(b.time)) return b;
+  const m = SPOKEN_IN_SHOT.exec(b.shot);
+  if (!m) return b;
+  const say = m[2].trim();
+  // Text the shot itself says is on screen stays where it is.
+  if (b.on_screen && b.on_screen === say) return b;
+  const shot = tidy((b.shot.slice(0, m.index) + m[1] + b.shot.slice(m.index + m[0].length)).replace(/\s{2,}/g, " "));
+  return { ...b, shot: shot || "Talk to camera", say };
 }
 
 /** Every spoken line, in order, for "Copy script". */

@@ -5,7 +5,18 @@
 import { db, id, now, type ConnectionAccountRow, type ConnectionRow } from "../db";
 import { decrypt, encrypt } from "../crypto";
 import { ConnectorError, type DiscoveredAccount } from "./http";
-import { providerSetup, refreshGoogle, googleAdsEnabled, GOOGLE_SCOPE_ADS, GOOGLE_SCOPE_GSC, type Provider, type TokenSet } from "./oauth";
+import {
+  providerSetup,
+  refreshGoogle,
+  refreshTikTok,
+  googleAdsEnabled,
+  GOOGLE_SCOPE_ADS,
+  GOOGLE_SCOPE_GSC,
+  GOOGLE_SCOPE_YOUTUBE,
+  PROVIDERS,
+  type Provider,
+  type TokenSet,
+} from "./oauth";
 
 export type AccountKind = ConnectionAccountRow["kind"];
 
@@ -66,6 +77,22 @@ export async function accessToken(c: ConnectionRow): Promise<string> {
     return t.access;
   }
   if (t.access && fresh) return t.access;
+  if (c.provider === "tiktok") {
+    if (!t.refresh) throw new ConnectorError("TikTok access has expired. Reconnect TikTok in Settings > Connected accounts.", "auth");
+    const r = await refreshTikTok(t.refresh);
+    // TikTok may rotate the refresh token; keep the newest one.
+    db()
+      .prepare("UPDATE connections SET access_token_enc = ?, refresh_token_enc = ?, expires_at = ?, updated_at = ? WHERE id = ? AND workspace_id = ?")
+      .run(
+        encrypt(r.access_token, aad(c.workspace_id, "tiktok", "access")),
+        r.refresh_token ? encrypt(r.refresh_token, aad(c.workspace_id, "tiktok", "refresh")) : c.refresh_token_enc,
+        r.expires_in ? new Date(Date.now() + r.expires_in * 1000).toISOString() : null,
+        now(),
+        c.id,
+        c.workspace_id,
+      );
+    return r.access_token;
+  }
   if (!t.refresh) throw new ConnectorError("Google access has expired. Reconnect Google in Settings > Connected accounts.", "auth");
   const r = await refreshGoogle(t.refresh);
   db()
@@ -172,9 +199,34 @@ export type ClientConnection = {
   accounts: ClientAccount[];
 };
 
+/** The account kinds a provider's login can give us. */
+export const PROVIDER_KINDS: Record<Provider, AccountKind[]> = {
+  google: ["google_ads", "search_console", "youtube_channel"],
+  meta: ["meta_ads", "facebook_page", "instagram_account"],
+  tiktok: ["tiktok_account"],
+};
+
+/** Which kinds the person actually granted (people can untick permissions on Google and Meta). */
+export function grantedKinds(p: Provider, scopeList: string | null | undefined): AccountKind[] {
+  const scopes = new Set((scopeList ?? "").split(/[\s,]+/).filter(Boolean));
+  const out: AccountKind[] = [];
+  if (p === "google") {
+    if (scopes.has(GOOGLE_SCOPE_ADS)) out.push("google_ads");
+    if (scopes.has(GOOGLE_SCOPE_GSC)) out.push("search_console");
+    if (scopes.has(GOOGLE_SCOPE_YOUTUBE)) out.push("youtube_channel");
+  } else if (p === "meta") {
+    if (scopes.has("ads_read")) out.push("meta_ads");
+    if (scopes.has("pages_show_list") && scopes.has("pages_read_engagement")) out.push("facebook_page");
+    if (scopes.has("instagram_basic")) out.push("instagram_account");
+  } else if (scopes.has("video.list")) {
+    out.push("tiktok_account");
+  }
+  return out;
+}
+
 /** Connection status for the settings page and forms. Never includes tokens. */
 export function clientConnections(wsId: string): ClientConnection[] {
-  return (["google", "meta"] as const).map((p) => {
+  return PROVIDERS.map((p) => {
     const c = getConnection(wsId, p);
     const accounts = c
       ? (db().prepare("SELECT * FROM connection_accounts WHERE connection_id = ? ORDER BY kind, name").all(c.id) as ConnectionAccountRow[]).map((a) => ({
@@ -185,11 +237,9 @@ export function clientConnections(wsId: string): ClientConnection[] {
           selected: !!a.selected,
         }))
       : [];
-    const scopes = (c?.scopes ?? "").split(/\s+/);
-    const granted: AccountKind[] =
-      p === "meta" ? (c && scopes.includes("ads_read") ? ["meta_ads"] : []) : [...(scopes.includes(GOOGLE_SCOPE_ADS) ? ["google_ads" as const] : []), ...(scopes.includes(GOOGLE_SCOPE_GSC) ? ["search_console" as const] : [])];
+    const granted = c ? grantedKinds(p, c.scopes) : [];
     const expired = c?.provider === "meta" && c.expires_at ? new Date(c.expires_at).getTime() < Date.now() : false;
-    const noRefresh = c?.provider === "google" && !c.refresh_token_enc;
+    const noRefresh = (c?.provider === "google" || c?.provider === "tiktok") && !c.refresh_token_enc;
     return {
       provider: p,
       ready: providerSetup(p).ready,

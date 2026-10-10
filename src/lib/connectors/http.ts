@@ -2,6 +2,7 @@
 // error scrubbing. Nothing here logs; callers decide what to log and must never log tokens.
 
 import type { AdRow } from "../agents/ads-data";
+import type { AccountKindName } from "../db";
 
 export type ConnectorErrorCode = "auth" | "rate_limit" | "permission" | "not_approved" | "too_much_data" | "timeout" | "api" | "config";
 
@@ -19,7 +20,7 @@ export class ConnectorError extends Error {
 /** One account found on a connected login. */
 export type DiscoveredAccount = {
   id: string;
-  kind: "google_ads" | "meta_ads" | "search_console";
+  kind: AccountKindName;
   name: string;
   currency: string | null;
   /** Google Ads manager account to send as login-customer-id, when the account is reached through one. */

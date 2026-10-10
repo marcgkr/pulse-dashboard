@@ -3,7 +3,8 @@ import { requireWorkspace } from "@/lib/auth";
 import { LIVE_SYNC_PLANS, type PlanId } from "@/lib/config";
 import { clientConnections } from "@/lib/connectors/store";
 import { marketFor } from "@/lib/markets";
-import { ConnectionCard } from "@/components/connections";
+import { ConnectionCard, VideoLibraryCard } from "@/components/connections";
+import { hasSocialAccounts, libraryStatus } from "@/lib/social-sync";
 import { PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Connected accounts" };
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 type Search = { connected?: string; error?: string; warn?: string; provider?: string };
 
 function flash(sp: Search): { tone: "good" | "bad"; text: string } | null {
-  const who = sp.provider === "meta" ? "Meta" : sp.provider === "google" ? "Google" : "That account";
+  const who = sp.provider === "meta" ? "Meta" : sp.provider === "google" ? "Google" : sp.provider === "tiktok" ? "TikTok" : "That account";
   if (sp.error === "denied") return { tone: "bad", text: `You cancelled the ${who} connection. Nothing was saved.` };
   if (sp.error === "state") return { tone: "bad", text: "That sign-in link expired or was opened in a different browser. Click Connect again." };
   if (sp.error === "exchange") return { tone: "bad", text: `${who} didn't let us finish connecting. Try again in a minute.` };
@@ -40,8 +41,8 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
   return (
     <div className="space-y-8">
       <PageHeader eyebrow="Settings" title="Connected accounts">
-        Connect Google and Meta once, and Ads Doctor and Keyword Lab read your latest numbers themselves. We read ad performance and search performance, read-only; we
-        never change your ads. You can disconnect any time.
+        Connect once and the specialists read your latest numbers themselves: Ads Doctor your campaigns, Keyword Lab your Search Console searches, and Social Media
+        Content your own Instagram, Facebook, YouTube and TikTok posts. Read-only: we never change your ads or post anything. You can disconnect any time.
       </PageHeader>
 
       {msg && (
@@ -62,17 +63,21 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
           </Link>
         </div>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-2">
-          {conns.map((c) => (
-            <ConnectionCard key={c.provider} c={c} lastSync={when(c.lastSyncAt)} livePlan={livePlan} />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-5 lg:grid-cols-2">
+            {conns.map((c) => (
+              <ConnectionCard key={c.provider} c={c} lastSync={when(c.lastSyncAt)} livePlan={livePlan} />
+            ))}
+          </div>
+          <VideoLibraryCard lib={libraryStatus(ws)} syncedAt={when(ws.videos_synced_at ?? null)} hasAccounts={hasSocialAccounts(ws.id)} />
+        </>
       )}
 
       <div className="max-w-2xl space-y-2 text-sm text-ink-2">
         <p>
-          <span className="font-semibold text-ink">What we read:</span> campaign, ad set, ad, keyword and search term performance from the ad accounts you tick, and the
-          searches your website shows up for from the Search Console property you pick. Nothing else.
+          <span className="font-semibold text-ink">What we read:</span> campaign, ad set, ad, keyword and search term performance from the ad accounts you tick, the
+          searches your website shows up for from the Search Console property you pick, and your own videos with their captions, views and likes from the social
+          accounts you tick. Nothing else.
         </p>
         <p>
           <span className="font-semibold text-ink">What we never do:</span> change budgets, pause ads, post or edit anything. You make every change yourself.

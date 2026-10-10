@@ -22,7 +22,9 @@ import {
 import { marketFor, type Market } from "../markets";
 import { searchCountryFor } from "./keywords-demo";
 import { parseSocialLink, type Reference } from "../social-links";
-import { beatsFromLines } from "../script-beats";
+import { beatsFromLines, fixBeat } from "../script-beats";
+import { refreshVideosIfStale } from "../social-sync";
+import { latestVideos, topVideos, type LibraryVideo } from "../videos";
 
 type Input = ContentInput;
 
@@ -72,8 +74,12 @@ const ContentAI = z.object({
         .array(
           z.object({
             time: z.string().describe("Video: timing like '0-2s'. Carousel: 'Slide 1'. Story: 'Frame 1'."),
-            shot: z.string().describe("Exactly what to film or show: framing, action, location, b-roll. Empty string if nothing new is shown."),
-            say: z.string().describe("The exact words spoken in this beat, word for word, in the caption language. Empty string if nothing is said."),
+            shot: z.string().describe("Exactly what to film or show: framing, action, location, b-roll. Directions only: never put spoken words here. Empty string if nothing new is shown."),
+            say: z
+              .string()
+              .describe(
+                "The exact words spoken (or voiced over) in this beat, word for word, in the caption language, about 2.5 words per second of the beat. Video beats always have words here unless the beat is a deliberate silent shot. Empty string for carousel slides.",
+              ),
             on_screen: z.string().describe("The exact text on screen or on the slide. Empty string if none."),
           }),
         )
@@ -128,6 +134,22 @@ const SHELF = ["this week", "this month", "evergreen"] as const;
  * platform and appear in the search results or notes. Views and dates are dropped unless the
  * same figure appears in the notes, so the report never shows a number the model made up.
  */
+/** The owner's own posts from their connected accounts, best performers first, for the prompts. */
+export function ownPostsBlock(top: LibraryVideo[], latest: LibraryVideo[]): string {
+  const seen = new Set<string>();
+  const line = (v: LibraryVideo) => {
+    const stats = [v.views != null ? `${v.views} views` : "", v.likes != null ? `${v.likes} likes` : ""].filter(Boolean).join(", ");
+    const text = (v.title || v.caption).replace(/\s+/g, " ").slice(0, 160);
+    const said = v.transcriptExcerpt ? `\n  Said: ${v.transcriptExcerpt.replace(/\s+/g, " ").slice(0, 300)}` : "";
+    return `- ${v.platform}, ${v.publishedAt ? v.publishedAt.slice(0, 10) : "date not shown"}${stats ? `, ${stats}` : ""}: ${text}${said}`;
+  };
+  const pick = (list: LibraryVideo[]) => list.filter((v) => !seen.has(v.url) && seen.add(v.url)).map(line);
+  const best = pick(top.filter((v) => v.views != null || v.likes != null));
+  const recent = pick(latest);
+  if (!best.length && !recent.length) return "";
+  return [best.length ? `Best performing:\n${best.join("\n")}` : "", recent.length ? `Most recent:\n${recent.join("\n")}` : ""].filter(Boolean).join("\n\n");
+}
+
 export function cleanReferences(refs: z.infer<typeof RefAI>[], research: { notes: string; urls: Set<string> }, max: number): Reference[] {
   const notes = research.notes.toLowerCase();
   // The figure itself, without thousands separators: "7,860,584 views" -> "7860584", "1.2M views" -> "1.2m".
@@ -189,7 +211,7 @@ function normaliseResult(ai: z.infer<typeof ContentAI>, input: Input, regulated:
       hook: i.hook.trim(),
       script_or_outline: i.script_or_outline.map((s) => s.trim()).filter(Boolean),
       beats: (i.beats.length ? i.beats : beatsFromLines(i.script_or_outline))
-        .map((b) => ({ time: b.time.trim().slice(0, 30), shot: b.shot.trim(), say: b.say.trim(), on_screen: b.on_screen.trim() }))
+        .map((b) => fixBeat({ time: b.time.trim().slice(0, 30), shot: b.shot.trim(), say: b.say.trim(), on_screen: b.on_screen.trim() }))
         .filter((b) => b.shot || b.say || b.on_screen)
         .slice(0, 12),
       shoot_style: i.shoot_style,
@@ -265,6 +287,10 @@ export const contentAgent: AgentDef<Input> = {
     const chat = m.messaging === "SMS" ? "booking or call link" : `${m.messaging} link`;
     const count = input.more_like ? Math.min(input.count, 6) : input.count;
 
+    // The owner's own posts from connected accounts: what already works for them, and what they posted lately.
+    await refreshVideosIfStale(ws);
+    const ownPosts = ownPostsBlock(topVideos(ws.id, 8), latestVideos(ws.id, 6));
+
     let notes = "";
     let sources: { title: string; url: string }[] = [];
     if (input.trends) {
@@ -280,7 +306,7 @@ ${businessContext(ws)}
 NICHE / TOPIC FOCUS: ${input.niche}
 PLATFORMS: ${input.platforms.join(", ")}
 LOCATION: ${location}
-
+${ownPosts ? `\nTHE OWNER'S OWN POSTS (from their connected accounts)\n${ownPosts}\nUse these to judge which topics and formats suit this account, and look for current trends that fit them.\n` : ""}
 Research what is working on these platforms right now (${season.label}) for this niche in ${location}:
 1. Trending formats and content styles in this niche (e.g. POV videos, green-screen replies, photo carousels, "day in the life", Xiaohongshu note styles).
 2. Trending sounds, memes or templates that a ${ws.industry || "small"} business could use, and roughly how long they have been going.
@@ -311,7 +337,8 @@ Write bullet-point notes under 1,200 words. For each point say which platform an
 How you write:
 - Every idea must be specific to this business, its offers and its customers. No filler ideas like "share a motivational quote" or "post a holiday greeting".
 - Hooks: the exact words for the first 2 seconds (video) or first line (post). Make them stop the scroll: a specific problem, a myth, a question customers ask, a surprising angle.
-- Scripts: for video and carousels, write beats: for each beat the timing (or slide number), exactly what to film or show, the exact words to say (word for word, ready to read out) and the exact on-screen text. The spoken lines together must read as a complete script from the hook to the call to action. Text posts use script_or_outline paragraph by paragraph. Keep videos under 45 seconds unless the format needs more.
+- Scripts: for video and carousels, write beats: for each beat the timing (or slide number), exactly what to film or show, the exact words to say (word for word, ready to read out) and the exact on-screen text. Text posts use script_or_outline paragraph by paragraph. Keep videos under 45 seconds unless the format needs more.
+- Video scripts are full scripts, not sketches. Put every spoken word in "say", never in "shot". Write about 2.5 spoken words per second: a 30-second talking video has roughly 70-80 words, a 45-second one roughly 100-110. At most one beat may be a silent shot (b-roll or a reveal), and only when the format calls for it. The "say" lines read in order must work as a complete script someone can read aloud from the hook to the call to action, with the specific detail (the steps, the reasons, the answer to the question) rather than a summary of it. A text-and-music video with no talking is fine when the format calls for it: then put the full wording in on_screen instead.
 - Shoot style: the format and length, where to film for this business, camera set-up and framing, who appears, sound, and editing style.
 - Captions: native to the platform. TikTok and Reels short, LinkedIn longer and story-led with line breaks, Xiaohongshu as a note with a title line and practical detail, Facebook conversational. Write in the owner's language mix. Keep emojis to a minimum. Never put hashtags inside the caption.
 - Hashtags: 8-15 per idea (3-5 for LinkedIn, none for Stories), mixing ${m.code === "SG" ? "Singapore/local" : "local (city, area or country)"} tags with niche tags. No banned, spammy or overly broad tags (#fyp, #foryou, #viral, #followforfollow, #like4like, #instagood).
@@ -355,7 +382,15 @@ CALENDAR MOMENTS (this month and next, ${location})
 ${season.moments.map((m) => `- ${m}`).join("\n")}
 Only use a moment if it fits the niche. Do not state a date for a lunar or gazetted holiday unless the research notes confirm it.
 
-${notes ? `TREND RESEARCH NOTES (from web search)\n${notes}` : "TREND RESEARCH: none for this run. Return an empty trends array."}
+${
+  ownPosts
+    ? `THE OWNER'S OWN POSTS (from their connected accounts; numbers are exactly as the platforms report them)
+${ownPosts}
+Build on what already works for them: reuse the topics, hooks and formats of their best posts with a fresh angle, follow up on questions their recent posts raise, and don't repeat a recent post's topic as is. Don't quote these numbers as results.
+
+`
+    : ""
+}${notes ? `TREND RESEARCH NOTES (from web search)\n${notes}` : "TREND RESEARCH: none for this run. Return an empty trends array."}
 
 ${
   input.more_like
