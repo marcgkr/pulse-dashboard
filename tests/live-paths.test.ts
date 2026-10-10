@@ -405,6 +405,38 @@ async function main() {
     fail("autopilot", e);
   }
 
+  // Promo codes: limits, one use per account, expiry, and the plan they lift.
+  console.log("\npromo codes");
+  try {
+    const { redeemPromo, effectivePlan, checkPromo } = await import("../src/lib/promos");
+    const mkWs = () => {
+      const uid = id("u_");
+      db().prepare("INSERT INTO users (id, email, name, password_hash, created_at) VALUES (?, ?, 'P', 'x', ?)").run(uid, `${uid}@example.com`, now());
+      const wid = id("w_");
+      db().prepare("INSERT INTO workspaces (id, owner_id, name, plan, created_at) VALUES (?, ?, 'Promo test', 'free', ?)").run(wid, uid, now());
+      return db().prepare("SELECT * FROM workspaces WHERE id = ?").get(wid) as import("../src/lib/db").WorkspaceRow;
+    };
+    db().prepare("INSERT INTO promo_codes (code, plan, days, max_uses, uses, redeem_by, note, active, created_at) VALUES ('TEST-TWO', 'pro', 30, 2, 0, NULL, '', 1, ?)").run(now());
+    db().prepare("INSERT INTO promo_codes (code, plan, days, max_uses, uses, redeem_by, note, active, created_at) VALUES ('TEST-OLD', 'pro', 30, NULL, 0, '2020-01-01T00:00:00.000Z', '', 1, ?)").run(now());
+    const [w1, w2, w3] = [mkWs(), mkWs(), mkWs()];
+    const r1 = redeemPromo(w1, " test-two ", "a@example.com");
+    assert.equal(r1.plan, "pro");
+    assert.ok(r1.until && Math.abs(Date.parse(r1.until) - Date.now() - 30 * 86400000) < 60000, "30 days");
+    assert.throws(() => redeemPromo(w1, "TEST-TWO", "a@example.com"), /already used/);
+    redeemPromo(w2, "TEST-TWO", "b@example.com");
+    assert.throws(() => redeemPromo(w3, "TEST-TWO", "c@example.com"), /used up/);
+    assert.throws(() => checkPromo("TEST-OLD"), /expired/);
+    assert.throws(() => checkPromo("NOPE-NOPE"), /isn't valid/);
+    const after = db().prepare("SELECT * FROM workspaces WHERE id = ?").get(w1.id) as import("../src/lib/db").WorkspaceRow;
+    assert.equal(effectivePlan(after), "pro");
+    assert.equal(effectivePlan({ ...after, promo_until: "2020-01-01T00:00:00.000Z" }), "free", "expired promo still applies");
+    assert.equal(effectivePlan({ ...after, plan: "pro", promo_plan: "starter" }), "pro", "promo lowered a paid plan");
+    assert.equal((db().prepare("SELECT uses FROM promo_codes WHERE code = 'TEST-TWO'").get() as { uses: number }).uses, 2);
+    pass("limits, one use per account, expiry, and the higher plan wins");
+  } catch (e) {
+    fail("promo codes", e);
+  }
+
   console.log("\nstructured() edge cases");
   const Tiny = z.object({ answer: z.string(), items: z.array(z.string()) });
   try {

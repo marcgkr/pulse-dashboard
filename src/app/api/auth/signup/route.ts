@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { createSession, createUser, PASSWORD_MAX } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { clientIp, errorResponse, rateLimit, readJson } from "@/lib/http";
+import { envInt } from "@/lib/load-guard";
 
 export async function POST(req: Request) {
   try {
-    if (!rateLimit(`signup:${clientIp(req)}`, 5, 60 * 60 * 1000)) {
+    if (!rateLimit(`signup:${clientIp(req)}`, envInt("SIGNUPS_PER_IP_PER_HOUR", 5), 60 * 60 * 1000)) {
       return NextResponse.json({ error: "Too many sign-ups from this network. Try again in an hour." }, { status: 429 });
     }
     const body = await readJson<{ email?: unknown; name?: unknown; password?: unknown }>(req);

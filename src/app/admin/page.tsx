@@ -7,11 +7,15 @@ import { aiEnabled, MODEL } from "@/lib/ai";
 import { Logo } from "@/components/brand";
 import { Card, Label, PageHeader } from "@/components/ui";
 import { AdminPlanSelect } from "@/components/admin-plan-select";
+import { AdminPromos, type AdminPromo } from "@/components/admin-promos";
+import type { PromoRow } from "@/lib/db";
+import { planById } from "@/lib/config";
+import { promoActive } from "@/lib/promos";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin" };
 
-type Row = { id: string; name: string; website: string; industry: string; country: string; plan: string; created_at: string; email: string; owner: string; runs: number; runs_month: number; done: number; open: number; last_run: string | null };
+type Row = { id: string; name: string; website: string; industry: string; country: string; plan: string; promo_plan: string | null; promo_until: string | null; promo_code: string | null; created_at: string; email: string; owner: string; runs: number; runs_month: number; done: number; open: number; last_run: string | null };
 
 export default async function AdminPage() {
   const user = await currentUser();
@@ -21,7 +25,7 @@ export default async function AdminPage() {
   month.setUTCHours(0, 0, 0, 0);
   const rows = db()
     .prepare(
-      `SELECT w.id, w.name, w.website, w.industry, w.country, w.plan, w.created_at, u.email, u.name AS owner,
+      `SELECT w.id, w.name, w.website, w.industry, w.country, w.plan, w.promo_plan, w.promo_until, w.promo_code, w.created_at, u.email, u.name AS owner,
         (SELECT COUNT(*) FROM runs r WHERE r.workspace_id = w.id) AS runs,
         (SELECT COUNT(*) FROM runs r WHERE r.workspace_id = w.id AND r.created_at >= ?) AS runs_month,
         (SELECT COUNT(*) FROM tasks t WHERE t.workspace_id = w.id AND t.status = 'done') AS done,
@@ -50,6 +54,34 @@ export default async function AdminPage() {
   const leadTotals = db()
     .prepare("SELECT COUNT(*) AS n, SUM(EXISTS(SELECT 1 FROM users u WHERE u.email = l.email)) AS converted FROM leads l")
     .get() as { n: number; converted: number | null };
+  const redemptions = db()
+    .prepare(
+      `SELECT r.code, r.workspace_id, r.email, r.until, r.redeemed_at, w.name AS business, w.promo_code, w.promo_until
+       FROM promo_redemptions r JOIN workspaces w ON w.id = r.workspace_id ORDER BY r.redeemed_at DESC`,
+    )
+    .all() as { code: string; workspace_id: string; email: string; until: string | null; redeemed_at: string; business: string; promo_code: string | null; promo_until: string | null }[];
+  const promos: AdminPromo[] = (db().prepare("SELECT * FROM promo_codes ORDER BY created_at DESC").all() as PromoRow[]).map((p) => ({
+    code: p.code,
+    plan: p.plan,
+    planName: planById(p.plan).name,
+    days: p.days,
+    max_uses: p.max_uses,
+    uses: p.uses,
+    redeem_by: p.redeem_by,
+    note: p.note,
+    active: p.active === 1,
+    redemptions: redemptions
+      .filter((r) => r.code === p.code)
+      .map((r) => ({
+        workspaceId: r.workspace_id,
+        business: r.business,
+        email: r.email,
+        until: r.until,
+        redeemedAt: r.redeemed_at,
+        // Still running on this code (a later code would have replaced it).
+        live: r.promo_code === p.code && (!r.promo_until || Date.parse(r.promo_until) > Date.now()),
+      })),
+  }));
   const byAgent = db().prepare("SELECT agent, COUNT(*) n FROM runs WHERE created_at >= ? GROUP BY agent ORDER BY n DESC").all(month.toISOString()) as { agent: string; n: number }[];
 
   return (
@@ -115,6 +147,10 @@ export default async function AdminPage() {
           </table>
         )}
       </Card>
+      <Label className="mb-2">Promo codes</Label>
+      <div id="promos" className="mb-10">
+        <AdminPromos promos={promos} />
+      </div>
       <Label className="mb-2">Businesses</Label>
       <Card className="overflow-x-auto">
         <table className="w-full text-left text-sm">
@@ -139,7 +175,14 @@ export default async function AdminPage() {
                   <div>{r.owner}</div>
                   <a className="text-xs text-scrub" href={`mailto:${r.email}`}>{r.email}</a>
                 </td>
-                <td className="px-3 py-2"><AdminPlanSelect workspaceId={r.id} plan={r.plan} /></td>
+                <td className="px-3 py-2">
+                  <AdminPlanSelect workspaceId={r.id} plan={r.plan} />
+                  {promoActive(r) && (
+                    <div className="mt-1 text-xs text-scrub-dark">
+                      {planById(r.promo_plan!).name} free {r.promo_until ? `until ${r.promo_until.slice(0, 10)}` : "until ended"} ({r.promo_code})
+                    </div>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-right font-mono tabular-nums">{r.runs} ({r.runs_month})</td>
                 <td className="px-3 py-2 text-right font-mono tabular-nums">{r.done} / {r.open}</td>
                 <td className="px-3 py-2 font-mono text-xs">{r.last_run ? r.last_run.slice(0, 10) : "never"}</td>

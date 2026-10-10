@@ -131,3 +131,50 @@ export function AutopilotToggle({ on, businessName }: { on: boolean; businessNam
     </div>
   );
 }
+
+/** Settings > Plan: enter a promo code. */
+export function PromoRedeem() {
+  const router = useRouter();
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function redeem(e: React.FormEvent) {
+    e.preventDefault();
+    if (!code.trim()) return;
+    setBusy(true);
+    setMsg(null);
+    const res = await fetch("/api/promo/redeem", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+    const data = (await res.json().catch(() => ({}))) as { plan?: string; until?: string | null; error?: string };
+    setBusy(false);
+    if (!res.ok) return setMsg({ ok: false, text: data.error || "That code didn't work." });
+    const until = data.until ? ` until ${new Date(data.until).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}` : "";
+    setMsg({ ok: true, text: `Done. You're on ${data.plan}${until}.` });
+    setCode("");
+    router.refresh();
+  }
+
+  return (
+    <form onSubmit={redeem} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+      <label className="block flex-1">
+        <span className="mb-1.5 block text-sm font-semibold">Have a promo code?</span>
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          maxLength={32}
+          autoComplete="off"
+          spellCheck={false}
+          className="w-full rounded-xl border border-line bg-card px-3 py-2.5 font-mono text-[15px] uppercase tracking-wide outline-none focus:border-scrub"
+        />
+      </label>
+      <button type="submit" disabled={busy || !code.trim()} className="rounded-full bg-scrub px-5 py-2.5 text-sm font-semibold text-white hover:bg-scrub-dark disabled:opacity-50">
+        {busy ? "Checking..." : "Apply code"}
+      </button>
+      {msg && (
+        <p role="status" className={cx("text-sm sm:pb-3", msg.ok ? "text-good" : "text-pulse")}>
+          {msg.text}
+        </p>
+      )}
+    </form>
+  );
+}

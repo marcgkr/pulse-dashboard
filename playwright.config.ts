@@ -21,6 +21,8 @@ export default defineConfig({
         DATABASE_PATH: "data/e2e.db",
         PULSERX_ALLOW_PRIVATE: "1",
         ADMIN_SETUP_TOKEN: "e2e-setup-token-1234567890",
+        // Every test signs up from the same address.
+        SIGNUPS_PER_IP_PER_HOUR: "50",
         ANTHROPIC_API_KEY: "",
         NO_PROXY: "*",
       },

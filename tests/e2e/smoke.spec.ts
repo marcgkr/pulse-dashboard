@@ -168,3 +168,49 @@ test("Pro accounts can add, switch between and remove businesses", async ({ page
   await list.getByRole("button", { name: "Remove" }).click();
   await expect(list.getByText("Outlet Two")).toHaveCount(0);
 });
+
+test("admin creates a promo code and a friend signs up with it", async ({ page, browser }) => {
+  // The owner from the first test claimed admin there.
+  expect((await page.request.post("/api/auth/login", { data: { email, password: "correct-horse-1" } })).ok()).toBeTruthy();
+
+  await page.goto("/admin#promos");
+  const promos = page.locator("#promos");
+  await promos.getByLabel("Code").fill("friends30");
+  await promos.getByLabel("How many people can use it").fill("1");
+  await promos.getByLabel("Note (only you see it)").fill("Testers");
+  await promos.getByRole("button", { name: "Create code" }).click();
+  await expect(promos.getByText("Created FRIENDS30")).toBeVisible();
+  await expect(promos.getByText("Pro free for 30 days · used 0 of 1")).toBeVisible();
+
+  // A friend opens the signup link.
+  const friend = await browser.newContext({ baseURL: "http://127.0.0.1:3100" });
+  const fp = await friend.newPage();
+  await fp.goto("/signup?code=FRIENDS30");
+  await expect(fp.getByRole("heading", { name: "You've been invited to try MarketingRx" })).toBeVisible();
+  await expect(fp.getByLabel("Promo code")).toHaveValue("FRIENDS30");
+  await fp.getByLabel("Your name").fill("Friend");
+  await fp.getByLabel("Email").fill("friend@example.com");
+  await fp.getByLabel("Password").fill("friend-pass-123");
+  await fp.getByRole("button", { name: "Create account" }).click();
+  await expect(fp.getByText("Code FRIENDS30 gives you Pro free for 30 days")).toBeVisible();
+  await fp.getByLabel("Business name").fill("Friend Cafe");
+  await fp.getByLabel("Industry").selectOption({ index: 1 });
+  await fp.getByRole("button", { name: "Save and open my dashboard" }).click();
+  await expect(fp).toHaveURL(/\/app/);
+  await fp.goto("/app/settings#plan");
+  await expect(fp.getByText(/You're on Pro free with code FRIENDS30 until/)).toBeVisible();
+  // Pro features are open: the business list and autopilot appear.
+  await expect(fp.locator("#businesses")).toBeVisible();
+
+  // The code was for one person only.
+  const late = await friend.request.post("/api/promo/check", { data: { code: "FRIENDS30" } });
+  expect(late.status()).toBe(400);
+  await friend.close();
+
+  await page.reload();
+  await expect(promos.getByText("used 1 of 1")).toBeVisible();
+  await expect(promos.getByText("friend@example.com")).toBeVisible();
+  page.once("dialog", (d) => d.accept());
+  await promos.getByRole("button", { name: "End access now" }).click();
+  await expect(promos.getByText(/ended/)).toBeVisible();
+});

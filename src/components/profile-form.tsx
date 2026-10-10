@@ -19,6 +19,8 @@ export type Profile = {
   monthly_budget?: string;
   tone?: string;
   regulated?: boolean;
+  /** Promo code carried from the signup link. Not shown; used once when the first business is saved. */
+  promo?: string;
 };
 
 const INDUSTRIES = [

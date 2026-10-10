@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentUser, ownedWorkspaces, workspaceFor } from "@/lib/auth";
 import { planById } from "@/lib/config";
+import { PromoError, redeemPromo } from "@/lib/promos";
 import { db, id, now } from "@/lib/db";
 import { errorResponse, readJson } from "@/lib/http";
 import { MARKETS } from "@/lib/markets";
@@ -62,6 +63,16 @@ export async function POST(req: Request) {
     )
     .run(row);
   if (owned.length > 0) db().prepare("UPDATE users SET current_workspace_id = ? WHERE id = ?").run(row.id, user.id);
+  // A promo code from the signup link applies to the account before the first checkup starts.
+  let promoError: string | null = null;
+  if (owned.length === 0 && typeof body.promo === "string" && body.promo.trim()) {
+    try {
+      redeemPromo(db().prepare("SELECT * FROM workspaces WHERE id = ?").get(row.id) as WorkspaceRow, body.promo, user.email);
+    } catch (e) {
+      if (!(e instanceof PromoError)) throw e;
+      promoError = e.message;
+    }
+  }
   // Time to first value: start the first Site Doctor checkup straight away so the owner lands on a working report.
   let firstRunId: string | null = null;
   if (row.website) {
@@ -73,7 +84,7 @@ export async function POST(req: Request) {
       console.warn("[onboarding] first checkup not started:", (e as Error).message);
     }
   }
-  return NextResponse.json({ ok: true, id: row.id, firstRunId });
+  return NextResponse.json({ ok: true, id: row.id, firstRunId, promoError });
 }
 
 export async function PATCH(req: Request) {

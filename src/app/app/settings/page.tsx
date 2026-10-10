@@ -10,7 +10,9 @@ import { clientConnections } from "@/lib/connectors/store";
 import { feedbackForWorkspace } from "@/lib/memory";
 import { getAgent } from "@/lib/agents";
 import { MemoryList } from "@/components/memory-list";
-import { AutopilotToggle, BusinessList } from "@/components/settings-pro";
+import { AutopilotToggle, BusinessList, PromoRedeem } from "@/components/settings-pro";
+import { promoActive } from "@/lib/promos";
+import { planById } from "@/lib/config";
 
 export const metadata = { title: "Settings" };
 
@@ -113,6 +115,15 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <Label className="mb-2">Plan</Label>
         {sp.upgraded && <p className="mb-3 rounded-md border border-scrub/30 bg-mint px-3 py-2 text-sm text-scrub-dark">Payment received. Your plan updates within a minute.</p>}
         <Card className="p-5 md:p-6">
+          {promoActive(ws) && ws.plan !== ws.paid_plan && (
+            <p className="mb-4 rounded-2xl bg-mint px-4 py-3 text-[15px] text-scrub-dark">
+              You&apos;re on <strong>{u.plan.name}</strong> free with code <strong>{ws.promo_code}</strong>
+              {ws.promo_until
+                ? ` until ${new Date(ws.promo_until).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: market.timeZone })}`
+                : ""}
+              . {ws.promo_until ? `After that you go back to ${planById(ws.paid_plan).name}.` : ""}
+            </p>
+          )}
           <p className="text-sm text-ink-2">
             Prices in {market.currency}. You&apos;re on <strong>{u.plan.name}</strong>. {u.used} of {u.limit} reports used this month{u.plan.businesses > 1 ? ", across all your businesses" : ""} (sample reports in demo mode don&apos;t count).
           </p>
@@ -136,7 +147,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             ))}
           </div>
           <div className="mt-5">
-            <PlanButtons current={ws.plan} stripe={stripeEnabled()} hasCustomer={!!ws.stripe_customer_id} hasSubscription={!!ws.stripe_subscription_id} contact={BRAND.contactEmail} />
+            <PlanButtons current={ws.paid_plan ?? ws.plan} stripe={stripeEnabled()} hasCustomer={!!ws.stripe_customer_id} hasSubscription={!!ws.stripe_subscription_id} contact={BRAND.contactEmail} />
+          </div>
+          <div className="mt-6 border-t border-line pt-5">
+            <PromoRedeem />
           </div>
         </Card>
       </section>

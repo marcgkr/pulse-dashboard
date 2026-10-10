@@ -1,6 +1,7 @@
 import { aiEnabled } from "./ai";
 import { planById } from "./config";
 import { db, type RunRow, type WorkspaceRow } from "./db";
+import { effectivePlan } from "./promos";
 import { startRun } from "./runs";
 
 // Pro autopilot: Site Doctor re-checks the website every week and AI Visibility re-asks the owner's
@@ -29,9 +30,9 @@ function autopilotWorkspaces(): WorkspaceRow[] {
       n = 0;
     }
     n++;
-    const plan = planById(primary!.plan);
+    const plan = planById(effectivePlan(primary!));
     if (!plan.autopilot || n > plan.businesses || w.autopilot === 0) continue;
-    out.push({ ...w, plan: primary!.plan });
+    out.push({ ...w, plan: plan.id });
   }
   return out;
 }

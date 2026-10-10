@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { planById } from "./config";
 import { db, id, now, type UserRow, type WorkspaceRow } from "./db";
+import { effectivePlan } from "./promos";
 
 const COOKIE = "prx_session";
 const SESSION_DAYS = 30;
@@ -72,7 +73,10 @@ export function isAdmin(user: Pick<UserRow, "is_admin"> | null): boolean {
 
 /** Every business this login owns, oldest first. The first one holds the plan and billing. */
 export function ownedWorkspaces(userId: string): WorkspaceRow[] {
-  return db().prepare("SELECT * FROM workspaces WHERE owner_id = ? ORDER BY created_at, id").all(userId) as WorkspaceRow[];
+  const rows = db().prepare("SELECT * FROM workspaces WHERE owner_id = ? ORDER BY created_at, id").all(userId) as WorkspaceRow[];
+  // The first business holds the plan: a running promo code can lift it (src/lib/promos.ts).
+  if (rows[0]) rows[0] = { ...rows[0], plan: effectivePlan(rows[0]), paid_plan: rows[0].plan };
+  return rows;
 }
 
 /** The business that holds the plan and the Stripe subscription. */
@@ -93,7 +97,16 @@ export function workspaceFor(userId: string): WorkspaceRow | null {
   const allowed = all.slice(0, planById(primary.plan).businesses);
   const current = allowed.find((w) => w.id === pick) ?? primary;
   if (current.id === primary.id) return primary;
-  return { ...current, plan: primary.plan, stripe_customer_id: primary.stripe_customer_id, stripe_subscription_id: primary.stripe_subscription_id };
+  return {
+    ...current,
+    plan: primary.plan,
+    paid_plan: primary.paid_plan,
+    promo_plan: primary.promo_plan,
+    promo_until: primary.promo_until,
+    promo_code: primary.promo_code,
+    stripe_customer_id: primary.stripe_customer_id,
+    stripe_subscription_id: primary.stripe_subscription_id,
+  };
 }
 
 /** For server components/pages: requires a logged-in user with a workspace. */

@@ -177,12 +177,35 @@ function migrate(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS feedback_ws ON feedback(workspace_id, agent, updated_at);
     CREATE UNIQUE INDEX IF NOT EXISTS feedback_item ON feedback(workspace_id, run_id, item);
+    CREATE TABLE IF NOT EXISTS promo_codes (
+      code TEXT PRIMARY KEY,
+      plan TEXT NOT NULL,
+      days INTEGER,
+      max_uses INTEGER,
+      uses INTEGER NOT NULL DEFAULT 0,
+      redeem_by TEXT,
+      note TEXT NOT NULL DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS promo_redemptions (
+      code TEXT NOT NULL REFERENCES promo_codes(code) ON DELETE CASCADE,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      email TEXT NOT NULL DEFAULT '',
+      until TEXT,
+      redeemed_at TEXT NOT NULL,
+      PRIMARY KEY (code, workspace_id)
+    );
   `);
   addColumn(db, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
   // Pro accounts can run several businesses; this is the one the owner is looking at.
   addColumn(db, "users", "current_workspace_id", "TEXT");
   // Pro: weekly Site Doctor and monthly AI Visibility re-checks (src/lib/autopilot.ts). On unless switched off.
   addColumn(db, "workspaces", "autopilot", "INTEGER NOT NULL DEFAULT 1");
+  // Access from a promo code (src/lib/promos.ts): the plan, until when (null = no end) and which code.
+  addColumn(db, "workspaces", "promo_plan", "TEXT");
+  addColumn(db, "workspaces", "promo_until", "TEXT");
+  addColumn(db, "workspaces", "promo_code", "TEXT");
   addColumn(db, "workspaces", "stripe_subscription_id", "TEXT");
   addColumn(db, "workspaces", "country", "TEXT NOT NULL DEFAULT 'SG'");
   addColumn(db, "connections", "last_sync_at", "TEXT");
@@ -233,12 +256,32 @@ export type WorkspaceRow = {
   /** The account's plan. For an extra business on a Pro account this is copied from the first one. */
   plan: string;
   autopilot?: number;
+  promo_plan?: string | null;
+  promo_until?: string | null;
+  promo_code?: string | null;
+  /** Not a column. The plan the account pays for, when a promo lifts `plan` above it. */
+  paid_plan?: string;
   stripe_customer_id: string | null;
   stripe_subscription_id?: string | null;
   windsor_api_key: string | null;
   created_at: string;
   /** Not a column. Set by runs.ts before an agent runs: what the owner has told this specialist. */
   owner_notes?: string;
+};
+
+export type PromoRow = {
+  code: string;
+  plan: string;
+  /** How long the access lasts after redeeming. Null: until you end it. */
+  days: number | null;
+  /** How many accounts can use it. Null: no limit. */
+  max_uses: number | null;
+  uses: number;
+  /** Last moment the code can be redeemed. Null: no deadline. */
+  redeem_by: string | null;
+  note: string;
+  active: number;
+  created_at: string;
 };
 
 export type FeedbackRow = {
