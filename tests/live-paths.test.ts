@@ -226,9 +226,39 @@ async function main() {
           { filename: "google-campaigns.csv", csv: csv("google-campaigns.csv") },
           { filename: "google-search-terms.csv", csv: csv("google-search-terms.csv") },
           { filename: "meta-adsets.csv", csv: csv("meta-adsets.csv") },
+          { filename: "chatgpt-ads.csv", csv: csv("chatgpt-ads.csv") },
         ],
       },
-      extra: (r) => assert.ok(r.ai && r.creative),
+      extra: (r) => {
+        assert.ok(r.ai && r.creative);
+        const p = r.platforms as Record<string, { spend: number }>;
+        assert.deepEqual(Object.keys(p).sort(), ["chatgpt", "google", "meta"]);
+        assert.ok(Math.abs(p.chatgpt.spend - 2771.45) < 0.01, `ChatGPT spend ${p.chatgpt.spend}`);
+        assert.match(r.title as string, /Google Ads, Meta Ads and ChatGPT Ads/);
+      },
+    },
+    {
+      label: "ads (ChatGPT Ads only, no conversion tracking)",
+      agent: "ads",
+      raw: {
+        source: "upload",
+        reports: [
+          {
+            platform: "chatgpt",
+            filename: "Pasted report 1",
+            // Aliased headers that read as weak Google / Meta guesses: picking ChatGPT Ads must win.
+            csv: "Campaign,Ad set,Impressions,Clicks,Amount spent,Avg. CPC,Conversions\nPico Laser - Questions,Pigmentation,9800,210,580.50,2.76,--\nPico Laser - Questions,Price,6100,41,190.20,4.64,--\n",
+          },
+        ],
+      },
+      extra: (r) => {
+        const p = r.platforms as Record<string, { conv_known: boolean; adsets: { name: string }[] }>;
+        assert.deepEqual(Object.keys(p), ["chatgpt"]);
+        assert.equal(p.chatgpt.conv_known, false);
+        assert.deepEqual(p.chatgpt.adsets.map((a) => a.name).sort(), ["Pigmentation", "Price"]);
+        assert.ok((r.tracking as string[]).some((t) => /OpenAI pixel or Conversions API/.test(t)), "no ChatGPT tracking note");
+        assert.ok((r.ai as { diagnosis: { platform: string }[] }).diagnosis.every((d) => d.platform === "chatgpt"), "diagnosis for a platform with no data");
+      },
     },
     {
       label: "compliance",
@@ -275,6 +305,66 @@ async function main() {
       pass(`report renders (${html.length} chars of HTML)`);
     } catch (e) {
       fail(`report render`, e);
+    }
+  }
+
+  // Ads Doctor: ChatGPT Ads has no API, only the Ads Manager CSV export, so detection and parsing carry it.
+  console.log("\nads (ChatGPT Ads export detection and rules)");
+  {
+    const { parseReport, analyzeAds } = await import("@/lib/agents/ads-data");
+    const { rulePrescriptions } = await import("@/lib/agents/ads");
+    const read = (filename: string, text: string, platform: "auto" | "google" | "meta" | "chatgpt" = "auto") => parseReport({ platform, filename, csv: text });
+    try {
+      const p = read("export.csv", csv("chatgpt-ads.csv"));
+      assert.equal(p.platform, "chatgpt", "auto-detect from the columns");
+      assert.equal(p.level, "ad");
+      assert.equal(p.rows.length, 6, "the Total row is skipped");
+      assert.deepEqual(p.warnings, []);
+      const first = p.rows[0];
+      assert.deepEqual([first.name, first.parent, first.campaign, first.spend, first.impressions, first.clicks, first.conversions], ["Pico laser for melasma", "Pigmentation questions", "Pico Laser - Questions", 1104.6, 18240, 402, 14]);
+      assert.equal(p.rows[5].conv_known, false, '"--" conversions read as zero conversions');
+      pass("ChatGPT Ads export detected from its columns and parsed at ad level");
+    } catch (e) {
+      fail("ChatGPT Ads export parse", e);
+    }
+    try {
+      const plainCols = "Campaign,Ad group,Impressions,Clicks,Cost,Avg. CPC,Conversions\nAsk ChatGPT - Pico,Melasma,5000,90,250.00,2.78,4\n";
+      assert.equal(read("openai-ads-sept.csv", plainCols).platform, "chatgpt", "file name settles a weak guess");
+      assert.equal(read("export.csv", plainCols, "chatgpt").platform, "chatgpt", "picking ChatGPT Ads settles a weak guess");
+      assert.equal(read("export.csv", plainCols).platform, "google", "a plain Google-looking file with no hint stays Google");
+      assert.equal(read("report.csv", `ChatGPT Ads report\n"1 September 2026 - 30 September 2026"\n${plainCols}`).platform, "chatgpt", "a ChatGPT title row");
+      assert.equal(read("chatgpt.csv", csv("google-campaigns.csv")).platform, "google", "real Google columns beat the file name");
+      const meta = read("x.csv", csv("meta-adsets.csv"), "chatgpt");
+      assert.equal(meta.platform, "meta", "real Meta columns beat the hint");
+      assert.match(meta.warnings[0] ?? "", /picked as ChatGPT Ads but the columns look like Meta Ads/);
+      const spaced = read("x.csv", "  CAMPAIGN NAME ,Ad Group Name,IMPRESSIONS,Clicks,Spend (USD),Average  CPC,Average CPM,Total conversions\nA,B,100,5,10.00,2.00,100.00,1\n");
+      assert.deepEqual([spaced.platform, spaced.level, spaced.currency, spaced.rows[0]?.spend, spaced.rows[0]?.conversions], ["chatgpt", "adset", "USD", 10, 1]);
+      pass("ChatGPT Ads detection: file name, hint, title row and header aliases; Google and Meta unchanged");
+    } catch (e) {
+      fail("ChatGPT Ads detection", e);
+    }
+    try {
+      const noConv = read("x.csv", "Campaign name,Ad group name,Impressions,Clicks,Spend,Average CPC,Average CPM\nA,B,5000,90,250.00,2.78,50.00\nA,C,4000,20,120.00,6.00,30.00\n");
+      assert.equal(noConv.platform, "chatgpt");
+      assert.match(noConv.warnings[0] ?? "", /OpenAI pixel or Conversions API/);
+      const a = analyzeAds(noConv.rows, { defaultCurrency: "SGD" });
+      assert.equal(a.platforms.chatgpt?.conv_known, false);
+      assert.ok(a.tracking.some((t) => /ChatGPT Ads export has no conversion numbers/.test(t)));
+      assert.ok(!a.flags.some((f) => f.type === "high_frequency" || f.type === "objective"), "Meta-only rules ran on ChatGPT Ads");
+      const rx = rulePrescriptions(a, ws);
+      const setup = rx.find((x) => x.category === "ChatGPT Ads" && /conversion tracking/i.test(x.title));
+      assert.ok(setup, "no conversion tracking prescription");
+      assert.equal(setup!.where, "ChatGPT Ads Manager > Campaigns");
+      const full = analyzeAds(read("x.csv", csv("chatgpt-ads.csv")).rows, { defaultCurrency: "SGD" });
+      const pause = rulePrescriptions(full, ws).find((x) => /^Pause the ChatGPT Ads/.test(x.title));
+      assert.ok(pause, "no ChatGPT Ads pause prescription");
+      assert.equal(pause!.where, "ChatGPT Ads Manager > Campaigns");
+      assert.ok(pause!.steps.some((s) => s.includes('"Price questions"')));
+      const text = JSON.stringify([rx, rulePrescriptions(full, ws), a.tracking, noConv.warnings]);
+      assert.ok(!/\u2014/.test(text), "em dash in ChatGPT Ads copy");
+      pass("ChatGPT Ads rules: tracking note, no Meta-only flags, Ads Manager click paths");
+    } catch (e) {
+      fail("ChatGPT Ads rules", e);
     }
   }
 

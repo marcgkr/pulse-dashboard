@@ -1,6 +1,18 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, ChevronRight } from "lucide-react";
-import type { Entity, Flag, FlagType, PauseCandidate, Platform, PlatformSummary, ScaleCandidate, SourceInfo, WastedTerm } from "@/lib/agents/ads-data";
+import {
+  PLATFORM_LABEL as PLAT,
+  PLATFORMS,
+  type Entity,
+  type Flag,
+  type FlagType,
+  type PauseCandidate,
+  type Platform,
+  type PlatformSummary,
+  type ScaleCandidate,
+  type SourceInfo,
+  type WastedTerm,
+} from "@/lib/agents/ads-data";
 import type { AdsAIResult, AdsCreative } from "@/lib/agents/ads";
 import { Badge, Card, Label, ReportSection, cx, scoreTone } from "../ui";
 import { CopyButton } from "../copy-button";
@@ -10,7 +22,7 @@ type AdsResult = {
   sources_used?: SourceInfo[];
   period?: string;
   warnings?: string[];
-  platforms?: { google?: PlatformSummary; meta?: PlatformSummary };
+  platforms?: Partial<Record<Platform, PlatformSummary>>;
   flags?: Flag[];
   wasted_search_terms?: WastedTerm[];
   wasted_spend_total?: number;
@@ -21,8 +33,6 @@ type AdsResult = {
   creative?: AdsCreative;
   ai?: AdsAIResult | null;
 };
-
-const PLAT: Record<Platform, string> = { google: "Google Ads", meta: "Meta Ads" };
 
 type Tone = "neutral" | "green" | "red" | "amber" | "ink";
 const FLAG: Record<FlagType, { label: string; tone: Tone }> = {
@@ -45,7 +55,7 @@ const pct = (n: number | null | undefined, d = 1) => (n == null ? "--" : `${(n *
 const conv = (n: number) => fmt(n, n % 1 ? 1 : 0);
 
 function levelName(p: Platform, plural = false) {
-  const s = p === "google" ? "ad group" : "ad set";
+  const s = p === "meta" ? "ad set" : "ad group";
   return plural ? `${s}s` : s;
 }
 
@@ -74,8 +84,13 @@ function FlagBadges({ flags }: { flags: FlagType[] }) {
   );
 }
 
+/** Spend per 1,000 impressions. */
+const cpm = (spend: number, impressions: number) => (impressions > 0 ? (spend / impressions) * 1000 : null);
+
 function EntityTable({ rows, p, showParent, parentLabel }: { rows: Entity[]; p: PlatformSummary; showParent?: boolean; parentLabel?: string }) {
   const meta = p.platform === "meta";
+  // Last column: frequency on Meta, search impression share on Google, CPM on ChatGPT Ads (it reports neither of the others).
+  const chatgpt = p.platform === "chatgpt";
   const roas = rows.some((r) => r.roas != null);
   return (
     <Card className="overflow-x-auto">
@@ -90,7 +105,7 @@ function EntityTable({ rows, p, showParent, parentLabel }: { rows: Entity[]; p: 
             <th className="px-3 py-2 text-right">Conv.</th>
             <th className="px-3 py-2 text-right">CPA</th>
             {roas && <th className="px-3 py-2 text-right">ROAS</th>}
-            <th className="px-3 py-2 text-right">{meta ? "Freq." : "Impr. share"}</th>
+            <th className="px-3 py-2 text-right">{meta ? "Freq." : chatgpt ? "CPM" : "Impr. share"}</th>
             <th className="px-3 py-2">Flags</th>
           </tr>
         </thead>
@@ -113,7 +128,9 @@ function EntityTable({ rows, p, showParent, parentLabel }: { rows: Entity[]; p: 
               <td className="px-3 py-2 text-right font-mono tabular-nums">{e.conv_known ? conv(e.conversions) : "n/a"}</td>
               <td className="px-3 py-2 text-right font-mono tabular-nums">{money(e.cpa)}</td>
               {roas && <td className="px-3 py-2 text-right font-mono tabular-nums">{e.roas != null ? e.roas.toFixed(2) : "--"}</td>}
-              <td className="px-3 py-2 text-right font-mono tabular-nums">{meta ? (e.frequency != null ? e.frequency.toFixed(2) : "--") : pct(e.impr_share, 0)}</td>
+              <td className="px-3 py-2 text-right font-mono tabular-nums">
+                {meta ? (e.frequency != null ? e.frequency.toFixed(2) : "--") : chatgpt ? money(cpm(e.spend, e.impressions)) : pct(e.impr_share, 0)}
+              </td>
               <td className="px-3 py-2">
                 <FlagBadges flags={e.flags} />
               </td>
@@ -140,6 +157,7 @@ function PlatformSection({ p, diagnosis }: { p: PlatformSummary; diagnosis?: { v
   ];
   if (p.roas != null) kpis.push({ label: "ROAS", value: `${p.roas.toFixed(2)}x` });
   if (meta && p.frequency != null) kpis.push({ label: "Frequency", value: p.frequency.toFixed(2), sub: "approx." });
+  if (p.platform === "chatgpt") kpis.push({ label: `CPM (${cur})`, value: money(cpm(p.spend, p.impressions)) });
   const hasAdsets = p.adsets.length > 0;
 
   return (
@@ -151,6 +169,9 @@ function PlatformSection({ p, diagnosis }: { p: PlatformSummary; diagnosis?: { v
           {p.campaign_count} campaign{p.campaign_count === 1 ? "" : "s"}
           {hasAdsets ? ` · ${p.adset_count} ${levelName(p.platform, p.adset_count !== 1)}` : ""}
         </span>
+        {p.platform === "chatgpt" && (
+          <p className="basis-full max-w-3xl text-sm leading-relaxed text-ink-2">ChatGPT Ads is in beta, so there are no fair benchmarks yet. These numbers are compared with your own account only.</p>
+        )}
       </div>
 
       <Card className="grid grid-cols-2 divide-line sm:grid-cols-4 lg:grid-cols-5 [&>*]:border-b [&>*]:border-line">
@@ -247,7 +268,7 @@ function CharCopy({ text, max }: { text: string; max: number }) {
 // ---------- Report ----------
 
 export function AdsReport({ result }: { result: AdsResult }) {
-  const platforms = (["google", "meta"] as const).map((k) => result.platforms?.[k]).filter(Boolean) as PlatformSummary[];
+  const platforms = PLATFORMS.map((k) => result.platforms?.[k]).filter(Boolean) as PlatformSummary[];
   const ai = result.ai ?? null;
   const curOf = (p: Platform) => result.platforms?.[p]?.currency || "SGD";
   const tracking = [...new Set([...(result.tracking ?? []), ...(ai?.tracking_issues ?? [])])];

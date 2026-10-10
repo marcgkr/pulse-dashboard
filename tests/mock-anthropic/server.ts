@@ -235,7 +235,12 @@ let currentPrompt = "";
 
 function sampleString(name: string, desc: string, idx: number): string {
   const one = desc.match(/Exactly one of:\s*([^.]+?)(?:\.|$)/i) ?? desc.match(/Exactly one of the [^:]*:\s*([^.]+)/i);
-  if (one) return one[1].split(",")[0].trim();
+  if (one) {
+    const opts = one[1].split(",").map((s) => s.trim());
+    // Ads Doctor platforms: answer with the ones that have a table in the prompt ("== ChatGPT Ads (currency SGD) =="), in turn.
+    const shown = name === "platform" ? opts.filter((o) => new RegExp(`^== ${o} ads \\(`, "im").test(currentPrompt)) : [];
+    return shown.length ? shown[idx % shown.length] : opts[0];
+  }
   const w = words(name);
   if (/url path|slug/i.test(desc) || name === "slug") return `/sample-${w.replace(/\s+/g, "-")}-${idx + 1}`;
   if (/hashtag/i.test(name)) return `#samplesg${idx + 1}`;

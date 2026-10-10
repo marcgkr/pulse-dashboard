@@ -1,8 +1,10 @@
 // Ads Doctor data layer: CSV parsing and the deterministic metrics + flags.
 // Live Google Ads / Meta rows come from src/lib/connectors in this same AdRow shape.
+// ChatGPT Ads (OpenAI Ads Manager, beta) has no reporting API we can use, so it only comes in as a CSV export.
 // Pure module (no db / server-only imports) so the client form can reuse the report detector.
 
-export type Platform = "google" | "meta";
+export type Platform = "google" | "meta" | "chatgpt";
+export const PLATFORMS: readonly Platform[] = ["google", "meta", "chatgpt"];
 export type Level = "campaign" | "adset" | "ad" | "keyword" | "search_term";
 
 /** One normalised row from any export or API. Money is in the account currency. */
@@ -30,7 +32,7 @@ export type AdRow = {
   impr_share?: number | null;
 };
 
-export type ReportInput = { platform: "google" | "meta" | "auto"; filename: string; csv: string };
+export type ReportInput = { platform: Platform | "auto"; filename: string; csv: string };
 
 export type ParsedReport = {
   filename: string;
@@ -151,7 +153,7 @@ const ALIASES: Record<string, (string | RegExp)[]> = {
   campaign: ["campaign", "campaign name"],
   adgroup: ["ad group", "ad group name"],
   adset: ["ad set name", "ad set"],
-  ad: ["ad name"],
+  ad: ["ad name", "ad"],
   search_term: ["search term", "search terms"],
   keyword: ["keyword", "search keyword", "keyword text"],
   match_type: ["match type", "search keyword match type", "search terms match type", "keyword match type"],
@@ -160,8 +162,8 @@ const ALIASES: Record<string, (string | RegExp)[]> = {
   impressions: ["impr.", "impressions", "impr"],
   link_clicks: ["link clicks"],
   clicks: ["clicks", "clicks (all)", "interactions"],
-  spend: ["cost", "spend", "amount spent", /^amount spent \(([a-z]{3})\)$/],
-  conversions: ["conversions", "conv."],
+  spend: ["cost", "spend", "amount spent", "total spend", /^amount spent \(([a-z]{3})\)$/, /^(spend|cost) \(([a-z]{3})\)$/],
+  conversions: ["conversions", "conv.", "total conversions"],
   conv_value: [
     "conv. value",
     "conversion value",
@@ -203,15 +205,30 @@ function headerScore(row: string[]): number {
   return Object.keys(c).length;
 }
 
-function detectPlatformFromHeaders(headers: string[]): Platform | null {
+const CHATGPT_MARK = /chat\s?gpt|openai/i;
+
+/**
+ * strong = the file has columns (or a ChatGPT / OpenAI mention) that only one platform uses.
+ * A weak guess gives way when the owner picked ChatGPT Ads, since its beta export shares
+ * plain column names (Campaign, Ad group, Clicks, Spend) with the others.
+ */
+function detectPlatformFromHeaders(headers: string[], titleRows = ""): { platform: Platform | null; strong: boolean } {
   const n = headers.map(norm);
   const has = (s: string | RegExp) => n.some((h) => (typeof s === "string" ? h === s : s.test(h)));
+  const googleStrong = has("impr.") || has("cost / conv.") || has("search term") || has("search keyword") || has("conv. rate");
+  // Meta always puts the currency in "Amount spent (SGD)". A plain "Amount spent" could be any platform.
+  const metaStrong = has(/^amount spent \(/) || has("reporting starts") || has("result indicator") || has("link clicks");
+  // A ChatGPT / OpenAI column always wins. One in the title rows (which can hold an account name) only when no Google or Meta only column is there.
+  if (n.some((h) => CHATGPT_MARK.test(h)) || (!googleStrong && !metaStrong && CHATGPT_MARK.test(titleRows))) return { platform: "chatgpt", strong: true };
   const meta =
     (has(/^amount spent/) ? 3 : 0) + (has("ad set name") ? 2 : 0) + (has("reporting starts") ? 2 : 0) + (has("result indicator") ? 2 : 0) + (has("link clicks") ? 1 : 0) + (has("campaign name") ? 1 : 0) + (has("frequency") ? 1 : 0);
   const google =
     (has("impr.") ? 3 : 0) + (has("cost / conv.") ? 2 : 0) + (has("avg. cpc") ? 2 : 0) + (has("search term") ? 2 : 0) + (has("ad group") ? 2 : 0) + (has("conv. rate") ? 1 : 0) + (has("cost") ? 1 : 0) + (has("search keyword") ? 2 : 0);
-  if (meta === 0 && google === 0) return null;
-  return meta > google ? "meta" : "google";
+  // OpenAI's export (campaign / ad group / ad names, Spend, Average CPC, Average CPM) has none of the Google or Meta only columns.
+  const chatgpt = googleStrong || metaStrong ? 0 : (has(/^average cpm/) ? 2 : 0) + (has(/^average cpc/) ? 2 : 0) + (has("ad group name") ? 2 : 0) + (has(/^spend\b/) ? 1 : 0);
+  if (meta === 0 && google === 0 && chatgpt === 0) return { platform: null, strong: false };
+  const platform: Platform = chatgpt > meta && chatgpt > google ? "chatgpt" : meta > google ? "meta" : "google";
+  return { platform, strong: platform === "google" ? googleStrong : platform === "meta" ? metaStrong : false };
 }
 
 // Meta "Results" only count as conversions when the result indicator is a lead/purchase/message type.
@@ -257,12 +274,15 @@ export function parseReport(input: ReportInput): ParsedReport {
   const headers = table[headerIdx];
   out.headers = headers;
   const cols = findCols(headers);
-  const detected = detectPlatformFromHeaders(headers);
   const hint = input.platform === "auto" ? null : input.platform;
+  const d = detectPlatformFromHeaders(headers, table.slice(0, headerIdx).map((r) => r.join(" ")).join(" "));
+  // "chatgpt-ads-september.csv" settles a weak guess. So does picking ChatGPT Ads in the form.
+  const weak = d.strong ? null : hint === "chatgpt" || (!hint && CHATGPT_MARK.test(filename)) ? "chatgpt" : null;
+  const detected = weak ?? d.platform;
   const platform: Platform | null = detected ?? hint;
   if (hint && detected && hint !== detected) out.warnings.push(`${filename}: picked as ${label(hint)} but the columns look like ${label(detected)}, so we read it as ${label(detected)}.`);
   if (!platform) {
-    out.warnings.push(`${filename}: couldn't tell if this is Google Ads or Meta Ads. Pick the platform and try again.`);
+    out.warnings.push(`${filename}: couldn't tell if this is Google Ads, Meta Ads or ChatGPT Ads. Pick the platform and try again.`);
     return out;
   }
   out.platform = platform;
@@ -276,6 +296,12 @@ export function parseReport(input: ReportInput): ParsedReport {
     if (cols.search_term != null) [level, nameCol, parentCol] = ["search_term", cols.search_term, cols.adgroup ?? cols.campaign];
     else if (cols.keyword != null) [level, nameCol, parentCol] = ["keyword", cols.keyword, cols.adgroup ?? cols.campaign];
     else if (cols.adgroup != null) [level, nameCol, parentCol] = ["adset", cols.adgroup, cols.campaign];
+    else [level, nameCol, parentCol] = ["campaign", cols.campaign, undefined];
+  } else if (platform === "chatgpt") {
+    // ChatGPT Ads Manager reports campaigns, ad groups and ads. An "Ad set" column counts as the ad group in case the beta export renames it.
+    const group = cols.adgroup ?? cols.adset;
+    if (cols.ad != null) [level, nameCol, parentCol] = ["ad", cols.ad, group ?? cols.campaign];
+    else if (group != null) [level, nameCol, parentCol] = ["adset", group, cols.campaign];
     else [level, nameCol, parentCol] = ["campaign", cols.campaign, undefined];
   } else {
     if (cols.ad != null) [level, nameCol, parentCol] = ["ad", cols.ad, cols.adset ?? cols.campaign];
@@ -294,8 +320,13 @@ export function parseReport(input: ReportInput): ParsedReport {
   if (curMatch) out.currency = curMatch[1].toUpperCase();
 
   const clickCol = platform === "meta" ? cols.link_clicks ?? cols.clicks : cols.clicks ?? cols.link_clicks;
-  const hasConvColumn = platform === "google" ? cols.conversions != null : cols.results != null || cols.leads != null || cols.purchases != null || cols.messaging != null || cols.conversions != null;
-  if (!hasConvColumn) out.warnings.push(`${filename}: no ${platform === "google" ? "Conversions" : "Results"} column, so cost per result can't be worked out from this file.`);
+  const hasConvColumn = platform !== "meta" ? cols.conversions != null : cols.results != null || cols.leads != null || cols.purchases != null || cols.messaging != null || cols.conversions != null;
+  if (!hasConvColumn)
+    out.warnings.push(
+      platform === "chatgpt"
+        ? `${filename}: no Conversions column. ChatGPT Ads only reports conversions once the OpenAI pixel or Conversions API is set up, so this file is judged on clicks and cost per click.`
+        : `${filename}: no ${platform === "google" ? "Conversions" : "Results"} column, so cost per result can't be worked out from this file.`,
+    );
 
   const get = (r: string[], k: number | undefined) => (k == null ? "" : (r[k] ?? "").trim());
   const n0 = (r: string[], k: number | undefined) => parseNum(get(r, k)) ?? 0;
@@ -319,6 +350,11 @@ export function parseReport(input: ReportInput): ParsedReport {
     let indicator = "";
     if (platform === "google") {
       conversions = n0(r, cols.conversions);
+    } else if (platform === "chatgpt") {
+      // Blank or "--" means no conversion tracking on this row, which is not the same as zero conversions.
+      const c = parseNum(get(r, cols.conversions));
+      convKnown = c != null;
+      conversions = c ?? 0;
     } else {
       indicator = get(r, cols.result_indicator);
       if (cols.results != null) {
@@ -370,12 +406,14 @@ export function parseReport(input: ReportInput): ParsedReport {
   return out;
 }
 
+export const PLATFORM_LABEL: Record<Platform, string> = { google: "Google Ads", meta: "Meta Ads", chatgpt: "ChatGPT Ads" };
+
 function label(p: Platform) {
-  return p === "google" ? "Google Ads" : "Meta Ads";
+  return PLATFORM_LABEL[p];
 }
 
 export function levelLabel(platform: Platform, level: Level): string {
-  if (level === "adset") return platform === "google" ? "ad group" : "ad set";
+  if (level === "adset") return platform === "meta" ? "ad set" : "ad group";
   if (level === "search_term") return "search term";
   return level;
 }
@@ -384,7 +422,7 @@ export function levelLabel(platform: Platform, level: Level): string {
 export function describeReport(input: ReportInput): { ok: boolean; text: string } {
   const p = parseReport(input);
   if (!p.platform || !p.level || p.rows.length === 0) return { ok: false, text: p.warnings[0] ?? "No rows found." };
-  const kind = p.level === "search_term" ? "search terms" : p.level === "adset" ? (p.platform === "google" ? "ad groups" : "ad sets") : `${p.level}s`;
+  const kind = p.level === "search_term" ? "search terms" : p.level === "adset" ? `${levelLabel(p.platform, "adset")}s` : `${p.level}s`;
   return { ok: true, text: `${label(p.platform)} · ${kind} · ${p.rows.length} rows${p.period ? ` · ${p.period}` : ""}` };
 }
 
@@ -458,7 +496,7 @@ export type ScaleCandidate = { platform: Platform; level: Level; name: string; p
 export type PauseCandidate = { platform: Platform; level: Level; name: string; parent: string; spend: number; conversions: number; cpa: number | null; action: "pause" | "reduce"; reduce_pct: number | null; reason: string };
 
 export type AdsAnalysis = {
-  platforms: { google?: PlatformSummary; meta?: PlatformSummary };
+  platforms: Partial<Record<Platform, PlatformSummary>>;
   flags: Flag[];
   wasted_search_terms: WastedTerm[];
   wasted_spend_total: number;
@@ -554,14 +592,14 @@ export function analyzeAds(
   let wasted: WastedTerm[] = [];
   const brand = (opts.brandTerms ?? []).map(lc).filter((t) => t.length >= 3);
 
-  for (const platform of ["google", "meta"] as const) {
+  for (const platform of PLATFORMS) {
     const prows = rows.filter((r) => r.platform === platform);
     if (prows.length === 0) continue;
     const has = (l: Level) => prows.some((r) => r.level === l);
     const base: Level = (["campaign", "adset", "ad", "keyword", "search_term"] as const).find(has)!;
     const baseRows = prows.filter((r) => r.level === base);
     const tot = metrics(baseRows);
-    const P = platform === "google" ? "Google Ads" : "Meta Ads";
+    const P = label(platform);
 
     const campaigns = has("campaign")
       ? group(prows.filter((r) => r.level === "campaign"), (r) => lc(r.name), (r) => ({ level: "campaign", name: r.name, parent: "", campaign: r.name }), tot.spend)
@@ -586,13 +624,18 @@ export function analyzeAds(
     let trackingBroken = false;
     if (tot.spend > 0 && tot.conv_known && tot.conversions === 0) {
       trackingBroken = true;
-      const msg = `${P} spent money but recorded zero conversions in this period. Either conversion tracking is broken or no campaign is optimising for enquiries. Fix this before changing anything else: every other number depends on it.`;
+      const msg =
+        platform === "chatgpt"
+          ? `${P} spent money but recorded zero conversions in this period. Either the OpenAI pixel or Conversions API isn't sending your lead or sale event, or the event doesn't match the one the campaign counts. Fix this before judging these campaigns on results.`
+          : `${P} spent money but recorded zero conversions in this period. Either conversion tracking is broken or no campaign is optimising for enquiries. Fix this before changing anything else: every other number depends on it.`;
       tracking.push(msg);
       flag(null, "tracking", "high", msg);
     } else if (tot.spend > 0 && !tot.conv_known && nonConvSpend > 0) {
       const msg = `Every ${P} campaign in this export reports results as clicks, reach or engagement, not leads or sales. Meta is optimising for cheap clicks, not customers.`;
       tracking.push(msg);
       flag(null, "objective", "high", msg);
+    } else if (!tot.conv_known && platform === "chatgpt") {
+      tracking.push(`This ${P} export has no conversion numbers, so we can't judge cost per enquiry yet. ChatGPT Ads only counts conversions once the OpenAI pixel or Conversions API is set up. Until then this checkup compares clicks and cost per click.`);
     } else if (!tot.conv_known) {
       tracking.push(`This ${P} export has no conversions column, so we can't judge cost per enquiry. Add the Conversions${platform === "meta" ? " / Results" : ""} column and export again.`);
     }
