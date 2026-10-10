@@ -11,6 +11,7 @@ import { AdminPromos, type AdminPromo } from "@/components/admin-promos";
 import type { PromoRow } from "@/lib/db";
 import { planById } from "@/lib/config";
 import { promoActive } from "@/lib/promos";
+import { waitingThreads } from "@/lib/support";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin" };
@@ -82,6 +83,7 @@ export default async function AdminPage() {
         live: r.promo_code === p.code && (!r.promo_until || Date.parse(r.promo_until) > Date.now()),
       })),
   }));
+  const waiting = waitingThreads();
   const byAgent = db().prepare("SELECT agent, COUNT(*) n FROM runs WHERE created_at >= ? GROUP BY agent ORDER BY n DESC").all(month.toISOString()) as { agent: string; n: number }[];
 
   return (
@@ -90,6 +92,15 @@ export default async function AdminPage() {
       <PageHeader eyebrow="PULSE Digital" title="Admin console">
         AI: {aiEnabled() ? `live (${MODEL})` : "demo mode, no API key"}.
       </PageHeader>
+      <a
+        href="/admin/support"
+        className="mb-8 flex items-center justify-between gap-4 rounded-3xl bg-card px-5 py-4 shadow-[var(--shadow-box)] ring-1 ring-line/70 transition hover:ring-scrub"
+      >
+        <span className="font-display text-lg font-bold">Support inbox</span>
+        <span className={waiting ? "rounded-full bg-pulse px-3 py-1 text-sm font-semibold text-white" : "text-sm text-ink-3"}>
+          {waiting ? `${waiting} waiting for a reply` : "Nothing waiting"}
+        </span>
+      </a>
       <div className="mb-8 grid gap-3 sm:grid-cols-4">
         {[
           ["Businesses", rows.length],

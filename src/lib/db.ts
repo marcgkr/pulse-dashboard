@@ -215,6 +215,18 @@ function migrate(db: Database.Database) {
       redeemed_at TEXT NOT NULL,
       PRIMARY KEY (code, workspace_id)
     );
+    -- Help chat between an owner and the PULSE team (src/lib/support.ts). One thread per business.
+    CREATE TABLE IF NOT EXISTS support_messages (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      sender TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      seen_by_owner INTEGER NOT NULL DEFAULT 0,
+      seen_by_team INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS support_ws ON support_messages(workspace_id, created_at);
   `);
   addColumn(db, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
   // Pro accounts can run several businesses; this is the one the owner is looking at.
@@ -337,6 +349,18 @@ export type FeedbackRow = {
   comment: string;
   created_at: string;
   updated_at: string;
+};
+
+export type SupportMessageRow = {
+  id: string;
+  workspace_id: string;
+  /** Who wrote it: the owner, or the admin who replied. Null once that user is deleted. */
+  user_id: string | null;
+  sender: "owner" | "team";
+  body: string;
+  created_at: string;
+  seen_by_owner: number;
+  seen_by_team: number;
 };
 
 export type ConnectionRow = {

@@ -71,7 +71,7 @@ function billingFaq(m: Market) {
       a: (
         <p>
           It depends how often you re-check. A business that runs each specialist once or twice a month uses well under the {PLANS[1].name} allowance. Pick{" "}
-          {PLANS[3].name} for Google Business Profile, autopilot re-checks, live chat support and extra outlets, not for the number. Autopilot re-checks don&apos;t
+          {PLANS[3].name} for Google Business Profile, autopilot re-checks, WhatsApp support and extra outlets, not for the number. Autopilot re-checks don&apos;t
           use your reports.
         </p>
       ),

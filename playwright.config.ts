@@ -34,6 +34,8 @@ export default defineConfig({
         // Payments against tests/mock-stripe.
         STRIPE_SECRET_KEY: "sk_test_mock",
         STRIPE_API_BASE: "http://127.0.0.1:4700",
+        // Pro accounts get a WhatsApp button on Help.
+        SUPPORT_WHATSAPP: "6500000000",
         NO_PROXY: "*",
       },
     },

@@ -4,6 +4,7 @@ import { AGENTS, AGENT_ORDER } from "@/lib/agents";
 import { isAdmin, ownedWorkspaces, requireWorkspace } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { usage } from "@/lib/runs";
+import { unreadForOwner } from "@/lib/support";
 import { outletLimit } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         limit={u.limit}
         demo={!aiEnabled()}
         admin={isAdmin(user)}
+        supportUnread={unreadForOwner(ws.id)}
       />
       <main className="lg:pl-64 print:pl-0">
         <div className="mx-auto max-w-6xl px-4 py-8 md:px-8 md:py-10">{children}</div>
