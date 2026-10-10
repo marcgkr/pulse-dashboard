@@ -54,10 +54,14 @@ export type Plan = {
   forWho: string;
   /** Specialists the plan can use. */
   specialists: AgentKey[];
-  /** Businesses or locations one login can run. They share the plan's monthly reports. */
+  /** Businesses or locations included. Pro can add more outlets for a monthly fee each (extraOutlets). */
   businesses: number;
+  /** Extra outlets can be bought on this plan, at the market's outlet price each a month. */
+  extraOutlets: boolean;
   /** Weekly Site Doctor and monthly AI Visibility re-checks run on their own (src/lib/autopilot.ts). */
   autopilot: boolean;
+  /** How many of the latest connected videos get transcribed (src/lib/videos.ts). */
+  transcribeVideos: number;
   /** What only this plan gets, called out at the top of its card. */
   exclusives?: string[];
 };
@@ -80,62 +84,82 @@ export const PLANS: Plan[] = [
     forWho: "Try it on your own website before you pay anything.",
     specialists: ["site"],
     businesses: 1,
+    extraOutlets: false,
     autopilot: false,
+    transcribeVideos: 0,
   },
   {
     id: "starter",
     name: "Starter",
     priceMonthly: 99,
     blurb: "For owners who want a clear weekly to-do list.",
-    runsPerMonth: 30,
-    chatPerMonth: 300,
-    features: ["Every specialist included", "30 reports a month", "Ask PULSE strategist chat", "Compliance check against your country's ad rules", "Download reports as PDF"],
+    runsPerMonth: 20,
+    chatPerMonth: 0,
+    features: ["Every specialist included", "20 reports a month", "Connect your ad and social accounts", "Compliance check against your country's ad rules", "Download reports as PDF"],
     stripePriceEnv: "STRIPE_PRICE_STARTER",
     forWho: "Owners who do their own marketing and want a clear weekly to-do list.",
     specialists: ALL_SPECIALISTS,
     businesses: 1,
+    extraOutlets: false,
     autopilot: false,
+    transcribeVideos: 0,
   },
   {
     id: "growth",
     name: "Growth",
     priceMonthly: 249,
     blurb: "For businesses running Google and Meta ads every month.",
-    runsPerMonth: 100,
+    runsPerMonth: 50,
     chatPerMonth: 1000,
-    features: ["Everything in Starter", "100 reports a month", "Ads Doctor with live Google and Meta ad sync"],
+    features: ["Everything in Starter", "50 reports a month", "Ask PULSE strategist chat", "Ads Doctor with live Google and Meta ad sync", "Your latest 20 videos transcribed, so ideas and articles build on them"],
     stripePriceEnv: "STRIPE_PRICE_GROWTH",
     forWho: "Businesses spending on Google or Meta ads every month.",
     specialists: ALL_SPECIALISTS,
     businesses: 1,
+    extraOutlets: false,
     autopilot: false,
+    transcribeVideos: 20,
   },
   {
     id: "pro",
     name: "Pro",
     priceMonthly: 499,
-    blurb: "For owners with more than one business or location.",
-    runsPerMonth: 300,
+    blurb: "For owners who want everything, including their Google Business Profile.",
+    runsPerMonth: 150,
     chatPerMonth: 3000,
     features: [
       "Everything in Growth",
-      "Up to 5 businesses or locations on one login",
+      "150 reports a month",
+      "Google Business Profile: fixes and post ideas",
+      "Your latest 100 videos transcribed",
       "Autopilot: your website re-checked every week, your AI visibility every month",
-      "300 reports a month, shared across your businesses",
-      "Priority support",
+      "Priority support by live chat",
+      "Extra outlets at a monthly fee each",
     ],
     stripePriceEnv: "STRIPE_PRICE_PRO",
-    forWho: "Owners with several outlets or brands who want each one checked every week without having to remember.",
+    forWho: "Owners who want every specialist, their Google Business Profile and a person on live chat when they're stuck.",
     specialists: ALL_SPECIALISTS,
-    businesses: 5,
+    businesses: 1,
+    extraOutlets: true,
     autopilot: true,
+    transcribeVideos: 100,
     exclusives: [
-      "Up to 5 businesses or locations on one login, switch in one click",
+      "Google Business Profile connected: profile fixes and post ideas",
       "Autopilot: your website re-checked every week and your AI visibility every month",
-      "Priority support",
+      "Priority support by live chat with the PULSE team",
+      "More outlets of the same business, at a monthly fee each",
     ],
   },
 ];
+
+/**
+ * How many businesses or outlets an account can run: the plan's included one, plus extra outlets
+ * paid for on Pro. Pass the account's first business (it holds the plan).
+ */
+export function outletLimit(primary: { plan: string; extra_outlets?: number }): number {
+  const plan = planById(primary.plan);
+  return plan.businesses + (plan.extraOutlets ? Math.max(0, primary.extra_outlets ?? 0) : 0);
+}
 
 /** Monthly price of a plan in a market's currency (0 for the free plan). */
 export function planPrice(plan: Plan, market: Market): number {
@@ -162,25 +186,26 @@ export const PLAN_ROWS: PlanRow[] = [
     detail: "A report is one finished piece of work from a specialist, for example one website checkup, one keyword plan or one 2-week content plan.",
     value: (p) => `${p.runsPerMonth}`,
   },
-  { label: "Businesses or locations on one login", value: (p) => (p.businesses > 1 ? `Up to ${p.businesses}` : "1") },
+  { label: "Connect your ad and social accounts", value: (p) => p.id !== "free" },
+  { label: "Latest videos transcribed", value: (p) => (p.transcribeVideos > 0 ? `${p.transcribeVideos}` : false) },
+  { label: "Google Business Profile: fixes and post ideas", value: (p) => p.id === "pro" },
+  { label: "Extra outlets of the same business", value: (p) => (p.extraOutlets ? "monthly fee each" : false) },
   { label: "Prescription board with re-check dates", value: () => true },
-  { label: "Ask PULSE strategist chat", value: (p) => (p.chatPerMonth > 0 ? `${p.chatPerMonth.toLocaleString("en")} messages` : false) },
+  { label: "Ask PULSE strategist chat", value: (p) => p.chatPerMonth > 0 },
   { label: "Ads Doctor from Google and Meta exports", value: (p) => p.specialists.includes("ads") },
   { label: "Compliance Check for your country's ad rules", value: (p) => p.specialists.includes("compliance") },
   { label: "Download reports as PDF", value: (p) => p.id !== "free" },
   { label: "Live sync from your Google Ads and Meta Ads accounts", value: (p) => LIVE_SYNC_PLANS.includes(p.id) },
   {
     label: "Autopilot re-checks",
-    detail: "Site Doctor re-checks your website every week and AI Visibility re-asks your questions every month, on their own. They use reports from your allowance.",
+    detail: "Site Doctor re-checks your website every week and AI Visibility re-asks your questions every month, on their own. They don't use your monthly reports.",
     value: (p) => p.autopilot,
   },
-  { label: "Priority support", value: (p) => p.id === "pro" },
+  { label: "Priority support by live chat", value: (p) => p.id === "pro" },
 ];
 
 /** Plain-language translation of a plan's monthly report allowance. */
 export function runsInPlainWords(plan: Pick<Plan, "runsPerMonth" | "businesses">): string {
   const runs = plan.runsPerMonth;
-  if (plan.businesses > 1) return `${runs} reports a month, shared across up to ${plan.businesses} businesses`;
-  if (runs <= 5) return `${runs} reports a month`;
-  return `${runs} reports a month, about ${Math.floor(runs / 4.3)} a week`;
+  return runs === 1 ? "1 report a month" : `${runs} reports a month`;
 }

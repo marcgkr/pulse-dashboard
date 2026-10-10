@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { PLANS } from "@/lib/config";
 
-export function AdminPlanSelect({ workspaceId, plan }: { workspaceId: string; plan: string }) {
+export function AdminPlanSelect({ workspaceId, plan, outlets }: { workspaceId: string; plan: string; outlets: number }) {
   const [value, setValue] = useState(plan);
+  const [extra, setExtra] = useState(String(outlets));
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   return (
     <div className="flex items-center gap-2">
@@ -24,6 +25,24 @@ export function AdminPlanSelect({ workspaceId, plan }: { workspaceId: string; pl
           <option key={p.id} value={p.id}>{p.name}</option>
         ))}
       </select>
+      {value === "pro" && (
+        <label className="flex items-center gap-1 text-xs text-ink-2">
+          +
+          <input
+            value={extra}
+            onChange={(e) => setExtra(e.target.value.replace(/\D/g, ""))}
+            onBlur={async () => {
+              setState("saving");
+              const res = await fetch("/api/admin/plan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workspaceId, outlets: Number(extra || 0) }) });
+              setState(res.ok ? "saved" : "error");
+            }}
+            inputMode="numeric"
+            aria-label="Extra outlets"
+            className="w-10 rounded border border-line bg-white px-1.5 py-1 text-sm"
+          />
+          outlets
+        </label>
+      )}
       {state === "saved" && <span className="text-xs text-scrub">Saved</span>}
       {state === "error" && <span className="text-xs text-pulse">Failed</span>}
     </div>

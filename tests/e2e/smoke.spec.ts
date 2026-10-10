@@ -145,10 +145,13 @@ test("Pro accounts can add, switch between and remove businesses", async ({ page
 
   expect((await api.post("/api/admin/claim", { data: { token: "e2e-setup-token-1234567890" } })).ok()).toBeTruthy();
   expect((await api.post("/api/admin/plan", { data: { workspaceId: firstId, plan: "pro" } })).ok()).toBeTruthy();
+  // Pro includes one outlet: no second business until an outlet is added (comped here by the admin).
+  expect((await api.post("/api/workspace", { data: { name: "Outlet Two", add: true } })).status()).toBe(402);
+  expect((await api.post("/api/admin/plan", { data: { workspaceId: firstId, outlets: 1 } })).ok()).toBeTruthy();
 
   await page.goto("/app");
-  await page.getByRole("link", { name: "+ Add a business" }).first().click();
-  await expect(page.getByRole("heading", { name: "Add another business or location" })).toBeVisible();
+  await page.getByRole("link", { name: "+ Add an outlet" }).first().click();
+  await expect(page.getByRole("heading", { name: "Set up your new outlet" })).toBeVisible();
   await page.getByLabel("Business name").fill("Outlet Two");
   await page.getByLabel("Industry").selectOption({ index: 1 });
   await page.getByRole("button", { name: "Add this business" }).click();
@@ -242,7 +245,32 @@ test("owner pays for a plan, upgrades on the spot, then cancels", async ({ page 
   expect(change.body["proration_behavior"]).toBe("always_invoice");
   expect(change.body["metadata[plan]"]).toBe("pro");
 
+  // Pro: buy an extra outlet, set it up, then the outlet item is on the subscription.
+  await page.goto("/app/settings#businesses");
+  page.once("dialog", (d) => d.accept());
+  await page.locator("#businesses").getByRole("button", { name: "Add an outlet (S$30/month)" }).click();
+  await expect(page.getByRole("heading", { name: "Set up your new outlet" })).toBeVisible();
+  await page.getByLabel("Business name").fill("Payer Studio East");
+  await page.getByLabel("Industry").selectOption({ index: 1 });
+  await page.getByRole("button", { name: "Add this business" }).click();
+  await expect(page).toHaveURL(/\/app/);
+  await expect(page.getByLabel("Your business").first().locator("option:checked")).toHaveText("Payer Studio East");
+  const after = (await (await page.request.get("http://127.0.0.1:4700/__requests")).json()) as { method: string; path: string; body: Record<string, string> }[];
+  const outletCall = after.filter((c) => c.path.startsWith("/v1/subscriptions/") && c.method === "POST").at(-1)!;
+  expect(outletCall.body["items[0][price_data][unit_amount]"]).toBe("3000");
+  expect(outletCall.body["items[0][metadata][kind]"]).toBe("outlet");
+
+  await page.goto("/app/settings#plan");
   page.once("dialog", (d) => d.accept());
   await plan.getByRole("button", { name: "Cancel plan" }).click();
   await expect(plan.getByText(/Cancelled. You keep Pro until/)).toBeVisible();
+});
+
+test("free accounts can't connect accounts", async ({ page }) => {
+  await page.request.post("/api/auth/signup", { data: { email: "freebie@example.com", name: "Free", password: "freebie-pass-1" } });
+  await page.request.post("/api/workspace", { data: { name: "Free Shop", industry: "Retail" } });
+  await page.goto("/app/settings/connections");
+  await expect(page.getByRole("heading", { name: "Connecting accounts is on the paid plans" })).toBeVisible();
+  const res = await page.request.get("/api/connect/google/start", { maxRedirects: 0 });
+  expect(res.headers()["location"]).toContain("error=plan");
 });

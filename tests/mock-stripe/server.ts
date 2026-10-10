@@ -86,6 +86,22 @@ const server = http.createServer((req, res) => {
         if (b.cancel_at_period_end) sub.cancel_at_period_end = b.cancel_at_period_end === "true";
         const meta = metadataOf(b);
         if (Object.keys(meta).length) sub.metadata = meta;
+        // items[i][id|deleted|quantity|price_data...|metadata...]
+        const list = (sub.items as { data: Obj[] }).data;
+        for (let i = 0; b[`items[${i}][id]`] !== undefined || Object.keys(b).some((k) => k.startsWith(`items[${i}]`)); i++) {
+          const id = b[`items[${i}][id]`];
+          const existing = id ? list.find((x) => x.id === id) : undefined;
+          if (existing && b[`items[${i}][deleted]`] === "true") {
+            list.splice(list.indexOf(existing), 1);
+            continue;
+          }
+          const target = existing ?? { id: nextId("si"), price: { id: nextId("price") }, quantity: 1, metadata: {}, current_period_end: periodEnd() };
+          if (!existing) list.push(target);
+          if (b[`items[${i}][quantity]`]) target.quantity = Number(b[`items[${i}][quantity]`]);
+          if (b[`items[${i}][price_data][unit_amount]`]) target.price = { id: nextId("price") };
+          const im = metadataOf(b, `items[${i}][metadata]`);
+          if (Object.keys(im).length) target.metadata = im;
+        }
       }
       return send(res, 200, sub);
     }

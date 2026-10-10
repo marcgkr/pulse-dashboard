@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiWorkspace, primaryWorkspace } from "@/lib/auth";
-import { fixedOrInline, stripe, stripeEnabled } from "@/lib/billing";
+import { fixedOrInline, stripe, stripeEnabled, subscriptionItems } from "@/lib/billing";
 import { PLANS, planById, type PlanId } from "@/lib/config";
 import { db } from "@/lib/db";
 import { errorResponse, readJson } from "@/lib/http";
@@ -27,17 +27,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, cancelsAt: end ? new Date(end * 1000).toISOString() : null });
     }
 
-    const item = sub.items.data[0];
+    const { plan: item, outlets } = subscriptionItems(sub);
     if (!item) return NextResponse.json({ error: "That subscription has no plan on it. Use Manage billing." }, { status: 409 });
+    // Extra outlets are a Pro feature: leaving Pro stops paying for them.
+    const dropOutlets = outlets && !planById(plan).extraOutlets;
     await stripe().subscriptions.update(sub.id, {
-      items: [{ id: item.id, ...(await fixedOrInline(plan, ws.country)) }],
+      items: [{ id: item.id, ...(await fixedOrInline(plan, ws.country)) }, ...(dropOutlets ? [{ id: outlets.id, deleted: true }] : [])],
       metadata: { ...sub.metadata, plan, workspace_id: ws.id },
       cancel_at_period_end: false,
       proration_behavior: "always_invoice",
       // If the card is declined the switch doesn't happen and the customer sees why.
       payment_behavior: "error_if_incomplete",
     });
-    db().prepare("UPDATE workspaces SET plan = ? WHERE id = ?").run(plan, ws.id);
+    db().prepare(`UPDATE workspaces SET plan = ?${dropOutlets ? ", extra_outlets = 0" : ""} WHERE id = ?`).run(plan, ws.id);
     return NextResponse.json({ ok: true, plan: planById(plan).name });
   } catch (e) {
     const err = e as { type?: string; message?: string };

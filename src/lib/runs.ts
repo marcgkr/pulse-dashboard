@@ -63,13 +63,14 @@ export class RunError extends Error {
   }
 }
 
-export function startRun(ws: WorkspaceRow, agentId: string, rawInput: unknown, parentRunId?: string | null): RunRow {
+/** opts.autopilot: a Pro autopilot re-check. It doesn't use or need the monthly report allowance. */
+export function startRun(ws: WorkspaceRow, agentId: string, rawInput: unknown, parentRunId?: string | null, opts: { autopilot?: boolean } = {}): RunRow {
   const agent = getAgent(agentId);
   if (!agent) throw new RunError("Unknown agent.", 404);
   if (!agentAllowed(ws, agentId)) throw new RunError(`${agent.name} is part of the paid plans. Upgrade in Settings to use it.`, 402);
 
   const live = aiEnabled();
-  if (live) {
+  if (live && !opts.autopilot) {
     const u = usage(ws);
     if (u.left <= 0) throw new RunError(`You've used all ${u.limit} reports on the ${u.plan.name} plan this month.`, 402);
   }
@@ -125,7 +126,7 @@ export function startRun(ws: WorkspaceRow, agentId: string, rawInput: unknown, p
        VALUES (@id, @workspace_id, @agent, @title, @input_json, @status, @progress, @demo, @parent_run_id, @created_at)`,
     )
     .run(run);
-  if (live) recordUsage(ws.id, "run", run.id);
+  if (live && !opts.autopilot) recordUsage(ws.id, "run", run.id);
 
   // Fire and forget. The UI polls the run row for progress.
   void execute(run.id, ws, input, live);

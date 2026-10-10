@@ -63,7 +63,7 @@ export async function POST(req: Request) {
   const live = aiEnabled();
   if (live) {
     const plan = planById(ws.plan);
-    if (plan.chatPerMonth === 0) return new Response("Ask PULSE is part of the paid plans. Upgrade in Settings to chat with the strategist.", { status: 402 });
+    if (plan.chatPerMonth === 0) return new Response("Ask PULSE is part of the Growth and Pro plans. Upgrade in Settings to chat with the strategist.", { status: 402 });
     if (usedThisMonth(ws.id, "chat") >= plan.chatPerMonth) {
       return new Response(`You've used all ${plan.chatPerMonth} Ask PULSE messages on the ${plan.name} plan this month.`, { status: 402 });
     }

@@ -126,7 +126,7 @@ export function AppNav(props: NavProps) {
           )}
           {props.canAdd && (
             <Link href="/onboarding?add=1" className="mt-1.5 inline-block text-[13px] font-semibold text-lilac hover:text-white">
-              + Add a business
+              + Add an outlet
             </Link>
           )}
         </div>

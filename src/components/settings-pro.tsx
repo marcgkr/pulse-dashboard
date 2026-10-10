@@ -10,10 +10,21 @@ export function BusinessList({
   businesses,
   currentId,
   max,
+  extra,
+  outletPrice,
+  canBuy,
+  contact,
 }: {
   businesses: { id: string; name: string; website: string; primary: boolean }[];
   currentId: string;
+  /** Outlets this account can run now: the included one plus extras paid for. */
   max: number;
+  extra: number;
+  /** e.g. "S$30" */
+  outletPrice: string;
+  /** Has a paid Pro subscription with online payment on, so outlets can be bought here. */
+  canBuy: boolean;
+  contact: string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -24,6 +35,21 @@ export function BusinessList({
     const res = await fetch("/api/workspace/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     if (res.ok) window.location.assign("/app");
     else setBusy(null);
+  }
+
+  async function outlets(change: 1 | -1) {
+    const q =
+      change === 1
+        ? `Add an outlet for ${outletPrice} a month? You're charged for the rest of this month now, on the card you pay with.`
+        : `Stop paying for one unused outlet? The rest of this month is credited to your next invoice.`;
+    if (!window.confirm(q)) return;
+    setBusy("outlets");
+    setError("");
+    const res = await fetch("/api/billing/outlets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ change }) });
+    setBusy(null);
+    if (!res.ok) return setError(((await res.json().catch(() => ({}))) as { error?: string }).error || "That didn't go through. Try again.");
+    if (change === 1) window.location.assign("/onboarding?add=1");
+    else router.refresh();
   }
 
   async function remove(id: string, name: string) {
@@ -75,14 +101,52 @@ export function BusinessList({
           </li>
         ))}
       </ul>
-      <div className="border-t border-line px-5 py-4 md:px-6">
-        {businesses.length < max ? (
-          <Link href="/onboarding?add=1" className="inline-flex rounded-full bg-scrub px-5 py-2.5 text-sm font-semibold text-white hover:bg-scrub-dark">
-            Add a business or location
-          </Link>
-        ) : (
-          <p className="text-sm text-ink-2">Your plan covers {max} businesses. Remove one to add another.</p>
-        )}
+      <div className="space-y-3 border-t border-line px-5 py-4 md:px-6">
+        <p className="text-[15px] text-ink-2">
+          Pro includes one outlet. Each extra outlet of the same business is {outletPrice} a month, with its own profile, reports, prescription board and connected
+          accounts. {extra > 0 ? `You pay for ${extra} extra outlet${extra === 1 ? "" : "s"}; ${businesses.length} of ${max} are set up.` : ""}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {businesses.length < max && (
+            <Link href="/onboarding?add=1" className="inline-flex rounded-full bg-scrub px-5 py-2.5 text-sm font-semibold text-white hover:bg-scrub-dark">
+              Set up your next outlet
+            </Link>
+          )}
+          {canBuy ? (
+            <>
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={() => outlets(1)}
+                className={cx(
+                  "rounded-full px-5 py-2.5 text-sm font-semibold disabled:opacity-50",
+                  businesses.length < max ? "text-ink ring-1 ring-line hover:ring-ink-3" : "bg-scrub text-white hover:bg-scrub-dark",
+                )}
+              >
+                {busy === "outlets" ? "One moment..." : `Add an outlet (${outletPrice}/month)`}
+              </button>
+              {extra > 0 && businesses.length < max && (
+                <button
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() => outlets(-1)}
+                  className="rounded-full px-5 py-2.5 text-sm font-semibold text-ink-2 ring-1 ring-line hover:text-pulse hover:ring-pulse disabled:opacity-50"
+                >
+                  Stop paying for an unused outlet
+                </button>
+              )}
+            </>
+          ) : (
+            businesses.length >= max && (
+              <a
+                href={`mailto:${contact}?subject=${encodeURIComponent("MarketingRx: add an outlet")}`}
+                className="rounded-full px-5 py-2.5 text-sm font-semibold text-ink ring-1 ring-line hover:ring-ink-3"
+              >
+                Email us to add an outlet
+              </a>
+            )
+          )}
+        </div>
       </div>
     </div>
   );

@@ -28,6 +28,8 @@ export default defineConfig({
         ADMIN_SETUP_TOKEN: "e2e-setup-token-1234567890",
         // Every test signs up from the same address.
         SIGNUPS_PER_IP_PER_HOUR: "50",
+        RATE_LIMIT_PAGES_PER_MIN: "5000",
+        RATE_LIMIT_API_PER_MIN: "5000",
         ANTHROPIC_API_KEY: "",
         // Payments against tests/mock-stripe.
         STRIPE_SECRET_KEY: "sk_test_mock",

@@ -12,7 +12,7 @@ import { getAgent } from "@/lib/agents";
 import { MemoryList } from "@/components/memory-list";
 import { AutopilotToggle, BusinessList, PromoRedeem } from "@/components/settings-pro";
 import { promoActive } from "@/lib/promos";
-import { planById } from "@/lib/config";
+import { outletLimit, planById } from "@/lib/config";
 
 export const metadata = { title: "Settings" };
 
@@ -47,7 +47,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     comment: f.comment,
     when: new Date(f.updated_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: market.timeZone }),
   }));
-  const owned = ownedWorkspaces(user.id).slice(0, u.plan.businesses);
+  const allOwned = ownedWorkspaces(user.id);
+  const limit = outletLimit(allOwned[0] ?? ws);
+  const owned = allOwned.slice(0, limit);
   return (
     <div className="space-y-10">
       <PageHeader eyebrow="Settings" title="Your business" />
@@ -92,14 +94,18 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </Card>
       </section>
 
-      {u.plan.businesses > 1 && (
+      {u.plan.extraOutlets && (
         <section id="businesses">
-          <Label className="mb-2">Your businesses</Label>
+          <Label className="mb-2">Your outlets</Label>
           <Card className="overflow-hidden">
             <BusinessList
               businesses={owned.map((w, i) => ({ id: w.id, name: w.name, website: w.website, primary: i === 0 }))}
               currentId={ws.id}
-              max={u.plan.businesses}
+              max={limit}
+              extra={allOwned[0]?.extra_outlets ?? 0}
+              outletPrice={formatPrice(market, market.prices.outlet)}
+              canBuy={stripeEnabled() && !!ws.stripe_subscription_id && ws.paid_plan === "pro"}
+              contact={BRAND.contactEmail}
             />
           </Card>
         </section>
@@ -142,7 +148,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             </p>
           )}
           <p className="text-sm text-ink-2">
-            Prices in {market.currency}. You&apos;re on <strong>{u.plan.name}</strong>. {u.used} of {u.limit} reports used this month{u.plan.businesses > 1 ? ", across all your businesses" : ""} (sample reports in demo mode don&apos;t count).
+            Prices in {market.currency}. You&apos;re on <strong>{u.plan.name}</strong>. {u.used} of {u.limit} reports used this month{owned.length > 1 ? ", across all your outlets" : ""} (sample reports in demo mode don&apos;t count).
           </p>
           <div className="mt-5">
             <PlanPicker

@@ -1,12 +1,12 @@
 import { aiEnabled } from "./ai";
-import { planById } from "./config";
+import { outletLimit, planById } from "./config";
 import { db, type RunRow, type WorkspaceRow } from "./db";
 import { effectivePlan } from "./promos";
 import { startRun } from "./runs";
 
 // Pro autopilot: Site Doctor re-checks the website every week and AI Visibility re-asks the owner's
-// last questions every month, with no one clicking. Autopilot reports use the plan's monthly
-// allowance like any other, and stop when it runs out.
+// last questions every month, with no one clicking. Autopilot reports don't use the plan's monthly
+// allowance; the server-wide caps in runs.ts still apply.
 
 const DAY = 24 * 60 * 60 * 1000;
 export const SITE_EVERY_DAYS = 7;
@@ -31,7 +31,7 @@ function autopilotWorkspaces(): WorkspaceRow[] {
     }
     n++;
     const plan = planById(effectivePlan(primary!));
-    if (!plan.autopilot || n > plan.businesses || w.autopilot === 0) continue;
+    if (!plan.autopilot || n > outletLimit({ plan: plan.id, extra_outlets: primary!.extra_outlets }) || w.autopilot === 0) continue;
     out.push({ ...w, plan: plan.id });
   }
   return out;
@@ -65,7 +65,7 @@ export function runAutopilot(now = Date.now()): string[] {
   for (const d of dueRuns(now)) {
     if (started.length >= STARTS_PER_TICK) break;
     try {
-      const run = startRun(d.ws, d.agent, d.input);
+      const run = startRun(d.ws, d.agent, d.input, null, { autopilot: true });
       db().prepare("UPDATE runs SET title = ? WHERE id = ?").run(`Autopilot: ${run.title}`.slice(0, 200), run.id);
       started.push(run.id);
     } catch (e) {

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { currentUser, ownedWorkspaces } from "@/lib/auth";
-import { PLANS, planById } from "@/lib/config";
+import { PLANS, outletLimit, planById } from "@/lib/config";
 import { stripeEnabled } from "@/lib/billing";
 import { checkPromo } from "@/lib/promos";
 import { Logo } from "@/components/brand";
@@ -17,7 +17,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   // Pro accounts come back here (?add=1) to add another business or location.
   const owned = ownedWorkspaces(user.id);
   const adding = owned.length > 0;
-  if (adding && (sp.add !== "1" || owned.length >= planById(owned[0].plan).businesses)) redirect(sp.add === "1" ? "/app/settings#businesses" : "/app");
+  if (adding && (sp.add !== "1" || owned.length >= outletLimit(owned[0]))) redirect(sp.add === "1" ? "/app/settings#businesses" : "/app");
   // Only trust the param when it names a real market (marketFor falls back to the default otherwise).
   const param = sp.country?.toUpperCase();
   const country = param && marketFor(param).code === param ? param : (await visitorMarket()).code;
@@ -34,7 +34,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
           <Logo className="mb-8" />
           <div className="rise rounded-[1.75rem] bg-card p-6 shadow-[var(--shadow-lift)] md:p-9">
             <h1 className="font-display text-3xl font-extrabold leading-[1.02] tracking-[-0.03em] md:text-4xl">
-              {adding ? "Add another business or location" : "Tell us about your business"}
+              {adding ? "Set up your new outlet" : "Tell us about your business"}
             </h1>
             <p className="mb-7 mt-3 text-[15px] leading-relaxed text-ink-2">
               Every specialist reads this before it advises you, so the more specific you are, the more specific the prescriptions. You can change it later.

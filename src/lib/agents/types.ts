@@ -12,7 +12,7 @@ export type AgentContext = {
 
 /** Every agent returns at least these fields. Agent-specific data goes alongside. */
 export type AgentResult = {
-  /** Short human title for the report, e.g. "Site checkup: zionaesthetics.sg" */
+  /** Short human title for the report, e.g. "Site checkup: brightwellstudio.com" */
   title: string;
   /** 0-100 health score, or null when the agent does not score. */
   score: number | null;

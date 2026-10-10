@@ -17,6 +17,7 @@ function flash(sp: Search): { tone: "good" | "bad"; text: string } | null {
   if (sp.error === "state") return { tone: "bad", text: "That sign-in link expired or was opened in a different browser. Click Connect again." };
   if (sp.error === "exchange") return { tone: "bad", text: `${who} didn't let us finish connecting. Try again in a minute.` };
   if (sp.error === "not_ready") return { tone: "bad", text: "This connection isn't switched on yet. Upload your exports instead." };
+  if (sp.error === "plan") return { tone: "bad", text: "Connecting accounts is part of the paid plans. Choose a plan in Settings first." };
   if (sp.error === "busy") return { tone: "bad", text: "Too many tries in a row. Wait a few minutes, then try again." };
   if (sp.error) return { tone: "bad", text: "Something went wrong. Try again." };
   if (sp.connected && sp.warn === "scopes")
@@ -49,11 +50,24 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
         </p>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        {conns.map((c) => (
-          <ConnectionCard key={c.provider} c={c} lastSync={when(c.lastSyncAt)} livePlan={livePlan} />
-        ))}
-      </div>
+      {ws.plan === "free" ? (
+        <div className="rounded-3xl bg-card p-6 ring-1 ring-line md:p-8">
+          <h2 className="font-display text-xl font-bold">Connecting accounts is on the paid plans</h2>
+          <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-2">
+            On Starter and up, connect Google, Meta and your social accounts so the specialists read your real numbers and your own posts: Ads Doctor uses your
+            campaigns, Keyword Lab your Search Console searches, and Content Studio what already works on your channels when it looks for trends.
+          </p>
+          <Link href="/app/settings#plan" className="mt-5 inline-flex rounded-full bg-scrub px-5 py-2.5 text-sm font-semibold text-white hover:bg-scrub-dark">
+            See the plans
+          </Link>
+        </div>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-2">
+          {conns.map((c) => (
+            <ConnectionCard key={c.provider} c={c} lastSync={when(c.lastSyncAt)} livePlan={livePlan} />
+          ))}
+        </div>
+      )}
 
       <div className="max-w-2xl space-y-2 text-sm text-ink-2">
         <p>

@@ -381,15 +381,18 @@ async function main() {
       return wid;
     };
     const a = mk("Auto One", "pro", "2026-01-01T00:00:00.000Z");
+    // Pro includes one outlet; the second business is covered by one paid extra outlet.
+    db().prepare("UPDATE workspaces SET extra_outlets = 1 WHERE id = ?").run(a);
     const b = mk("Auto Two", "free", "2026-01-02T00:00:00.000Z"); // plan comes from the first business
     const off = mk("Auto Off", "free", "2026-01-03T00:00:00.000Z", "off");
+    const beyond = mk("Auto Beyond", "free", "2026-01-04T00:00:00.000Z"); // past the outlets paid for
     const visInput = getAgent("visibility")!.parseInput(cases.find((c) => c.agent === "visibility")!.raw, ws);
     db()
       .prepare("INSERT INTO runs (id, workspace_id, agent, title, input_json, status, progress, demo, created_at) VALUES (?, ?, 'visibility', 'old', ?, 'done', '', 0, ?)")
       .run(id("r_"), a, JSON.stringify(visInput), new Date(Date.now() - 40 * 86400000).toISOString());
     const started = runAutopilot();
     const rows = db().prepare(`SELECT workspace_id, agent, title FROM runs WHERE id IN (${started.map(() => "?").join(",")})`).all(...started) as { workspace_id: string; agent: string; title: string }[];
-    const got = rows.map((r) => `${r.workspace_id === a ? "one" : r.workspace_id === b ? "two" : "off"}:${r.agent}`).sort();
+    const got = rows.map((r) => `${r.workspace_id === a ? "one" : r.workspace_id === b ? "two" : r.workspace_id === beyond ? "beyond" : "off"}:${r.agent}`).sort();
     assert.deepEqual(got, ["one:site", "one:visibility", "two:site"], `started ${got.join(", ")}`);
     assert.ok(rows.every((r) => r.title.startsWith("Autopilot: ")), "autopilot titles");
     assert.ok(!rows.some((r) => r.workspace_id === off), "switched-off business was re-checked");

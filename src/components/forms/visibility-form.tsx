@@ -97,7 +97,7 @@ export function VisibilityForm({ profile, lastInput }: FormProps) {
         </Field>
       </div>
       <Field label="Other names for your brand" hint="Comma separated. Short names, old names, spellings customers use.">
-        <Input value={aliases} onChange={(e) => setAliases(e.target.value)} placeholder="e.g. Zion, Zion Clinic" />
+        <Input value={aliases} onChange={(e) => setAliases(e.target.value)} placeholder="e.g. Brightwell, Brightwell Studio" />
       </Field>
       <Field label="Competitors to watch" hint="Comma separated.">
         <Input value={competitors} onChange={(e) => setCompetitors(e.target.value)} placeholder="Competitor A, Competitor B" />

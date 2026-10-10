@@ -71,16 +71,18 @@ function billingFaq(m: Market) {
       a: (
         <p>
           It depends how often you re-check. A business that runs each specialist once or twice a month uses well under the {PLANS[1].name} allowance. Pick{" "}
-          {PLANS[3].name} for the extra businesses and autopilot, not for the number.
+          {PLANS[3].name} for Google Business Profile, autopilot re-checks, live chat support and extra outlets, not for the number. Autopilot re-checks don&apos;t
+          use your reports.
         </p>
       ),
     },
     {
-      q: "Can I run more than one business or location?",
+      q: "Can I run more than one outlet?",
       a: (
         <p>
-          On {PLANS[3].name}, yes: up to {PLANS[3].businesses} on one login, each with its own profile, reports, prescription board and connected accounts. You switch
-          between them from the sidebar, and they share the plan&apos;s {PLANS[3].runsPerMonth} reports a month.
+          On {PLANS[3].name}, yes. One outlet is included, and each extra outlet of the same business is {formatPrice(m, m.prices.outlet)} a month, added in
+          Settings and charged straight away. Each outlet gets its own profile, reports, prescription board and connected accounts, and you switch between them from the
+          sidebar. They share the plan&apos;s {PLANS[3].runsPerMonth} reports a month.
         </p>
       ),
     },

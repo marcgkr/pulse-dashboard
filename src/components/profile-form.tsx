@@ -89,10 +89,10 @@ export function ProfileForm({ mode, initial }: { mode: "create" | "add" | "edit"
     <form onSubmit={onSubmit} className="space-y-5">
       <div className="grid gap-5 md:grid-cols-2">
         <Field label="Business name">
-          <Input value={p.name ?? ""} onChange={set("name")} required placeholder="Glow Aesthetics" />
+          <Input value={p.name ?? ""} onChange={set("name")} required placeholder="Brightwell Studio" />
         </Field>
         <Field label="Website">
-          <Input value={p.website ?? ""} onChange={set("website")} placeholder="glowaesthetics.sg" />
+          <Input value={p.website ?? ""} onChange={set("website")} placeholder="brightwellstudio.com" />
         </Field>
         <Field label="Industry">
           <Select value={p.industry ?? ""} onChange={set("industry")} required>

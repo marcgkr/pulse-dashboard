@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { planById } from "./config";
+import { outletLimit } from "./config";
 import { db, id, now, type UserRow, type WorkspaceRow } from "./db";
 import { effectivePlan } from "./promos";
 
@@ -92,9 +92,9 @@ export function workspaceFor(userId: string): WorkspaceRow | null {
   const all = ownedWorkspaces(userId);
   const primary = all[0];
   if (!primary) return null;
-  if (all.length === 1 || planById(primary.plan).businesses <= 1) return primary;
+  if (all.length === 1 || outletLimit(primary) <= 1) return primary;
   const pick = (db().prepare("SELECT current_workspace_id AS id FROM users WHERE id = ?").get(userId) as { id: string | null } | undefined)?.id;
-  const allowed = all.slice(0, planById(primary.plan).businesses);
+  const allowed = all.slice(0, outletLimit(primary));
   const current = allowed.find((w) => w.id === pick) ?? primary;
   if (current.id === primary.id) return primary;
   return {

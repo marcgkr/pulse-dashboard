@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentUser, ownedWorkspaces, workspaceFor } from "@/lib/auth";
-import { planById } from "@/lib/config";
+import { outletLimit, planById } from "@/lib/config";
 import { PromoError, redeemPromo } from "@/lib/promos";
 import { db, id, now } from "@/lib/db";
 import { errorResponse, readJson } from "@/lib/http";
@@ -31,10 +31,10 @@ export async function POST(req: Request) {
   // A first business, or (on Pro) another business or location on the same login.
   const owned = ownedWorkspaces(user.id);
   if (owned.length > 0) {
-    const allowed = planById(owned[0].plan).businesses;
+    const allowed = outletLimit(owned[0]);
     if (body.add !== true) return NextResponse.json({ error: "You already have a business set up." }, { status: 409 });
-    if (allowed <= 1) return NextResponse.json({ error: "Running more than one business is part of the Pro plan. Upgrade in Settings." }, { status: 402 });
-    if (owned.length >= allowed) return NextResponse.json({ error: `Your plan covers ${allowed} businesses. Remove one in Settings to add another.` }, { status: 409 });
+    if (!planById(owned[0].plan).extraOutlets) return NextResponse.json({ error: "More outlets are part of the Pro plan. Upgrade in Settings." }, { status: 402 });
+    if (owned.length >= allowed) return NextResponse.json({ error: "Add an outlet to your plan in Settings first, then set it up here." }, { status: 402 });
   }
   const f = clean(body);
   if (!f.name) return NextResponse.json({ error: "Enter your business name." }, { status: 400 });

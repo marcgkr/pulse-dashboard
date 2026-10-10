@@ -45,16 +45,30 @@ export function planForPrice(priceId: string): PlanId | null {
   return null;
 }
 
-const products = new Map<PlanId, string>();
+const products = new Map<string, string>();
 
-/** The Stripe product for a plan (tagged mrx_plan), created on first use. */
-async function productFor(plan: PlanId): Promise<string> {
-  const hit = products.get(plan);
+/** The Stripe product for a plan, or "outlet" for extra outlets (tagged mrx_plan), created on first use. */
+async function productFor(key: PlanId | "outlet"): Promise<string> {
+  const hit = products.get(key);
   if (hit) return hit;
-  const found = await stripe().products.search({ query: `metadata['mrx_plan']:'${plan}' AND active:'true'`, limit: 1 });
-  const id = found.data[0]?.id ?? (await stripe().products.create({ name: `MarketingRx ${planById(plan).name}`, metadata: { mrx_plan: plan } })).id;
-  products.set(plan, id);
+  const found = await stripe().products.search({ query: `metadata['mrx_plan']:'${key}' AND active:'true'`, limit: 1 });
+  const name = key === "outlet" ? "MarketingRx extra outlet" : `MarketingRx ${planById(key).name}`;
+  const id = found.data[0]?.id ?? (await stripe().products.create({ name, metadata: { mrx_plan: key } })).id;
+  products.set(key, id);
   return id;
+}
+
+/** Monthly price of one extra outlet in the business's currency. */
+export async function outletPriceData(country: string) {
+  const m = marketFor(country);
+  return { currency: m.currency.toLowerCase(), product: await productFor("outlet"), unit_amount: Math.round(m.prices.outlet * 100), recurring: { interval: "month" as const } };
+}
+
+/** The subscription item that holds extra outlets, and the one that holds the plan. */
+export function subscriptionItems(sub: Stripe.Subscription): { plan: Stripe.SubscriptionItem | null; outlets: Stripe.SubscriptionItem | null } {
+  const items = sub.items.data;
+  const outlets = items.find((i) => i.metadata?.kind === "outlet") ?? null;
+  return { outlets, plan: items.find((i) => i !== outlets) ?? null };
 }
 
 /** A monthly price for the plan in the business's currency, from the price list. */

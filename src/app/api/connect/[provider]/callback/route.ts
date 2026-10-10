@@ -32,6 +32,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ provider
   const code = url.searchParams.get("code");
   if (!code || code.length > 4096) return back(provider, "error=state");
   if (!providerSetup(provider).ready) return back(provider, "error=not_ready");
+  if (auth.ws.plan === "free") return back(provider, "error=plan");
 
   try {
     const tokens = await exchangeCode(provider, code, st.v);

@@ -14,6 +14,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ provide
   if (!isProvider(provider)) return back("error=unknown");
   const auth = await apiWorkspace();
   if (!auth) return NextResponse.redirect(`${appUrl()}/login`, 303);
+  // Connecting accounts is part of the paid plans.
+  if (auth.ws.plan === "free") return back(`error=plan&provider=${provider}`);
   if (!providerSetup(provider).ready) return back(`error=not_ready&provider=${provider}`);
   if (!rateLimit(`connect:${auth.user.id}`, 10, 10 * 60_000)) return back(`error=busy&provider=${provider}`);
 

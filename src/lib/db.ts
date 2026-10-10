@@ -177,6 +177,25 @@ function migrate(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS feedback_ws ON feedback(workspace_id, agent, updated_at);
     CREATE UNIQUE INDEX IF NOT EXISTS feedback_item ON feedback(workspace_id, run_id, item);
+    CREATE TABLE IF NOT EXISTS social_videos (
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      platform TEXT NOT NULL,
+      external_id TEXT NOT NULL,
+      url TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT '',
+      caption TEXT NOT NULL DEFAULT '',
+      published_at TEXT,
+      duration_seconds INTEGER,
+      views INTEGER,
+      likes INTEGER,
+      comments INTEGER,
+      transcript TEXT,
+      transcript_status TEXT NOT NULL DEFAULT 'none',
+      transcript_note TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (workspace_id, platform, external_id)
+    );
+    CREATE INDEX IF NOT EXISTS social_videos_recent ON social_videos(workspace_id, published_at);
     CREATE TABLE IF NOT EXISTS promo_codes (
       code TEXT PRIMARY KEY,
       plan TEXT NOT NULL,
@@ -206,6 +225,8 @@ function migrate(db: Database.Database) {
   addColumn(db, "workspaces", "promo_plan", "TEXT");
   addColumn(db, "workspaces", "promo_until", "TEXT");
   addColumn(db, "workspaces", "promo_code", "TEXT");
+  // Pro: extra outlets paid for on top of the one included (each a Stripe subscription item unit).
+  addColumn(db, "workspaces", "extra_outlets", "INTEGER NOT NULL DEFAULT 0");
   addColumn(db, "workspaces", "stripe_subscription_id", "TEXT");
   addColumn(db, "workspaces", "country", "TEXT NOT NULL DEFAULT 'SG'");
   addColumn(db, "connections", "last_sync_at", "TEXT");
@@ -259,6 +280,7 @@ export type WorkspaceRow = {
   promo_plan?: string | null;
   promo_until?: string | null;
   promo_code?: string | null;
+  extra_outlets?: number;
   /** Not a column. The plan the account pays for, when a promo lifts `plan` above it. */
   paid_plan?: string;
   stripe_customer_id: string | null;
@@ -267,6 +289,26 @@ export type WorkspaceRow = {
   created_at: string;
   /** Not a column. Set by runs.ts before an agent runs: what the owner has told this specialist. */
   owner_notes?: string;
+};
+
+export type VideoRow = {
+  workspace_id: string;
+  platform: "instagram" | "youtube" | "tiktok" | "facebook";
+  external_id: string;
+  /** Public link to the post. */
+  url: string;
+  title: string;
+  caption: string;
+  published_at: string | null;
+  duration_seconds: number | null;
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+  transcript: string | null;
+  /** none: not tried; done; unavailable: the platform doesn't share the file; skipped: outside the plan's limit; error */
+  transcript_status: "none" | "done" | "unavailable" | "skipped" | "error";
+  transcript_note: string;
+  updated_at: string;
 };
 
 export type PromoRow = {

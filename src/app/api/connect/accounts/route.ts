@@ -13,6 +13,7 @@ const KINDS: Record<string, AccountKind[]> = { google: ["google_ads", "search_co
 export async function POST(req: Request) {
   const auth = await apiWorkspace();
   if (!auth) return NextResponse.json({ error: "Log in first." }, { status: 401 });
+  if (auth.ws.plan === "free") return NextResponse.json({ error: "Connecting accounts is part of the paid plans." }, { status: 402 });
   let body: { provider?: unknown; kind?: unknown; ids?: unknown };
   try {
     body = await readJson(req);

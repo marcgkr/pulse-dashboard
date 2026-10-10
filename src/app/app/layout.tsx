@@ -4,13 +4,16 @@ import { AGENTS, AGENT_ORDER } from "@/lib/agents";
 import { isAdmin, ownedWorkspaces, requireWorkspace } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { usage } from "@/lib/runs";
+import { outletLimit } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, ws } = await requireWorkspace();
   const u = usage(ws);
-  const owned = ownedWorkspaces(user.id).slice(0, u.plan.businesses);
+  const all = ownedWorkspaces(user.id);
+  const limit = outletLimit(all[0] ?? ws);
+  const owned = all.slice(0, limit);
   const open = (db().prepare("SELECT COUNT(*) n FROM tasks WHERE workspace_id = ? AND status IN ('todo','doing')").get(ws.id) as { n: number }).n;
   return (
     <div className="min-h-screen">
@@ -20,7 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         businessName={ws.name}
         businesses={owned.map((w) => ({ id: w.id, name: w.name }))}
         currentId={ws.id}
-        canAdd={owned.length < u.plan.businesses}
+        canAdd={u.plan.extraOutlets}
         plan={u.plan.name}
         used={u.used}
         limit={u.limit}

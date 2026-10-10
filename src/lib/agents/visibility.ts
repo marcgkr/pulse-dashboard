@@ -154,7 +154,7 @@ export function listItems(answer: string): string[] {
   return numbered.length ? numbered : bullets;
 }
 
-/** Business name at the start of a list item, e.g. "Zion Aesthetics: known for..." -> "Zion Aesthetics". */
+/** Business name at the start of a list item, e.g. "Brightwell Studio: known for..." -> "Brightwell Studio". */
 function itemName(item: string): string {
   const cleaned = item.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
   const name = cleaned.split(/\s+[-\u2013\u2014]\s+|:\s|\s\(|,\s/)[0] ?? "";
