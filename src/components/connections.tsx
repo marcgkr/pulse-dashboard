@@ -23,6 +23,13 @@ const KINDS: Record<ClientConnection["provider"], Kind[]> = {
   tiktok: ["tiktok_account"],
 };
 
+// What still works while PULSE hasn't switched a connection on yet.
+const OFF: Record<ClientConnection["provider"], string> = {
+  google: "PULSE is still switching this on. Until then, upload your Google Ads exports in Ads Doctor and paste Search Console data into Keyword Lab.",
+  meta: "PULSE is still switching this on. Until then, upload your Meta Ads exports in Ads Doctor; Social Media Content works from your profile and this month's trends.",
+  tiktok: "PULSE is still switching this on. Until then, Social Media Content works from your profile and this month's trends.",
+};
+
 const KIND_LABEL: Record<Kind, string> = {
   google_ads: "Google Ads accounts",
   search_console: "Search Console property",
@@ -89,7 +96,7 @@ export function ConnectionCard({ c, lastSync, livePlan, gbpPlan }: { c: ClientCo
       </div>
 
       {status === "off" ? (
-        <p className="mt-4 rounded-2xl bg-paper px-4 py-3 text-sm text-ink-2">This connection isn&apos;t switched on yet. Upload your exports instead.</p>
+        <p className="mt-4 rounded-2xl bg-paper px-4 py-3 text-sm text-ink-2">{OFF[c.provider]}</p>
       ) : (
         <>
           {!c.connected && (

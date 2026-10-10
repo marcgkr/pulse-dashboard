@@ -84,10 +84,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <Label className="mb-2">Connected accounts</Label>
         <Card className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between md:p-6">
           <div>
-            <h2 className="font-display text-lg font-semibold">Google and Meta</h2>
+            <h2 className="font-display text-lg font-semibold">Google, Meta and TikTok</h2>
             <p className="mt-1 max-w-xl text-sm text-ink-2">
-              Connect once and Ads Doctor and Keyword Lab read your latest numbers themselves. We read ad performance and search performance, read-only; we never change
-              your ads. You can disconnect any time.
+              Connect once and the specialists read your latest numbers and your own posts themselves: ads, Search Console, your Business Profile on Pro, and your
+              Instagram, Facebook, YouTube and TikTok videos. Read-only; we never change or post anything. You can disconnect any time.
             </p>
             <p className="mt-2 text-sm font-semibold text-ink">{summary.length ? `Connected: ${summary.join(", ")}` : "Nothing connected yet."}</p>
           </div>

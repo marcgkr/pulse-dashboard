@@ -17,7 +17,7 @@ function flash(sp: Search): { tone: "good" | "bad"; text: string } | null {
   if (sp.error === "denied") return { tone: "bad", text: `You cancelled the ${who} connection. Nothing was saved.` };
   if (sp.error === "state") return { tone: "bad", text: "That sign-in link expired or was opened in a different browser. Click Connect again." };
   if (sp.error === "exchange") return { tone: "bad", text: `${who} didn't let us finish connecting. Try again in a minute.` };
-  if (sp.error === "not_ready") return { tone: "bad", text: "This connection isn't switched on yet. Upload your exports instead." };
+  if (sp.error === "not_ready") return { tone: "bad", text: "This connection isn't switched on yet. Upload your exports in Ads Doctor or Keyword Lab for now." };
   if (sp.error === "plan") return { tone: "bad", text: "Connecting accounts is part of the paid plans. Choose a plan in Settings first." };
   if (sp.error === "busy") return { tone: "bad", text: "Too many tries in a row. Wait a few minutes, then try again." };
   if (sp.error) return { tone: "bad", text: "Something went wrong. Try again." };
