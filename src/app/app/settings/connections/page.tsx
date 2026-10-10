@@ -66,7 +66,7 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
         <>
           <div className="grid gap-5 lg:grid-cols-2">
             {conns.map((c) => (
-              <ConnectionCard key={c.provider} c={c} lastSync={when(c.lastSyncAt)} livePlan={livePlan} />
+              <ConnectionCard key={c.provider} c={c} lastSync={when(c.lastSyncAt)} livePlan={livePlan} gbpPlan={ws.plan === "pro"} />
             ))}
           </div>
           <VideoLibraryCard lib={libraryStatus(ws)} syncedAt={when(ws.videos_synced_at ?? null)} hasAccounts={hasSocialAccounts(ws.id)} />

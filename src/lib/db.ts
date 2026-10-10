@@ -385,7 +385,7 @@ export type ConnectionRow = {
 };
 
 /** Ad accounts and Search Console for the specialists, and the organic social accounts for the video library. */
-export type AccountKindName = "google_ads" | "meta_ads" | "search_console" | "facebook_page" | "instagram_account" | "youtube_channel" | "tiktok_account";
+export type AccountKindName = "google_ads" | "meta_ads" | "search_console" | "facebook_page" | "instagram_account" | "youtube_channel" | "tiktok_account" | "gbp_location";
 
 export type ConnectionAccountRow = {
   connection_id: string;

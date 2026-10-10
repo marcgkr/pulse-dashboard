@@ -51,6 +51,12 @@ export function providerSetup(p: Provider): { ready: boolean; missing: string[] 
 export const GOOGLE_SCOPE_ADS = "https://www.googleapis.com/auth/adwords";
 export const GOOGLE_SCOPE_GSC = "https://www.googleapis.com/auth/webmasters.readonly";
 export const GOOGLE_SCOPE_YOUTUBE = "https://www.googleapis.com/auth/youtube.readonly";
+export const GOOGLE_SCOPE_GBP = "https://www.googleapis.com/auth/business.manage";
+
+/** Google approves Business Profile API access per project; switch it on with GOOGLE_BUSINESS_PROFILE=1 once approved. */
+export function gbpEnabled(): boolean {
+  return env("GOOGLE_BUSINESS_PROFILE") === "1";
+}
 
 /** YouTube is on unless GOOGLE_YOUTUBE=0 (it is a sensitive scope: Google shows an unverified-app screen until the app is verified). */
 export function youtubeEnabled(): boolean {
@@ -58,7 +64,7 @@ export function youtubeEnabled(): boolean {
 }
 
 export function googleScopes(): string[] {
-  return ["openid", "email", GOOGLE_SCOPE_GSC, ...(googleAdsEnabled() ? [GOOGLE_SCOPE_ADS] : []), ...(youtubeEnabled() ? [GOOGLE_SCOPE_YOUTUBE] : [])];
+  return ["openid", "email", GOOGLE_SCOPE_GSC, ...(googleAdsEnabled() ? [GOOGLE_SCOPE_ADS] : []), ...(youtubeEnabled() ? [GOOGLE_SCOPE_YOUTUBE] : []), ...(gbpEnabled() ? [GOOGLE_SCOPE_GBP] : [])];
 }
 
 /** Reading the owner's own Facebook Page and Instagram posts. On unless META_ORGANIC=0. */

@@ -7,6 +7,7 @@ import { VisibilityReport } from "./visibility-report";
 import { ContentReport } from "./content-report";
 import { AdsReport } from "./ads-report";
 import { ComplianceReport } from "./compliance-report";
+import { GbpReport } from "./gbp-report";
 
 export type ReportProps = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,4 +24,5 @@ export const AGENT_REPORTS: Record<AgentId, ComponentType<ReportProps>> = {
   content: ContentReport as ComponentType<ReportProps>,
   ads: AdsReport as ComponentType<ReportProps>,
   compliance: ComplianceReport as ComponentType<ReportProps>,
+  gbp: GbpReport as ComponentType<ReportProps>,
 };

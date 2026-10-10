@@ -64,11 +64,13 @@ export type Plan = {
   autopilot: boolean;
   /** How many of the latest connected videos get transcribed (src/lib/videos.ts). */
   transcribeVideos: number;
+  /** The Google Business Profile specialist (src/lib/agents/gbp.ts). */
+  gbp: boolean;
   /** What only this plan gets, called out at the top of its card. */
   exclusives?: string[];
 };
 
-export type AgentKey = "site" | "keywords" | "visibility" | "content" | "ads" | "compliance";
+export type AgentKey = "site" | "keywords" | "visibility" | "content" | "ads" | "compliance" | "gbp";
 const ALL_SPECIALISTS: AgentKey[] = ["site", "keywords", "visibility", "content", "ads", "compliance"];
 
 // Placeholder pricing. Adjust before launch.
@@ -90,6 +92,7 @@ export const PLANS: Plan[] = [
     extraOutlets: false,
     autopilot: false,
     transcribeVideos: 0,
+    gbp: false,
   },
   {
     id: "starter",
@@ -107,6 +110,7 @@ export const PLANS: Plan[] = [
     extraOutlets: false,
     autopilot: false,
     transcribeVideos: 0,
+    gbp: false,
   },
   {
     id: "growth",
@@ -124,6 +128,7 @@ export const PLANS: Plan[] = [
     extraOutlets: false,
     autopilot: false,
     transcribeVideos: 20,
+    gbp: false,
   },
   {
     id: "pro",
@@ -150,6 +155,7 @@ export const PLANS: Plan[] = [
     extraOutlets: true,
     autopilot: true,
     transcribeVideos: 100,
+    gbp: true,
     exclusives: [
       "Google Business Profile connected: profile fixes and post ideas",
       "Autopilot: your website re-checked every week and your AI visibility every month",
@@ -195,7 +201,7 @@ export const PLAN_ROWS: PlanRow[] = [
   },
   { label: "Connect your ad and social accounts", value: (p) => p.id !== "free" },
   { label: "Latest videos transcribed", value: (p) => (p.transcribeVideos > 0 ? `${p.transcribeVideos}` : false) },
-  { label: "Google Business Profile: fixes and post ideas", value: (p) => p.id === "pro" },
+  { label: "Google Business Profile: fixes and post ideas", value: (p) => p.gbp },
   { label: "Outlets of the same business", value: (p) => (p.maxOutlets > 1 ? `${p.businesses} included, up to ${p.maxOutlets}` : "1") },
   { label: "Prescription board with re-check dates", value: () => true },
   { label: "Ask PULSE strategist chat", value: (p) => p.chatPerMonth > 0 },

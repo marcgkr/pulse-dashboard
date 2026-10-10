@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { AGENT_ORDER, getAgent, type AgentId } from "@/lib/agents";
+import { SAMPLE_ORDER, getAgent, type AgentId } from "@/lib/agents";
 import { BRAND } from "@/lib/config";
 import { SAMPLE_BUSINESSES, sampleBusinessId } from "@/lib/sample-data";
 import { sampleHref } from "@/components/landing/specialists";
@@ -23,6 +23,6 @@ export default async function SampleAgentPage({ params, searchParams }: Props) {
   const { agent } = await params;
   const business = sampleBusinessId((await searchParams).business);
   if (agent === "site") redirect(sampleHref("site", business));
-  if (!(AGENT_ORDER as string[]).includes(agent)) notFound();
+  if (!(SAMPLE_ORDER as string[]).includes(agent)) notFound();
   return <SampleView agent={agent as AgentId} business={business} />;
 }

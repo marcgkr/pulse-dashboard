@@ -1,7 +1,7 @@
 import type { WorkspaceRow } from "../db";
 import type { Prescription } from "../ai";
 
-export type AgentId = "site" | "keywords" | "visibility" | "content" | "ads" | "compliance";
+export type AgentId = "site" | "keywords" | "visibility" | "content" | "ads" | "compliance" | "gbp";
 
 export type AgentContext = {
   ws: WorkspaceRow;

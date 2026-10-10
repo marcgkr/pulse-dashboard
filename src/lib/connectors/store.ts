@@ -10,9 +10,11 @@ import {
   refreshGoogle,
   refreshTikTok,
   googleAdsEnabled,
+  gbpEnabled,
   GOOGLE_SCOPE_ADS,
   GOOGLE_SCOPE_GSC,
   GOOGLE_SCOPE_YOUTUBE,
+  GOOGLE_SCOPE_GBP,
   PROVIDERS,
   type Provider,
   type TokenSet,
@@ -149,11 +151,14 @@ function hostOf(u: string): string {
   }
 }
 
-/** Sets which accounts of one kind are used. Search Console takes one property at most. Returns how many are selected. */
+/** Kinds where a business uses one account at most: its website's property, and this outlet's Business Profile location. */
+export const SINGLE_KINDS: AccountKind[] = ["search_console", "gbp_location"];
+
+/** Sets which accounts of one kind are used. Search Console and Business Profile take one at most. Returns how many are selected. */
 export function setSelected(wsId: string, p: Provider, kind: AccountKind, ids: string[]): number {
   const c = getConnection(wsId, p);
   if (!c) throw new ConnectorError("That account isn't connected.", "config");
-  const want = new Set(kind === "search_console" ? ids.slice(0, 1) : ids);
+  const want = new Set(SINGLE_KINDS.includes(kind) ? ids.slice(0, 1) : ids);
   const rows = db().prepare("SELECT provider_account_id FROM connection_accounts WHERE connection_id = ? AND kind = ?").all(c.id, kind) as { provider_account_id: string }[];
   const upd = db().prepare("UPDATE connection_accounts SET selected = ? WHERE connection_id = ? AND kind = ? AND provider_account_id = ?");
   let n = 0;
@@ -188,6 +193,8 @@ export type ClientConnection = {
   ready: boolean;
   /** Google only: Google Ads is switched on (developer token present). */
   adsReady: boolean;
+  /** Google only: Business Profile access is switched on (GOOGLE_BUSINESS_PROFILE=1). */
+  gbpReady: boolean;
   connected: boolean;
   /** Connected, but the token is gone or expired: reconnect. */
   needsReconnect: boolean;
@@ -201,7 +208,7 @@ export type ClientConnection = {
 
 /** The account kinds a provider's login can give us. */
 export const PROVIDER_KINDS: Record<Provider, AccountKind[]> = {
-  google: ["google_ads", "search_console", "youtube_channel"],
+  google: ["google_ads", "search_console", "youtube_channel", "gbp_location"],
   meta: ["meta_ads", "facebook_page", "instagram_account"],
   tiktok: ["tiktok_account"],
 };
@@ -214,6 +221,7 @@ export function grantedKinds(p: Provider, scopeList: string | null | undefined):
     if (scopes.has(GOOGLE_SCOPE_ADS)) out.push("google_ads");
     if (scopes.has(GOOGLE_SCOPE_GSC)) out.push("search_console");
     if (scopes.has(GOOGLE_SCOPE_YOUTUBE)) out.push("youtube_channel");
+    if (scopes.has(GOOGLE_SCOPE_GBP)) out.push("gbp_location");
   } else if (p === "meta") {
     if (scopes.has("ads_read")) out.push("meta_ads");
     if (scopes.has("pages_show_list") && scopes.has("pages_read_engagement")) out.push("facebook_page");
@@ -244,6 +252,7 @@ export function clientConnections(wsId: string): ClientConnection[] {
       provider: p,
       ready: providerSetup(p).ready,
       adsReady: p === "google" ? googleAdsEnabled() : true,
+      gbpReady: p === "google" && gbpEnabled(),
       connected: !!c,
       needsReconnect: !!c && (expired || noRefresh || /reconnect/i.test(c.last_error ?? "")),
       externalUser: c?.external_user ?? "",

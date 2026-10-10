@@ -8,8 +8,9 @@ import type { WorkspaceRow } from "../db";
 import { fetchGoogleAdsRows, listGoogleAdsAccounts, type GoogleAdsAuth } from "./google-ads";
 import { ConnectorError, type DiscoveredAccount } from "./http";
 import { fetchMetaRows, listMetaAdAccounts } from "./meta";
-import { googleAdsEnabled, GOOGLE_SCOPE_ADS, GOOGLE_SCOPE_GSC, GOOGLE_SCOPE_YOUTUBE, metaScopes, type Provider } from "./oauth";
+import { googleAdsEnabled, GOOGLE_SCOPE_ADS, GOOGLE_SCOPE_GSC, GOOGLE_SCOPE_YOUTUBE, GOOGLE_SCOPE_GBP, metaScopes, type Provider } from "./oauth";
 import { listMetaSocialAccounts, listTikTokAccount, listYouTubeChannels } from "./social";
+import { listGbpLocations } from "./gbp";
 import { fetchWindsor } from "./legacy-sync";
 import { fetchSearchConsoleRows, listSearchConsoleSites } from "./search-console";
 import { accessToken, getConnection, markSync, selectedAccounts, type SelectedAccount } from "./store";
@@ -48,6 +49,7 @@ export async function discoverAccounts(p: Provider, token: string, scopes: strin
     if (googleAdsEnabled() && scopes.includes(GOOGLE_SCOPE_ADS)) await attempt("Google Ads accounts", () => listGoogleAdsAccounts(googleAdsAuth(token)));
     if (scopes.includes(GOOGLE_SCOPE_GSC)) await attempt("Search Console properties", () => listSearchConsoleSites(token));
     if (scopes.includes(GOOGLE_SCOPE_YOUTUBE)) await attempt("YouTube channels", () => listYouTubeChannels(token));
+    if (scopes.includes(GOOGLE_SCOPE_GBP)) await attempt("Business Profile locations", () => listGbpLocations(token));
   } else if (p === "tiktok") {
     await attempt("TikTok account", () => listTikTokAccount(token));
   } else {
@@ -73,6 +75,7 @@ export function connectedSources(ws: WorkspaceRow): ConnectedSources {
     ads: ads.length > 0 || legacyAdsSyncKey(ws) !== null,
     adsAccounts: ads.map((a) => `${a.kind === "google_ads" ? "Google Ads" : "Meta"}: ${a.name}`),
     searchConsole: site ? site.name : null,
+    gbpLocation: selectedAccounts(ws.id, "gbp_location")[0]?.name ?? null,
     livePlan: LIVE_SYNC_PLANS.includes(ws.plan as PlanId),
   };
 }

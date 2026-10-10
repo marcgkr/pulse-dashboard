@@ -50,6 +50,7 @@ export function usage(ws: WorkspaceRow) {
 
 /** Free plan can only use Site Doctor. */
 export function agentAllowed(ws: WorkspaceRow, agentId: string): boolean {
+  if (agentId === "gbp") return planById(ws.plan).gbp;
   if (ws.plan !== "free") return true;
   return agentId === "site";
 }

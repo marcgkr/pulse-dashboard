@@ -11,6 +11,7 @@ export const AGENT_COLORS: Record<string, AgentColor> = {
   content: { box: "bg-bubblegum", dot: "bg-bubblegum", soft: "bg-bubblegum/20", label: "Social Media Content", accent: "var(--color-bubblegum)" },
   ads: { box: "bg-spearmint", dot: "bg-spearmint", soft: "bg-spearmint/20", label: "Ads Doctor", accent: "var(--color-spearmint)" },
   compliance: { box: "bg-lilac", dot: "bg-lilac", soft: "bg-lilac/25", label: "Compliance Check", accent: "var(--color-lilac)" },
+  gbp: { box: "bg-lime", dot: "bg-lime", soft: "bg-lime/25", label: "Business Profile", accent: "var(--color-lime)" },
 };
 
 const FALLBACK: AgentColor = { box: "bg-mint", dot: "bg-scrub", soft: "bg-mint", label: "", accent: "var(--color-scrub)" };

@@ -11,14 +11,14 @@ import { FormError } from "./run-agent";
 type Kind = ClientAccount["kind"];
 
 const COPY: Record<ClientConnection["provider"], { title: string; what: string; uses: string[] }> = {
-  google: { title: "Google", what: "Google Ads, Search Console and your YouTube channel", uses: ["ads", "keywords", "content"] },
+  google: { title: "Google", what: "Google Ads, Search Console, your YouTube channel and your Business Profile", uses: ["ads", "keywords", "content", "gbp"] },
   meta: { title: "Meta", what: "Facebook and Instagram ads, plus your Page and Instagram posts and Reels", uses: ["ads", "content"] },
   tiktok: { title: "TikTok", what: "Your TikTok videos and how they performed", uses: ["content"] },
 };
 
 // The same lists as PROVIDER_KINDS in the store (kept here so this client file doesn't import server code).
 const KINDS: Record<ClientConnection["provider"], Kind[]> = {
-  google: ["google_ads", "search_console", "youtube_channel"],
+  google: ["google_ads", "search_console", "gbp_location", "youtube_channel"],
   meta: ["meta_ads", "instagram_account", "facebook_page"],
   tiktok: ["tiktok_account"],
 };
@@ -31,6 +31,7 @@ const KIND_LABEL: Record<Kind, string> = {
   facebook_page: "Facebook Pages",
   youtube_channel: "YouTube channels",
   tiktok_account: "TikTok account",
+  gbp_location: "Business Profile location for this outlet",
 };
 
 const KIND_NAME: Record<Kind, string> = {
@@ -41,6 +42,7 @@ const KIND_NAME: Record<Kind, string> = {
   facebook_page: "your Facebook Pages",
   youtube_channel: "YouTube",
   tiktok_account: "your TikTok videos",
+  gbp_location: "your Business Profile",
 };
 
 const SOCIAL: Kind[] = ["instagram_account", "facebook_page", "youtube_channel", "tiktok_account"];
@@ -48,13 +50,14 @@ const SOCIAL: Kind[] = ["instagram_account", "facebook_page", "youtube_channel",
 const pill =
   "inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition duration-200";
 
-export function ConnectionCard({ c, lastSync, livePlan }: { c: ClientConnection; lastSync: string | null; livePlan: boolean }) {
+export function ConnectionCard({ c, lastSync, livePlan, gbpPlan }: { c: ClientConnection; lastSync: string | null; livePlan: boolean; gbpPlan: boolean }) {
   const router = useRouter();
   const copy = COPY[c.provider];
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const status = !c.ready ? "off" : !c.connected ? "none" : c.needsReconnect ? "reconnect" : "on";
-  const kinds = KINDS[c.provider];
+  // Business Profile only shows once Google has approved the API and it's switched on (the login asked for it).
+  const kinds = KINDS[c.provider].filter((k) => k !== "gbp_location" || c.gbpReady);
 
   async function disconnect() {
     if (!window.confirm(`Disconnect ${copy.title}? We delete the access you gave us. Past reports stay.`)) return;
@@ -112,7 +115,7 @@ export function ConnectionCard({ c, lastSync, livePlan }: { c: ClientConnection;
 
           {c.connected &&
             kinds.map((k) => (
-              <AccountPicker key={k} provider={c.provider} kind={k} c={c} livePlan={livePlan} />
+              <AccountPicker key={k} provider={c.provider} kind={k} c={c} livePlan={livePlan} gbpPlan={gbpPlan} />
             ))}
 
           <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -136,13 +139,13 @@ export function ConnectionCard({ c, lastSync, livePlan }: { c: ClientConnection;
   );
 }
 
-function AccountPicker({ provider, kind, c, livePlan }: { provider: ClientConnection["provider"]; kind: Kind; c: ClientConnection; livePlan: boolean }) {
+function AccountPicker({ provider, kind, c, livePlan, gbpPlan }: { provider: ClientConnection["provider"]; kind: Kind; c: ClientConnection; livePlan: boolean; gbpPlan: boolean }) {
   const router = useRouter();
   const accounts = c.accounts.filter((a) => a.kind === kind);
   const [selected, setSelected] = useState<string[]>(accounts.filter((a) => a.selected).map((a) => a.id));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const single = kind === "search_console";
+  const single = kind === "search_console" || kind === "gbp_location";
 
   async function save(ids: string[]) {
     const before = selected;
@@ -170,7 +173,9 @@ function AccountPicker({ provider, kind, c, livePlan }: { provider: ClientConnec
         ? "No Search Console properties on this login."
         : kind === "instagram_account"
           ? "No Instagram professional account is linked to your Facebook Pages. Link it in Instagram > Settings > Account type and tools, then reconnect."
-          : social
+          : kind === "gbp_location"
+            ? "No Business Profile locations on this login. Connect with the Google account that owns or manages the profile."
+            : social
             ? `No ${KIND_LABEL[kind]} on this login.`
             : "No ad accounts on this login.";
   }
@@ -209,8 +214,11 @@ function AccountPicker({ provider, kind, c, livePlan }: { provider: ClientConnec
             })}
           </div>
           {selected.length === 0 && (
-            <p className="mt-2 text-xs text-ink-3">{single ? "Pick the property for your website." : "Tick the accounts you want us to read."}</p>
+            <p className="mt-2 text-xs text-ink-3">
+              {kind === "gbp_location" ? "Pick this outlet's location." : single ? "Pick the property for your website." : "Tick the accounts you want us to read."}
+            </p>
           )}
+          {kind === "gbp_location" && !gbpPlan && <p className="mt-2 text-xs text-ink-3">Business Profile fixes and post ideas are on the Pro plan.</p>}
           {social && selected.length > 0 && (
             <p className="mt-2 text-xs text-ink-3">We read your latest videos for Social Media Content ideas and to link them in your articles.</p>
           )}

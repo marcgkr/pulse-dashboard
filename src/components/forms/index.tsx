@@ -7,6 +7,7 @@ import { VisibilityForm } from "./visibility-form";
 import { ContentForm } from "./content-form";
 import { AdsForm } from "./ads-form";
 import { ComplianceForm } from "./compliance-form";
+import { GbpForm } from "./gbp-form";
 
 export const AGENT_FORMS: Record<AgentId, ComponentType<FormProps>> = {
   site: SiteForm,
@@ -15,4 +16,5 @@ export const AGENT_FORMS: Record<AgentId, ComponentType<FormProps>> = {
   content: ContentForm,
   ads: AdsForm,
   compliance: ComplianceForm,
+  gbp: GbpForm,
 };

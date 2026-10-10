@@ -29,4 +29,6 @@ export type ConnectedSources = {
   searchConsole: string | null;
   /** The plan includes live ad sync. */
   livePlan: boolean;
+  /** This outlet's Business Profile location, if one is picked. */
+  gbpLocation?: string | null;
 };

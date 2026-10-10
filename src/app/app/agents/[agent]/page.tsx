@@ -56,8 +56,12 @@ export default async function AgentPage({ params }: { params: Promise<{ agent: s
             />
           ) : (
             <div>
-              <p className="font-display text-lg font-semibold">{agent.name} is on the paid plans.</p>
-              <p className="mt-1 text-sm text-ink-2">The free Checkup plan includes Site Doctor. Upgrade to use every specialist.</p>
+              <p className="font-display text-lg font-semibold">{agent.name} is on the {agent.id === "gbp" ? "Pro plan" : "paid plans"}.</p>
+              <p className="mt-1 text-sm text-ink-2">
+                {agent.id === "gbp"
+                  ? "Pro connects your Google Business Profile for each outlet and writes the fixes, posts and review replies for it."
+                  : "The free Checkup plan includes Site Doctor. Upgrade to use every specialist."}
+              </p>
               <ButtonLink href="/app/settings#plan" className="mt-4">
                 See plans
               </ButtonLink>

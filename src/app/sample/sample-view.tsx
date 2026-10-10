@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowRight, Coffee, Hammer, ShoppingBag, Sparkles, type LucideIcon } from "lucide-react";
-import { AGENTS, AGENT_ORDER, type AgentId } from "@/lib/agents";
+import { AGENTS, SAMPLE_ORDER, type AgentId } from "@/lib/agents";
 import { agentColor } from "@/lib/agent-colors";
 import { BRAND } from "@/lib/config";
 import { visitorMarket } from "@/lib/market-server";
@@ -75,7 +75,7 @@ export async function SampleView({ agent, business }: { agent: AgentId; business
   const def = AGENTS[agent];
   const color = agentColor(agent);
   const Report = AGENT_REPORTS[agent];
-  const next = AGENT_ORDER[(AGENT_ORDER.indexOf(agent) + 1) % AGENT_ORDER.length];
+  const next = SAMPLE_ORDER[(SAMPLE_ORDER.indexOf(agent) + 1) % SAMPLE_ORDER.length];
   const result = r.result;
   // Ranked the way the prescription board ranks them.
   const RANK = { urgent: 0, high: 1, medium: 2, low: 3 } as const;
@@ -158,7 +158,7 @@ export async function SampleView({ agent, business }: { agent: AgentId; business
         <nav aria-label="Specialists in this sample" className="sticky top-16 z-30 bg-paper/85 backdrop-blur-md supports-[backdrop-filter]:bg-paper/70">
           <div className="mx-auto max-w-7xl overflow-x-auto px-4 py-3 md:px-8">
             <ul className="flex w-max gap-2">
-              {AGENT_ORDER.map((a) => {
+              {SAMPLE_ORDER.map((a) => {
                 const c = agentColor(a);
                 const active = a === agent;
                 return (

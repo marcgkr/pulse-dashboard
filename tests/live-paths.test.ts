@@ -650,6 +650,91 @@ async function main() {
     fail("promo codes", e);
   }
 
+  console.log("\nGoogle Business Profile (Pro, connected location)");
+  {
+    const realFetch = globalThis.fetch;
+    const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { "content-type": "application/json" } });
+    const googleCalls: string[] = [];
+    // Google's Business Profile APIs, stubbed; everything else (the mock Claude API) goes through.
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+      if (!/googleapis\.com$/.test(url.hostname)) return realFetch(input, init);
+      googleCalls.push(url.pathname);
+      if (url.pathname === "/v1/locations/456")
+        return json({
+          name: "locations/456",
+          title: "Lumen Skin Clinic Tampines",
+          categories: { primaryCategory: { displayName: "Skin care clinic" }, additionalCategories: [] },
+          profile: { description: "Skin clinic in Tampines." },
+          phoneNumbers: { primaryPhone: "+65 6123 4567" },
+          websiteUri: "https://lumen.example.sg",
+          regularHours: { periods: [{ openDay: "MONDAY" }] },
+          metadata: { mapsUri: "https://maps.google.com/?cid=1" },
+        });
+      if (url.pathname.endsWith("/reviews"))
+        return json({
+          averageRating: 4.4,
+          totalReviewCount: 52,
+          reviews: [
+            { reviewer: { displayName: "Mei" }, starRating: "FIVE", comment: "Doctor explained everything and my skin is clearer.", createTime: new Date().toISOString() },
+            { reviewer: { displayName: "Raj" }, starRating: "TWO", comment: "Waited 40 minutes.", createTime: new Date().toISOString(), reviewReply: { comment: "Sorry" } },
+          ],
+        });
+      if (url.pathname.endsWith("/localPosts")) return json({ localPosts: [] });
+      if (url.pathname.endsWith("/media")) return json({ totalMediaItemCount: 7 });
+      if (url.pathname.includes(":fetchMultiDailyMetricsTimeSeries"))
+        return json({ multiDailyMetricTimeSeries: [{ dailyMetricTimeSeries: [{ dailyMetric: "CALL_CLICKS", timeSeries: { datedValues: [{ value: "3" }, { value: "4" }] } }] }] });
+      return json({ error: { message: "not stubbed" } }, 404);
+    }) as typeof fetch;
+    const keepKey = process.env.ENCRYPTION_KEY;
+    process.env.ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+    try {
+      const { saveConnection, replaceAccounts } = await import("@/lib/connectors/store");
+      const { agentAllowed } = await import("@/lib/runs");
+      const pro = { ...ws, id: id("w_"), plan: "pro" };
+      db()
+        .prepare(
+          `INSERT INTO workspaces (id, owner_id, name, website, industry, location, audience, offers, competitors, goals, monthly_budget, tone, regulated, plan, created_at)
+           VALUES (@id, @owner_id, @name, @website, @industry, @location, @audience, @offers, @competitors, @goals, @monthly_budget, @tone, @regulated, @plan, @created_at)`,
+        )
+        .run(pro);
+      assert.equal(agentAllowed(ws, "gbp"), false, "Growth can't run Business Profile");
+      assert.equal(agentAllowed(pro, "gbp"), true);
+      const agent = getAgent("gbp")!;
+      await assert.rejects(agent.run(agent.parseInput({}, pro), { ws: pro, runId: "live-gbp", progress: () => {} }), /Connected accounts/);
+      const conn = saveConnection(pro.id, "google", { access_token: "ya29.gbp-test-token", refresh_token: "1//0gbp", expires_in: 3600, scopes: ["https://www.googleapis.com/auth/business.manage"], external_user: "" });
+      replaceAccounts(pro.id, conn.id, [{ id: "accounts/123/locations/456", kind: "gbp_location", name: "Lumen Skin Clinic Tampines", currency: null }]);
+      const input = agent.parseInput({ posts: 2, focus: "weekday mornings" }, pro);
+      const r = (await agent.run(input, { ws: pro, runId: "live-gbp", progress: () => {} })) as unknown as Record<string, unknown> & {
+        checks: { id: string; status: string }[];
+        profile: { rating: number; actions: { calls: number } };
+        replies: unknown[];
+      };
+      checkResult(r, "gbp");
+      assert.equal(r.profile.rating, 4.4);
+      assert.equal(r.profile.actions.calls, 7);
+      assert.equal(r.checks.find((c) => c.id === "posts")?.status, "fail", "no posts yet");
+      assert.equal(r.checks.find((c) => c.id === "photos")?.status, "fail", "7 photos is too few");
+      assert.ok(googleCalls.some((p) => p === "/v4/accounts/123/locations/456/reviews"), "reviews not read with the account id");
+      pass(`run: score ${r.score}, ${r.checks.length} checks, ${(r.prescriptions as unknown[]).length} prescriptions`);
+      const html = renderToString(
+        createElement(AppRouterContext.Provider, { value: router as never }, createElement(AGENT_REPORTS.gbp, { result: JSON.parse(JSON.stringify(r)), run: { id: "r_gbp", agent: "gbp", title: r.title as string, created_at: now(), input: {} } })),
+      );
+      assert.ok(html.includes("Profile checklist") && html.includes("Lumen Skin Clinic Tampines"));
+      pass(`report renders (${html.length} chars of HTML)`);
+      const demo = (await agent.demo(input, { ws: { ...ws, plan: "pro" }, runId: "demo-gbp", progress: () => {} })) as Record<string, unknown>;
+      assert.equal(demo.sample, true, "no location picked: sample profile");
+      assert.match(String(demo.summary), /sample profile, not yours/);
+      pass("demo without a connection shows a labelled sample");
+    } catch (e) {
+      fail("Google Business Profile", e);
+    } finally {
+      globalThis.fetch = realFetch;
+      if (keepKey === undefined) delete process.env.ENCRYPTION_KEY;
+      else process.env.ENCRYPTION_KEY = keepKey;
+    }
+  }
+
   console.log("\nstructured() edge cases");
   const Tiny = z.object({ answer: z.string(), items: z.array(z.string()) });
   try {

@@ -101,6 +101,16 @@ Meta user tokens last about 60 days. When one expires, the card says "Reconnect 
 
 What we read: the ad account list (`/me/adaccounts`: name, id, currency, status) and campaign, ad set and ad insights for the chosen period (spend, impressions, reach, frequency, clicks, link clicks, actions, action values). Leads, purchases and messaging conversations count as conversions, the same three result types the CSV path counts. With the organic permissions: the Pages the person manages and the Instagram professional account linked to each (`/me/accounts`), each Reel's caption, link, date, likes, comments and views (`/{ig-user}/media`, `/{media}/insights?metric=views`), and each Page video's title, description and length. Instagram only lists professional (business or creator) accounts linked to a Facebook Page.
 
+### 2b. Google Business Profile (Pro)
+
+Pro outlets connect their Google Business Profile through the same Google login and pick their location; the Google Business Profile specialist then checks the profile and writes fixes, a new description, posts and review replies. Google only gives these APIs to approved projects:
+
+1. In the same Google Cloud project, enable **My Business Account Management API**, **My Business Business Information API**, **Google My Business API** (reviews and posts) and **Business Profile Performance API**.
+2. Apply for access with Google's [Business Profile API access form](https://developers.google.com/my-business/content/prereqs#request-access), using the project number. Until it's approved the quota is 0 and every call fails.
+3. Add the scope `https://www.googleapis.com/auth/business.manage` to the consent screen's Data access, then set `GOOGLE_BUSINESS_PROFILE=1`. Owners who connected Google before then click Reconnect to grant it.
+
+Each outlet picks its own location on its Connected accounts page. What we read: the locations on the person's accounts, and for the picked one its name, categories, description, phone, website, hours, services, the latest 50 reviews with rating and reply status, recent posts, the photo count and the last 30 days of calls, website clicks and direction requests. Nothing is posted or replied to for the owner.
+
 ### 3b. TikTok (the owner's own videos)
 
 1. In [TikTok for Developers](https://developers.tiktok.com/) create an app, add **Login Kit** (Web) and the scopes `user.info.basic` and `video.list` (the Display API).

@@ -577,7 +577,7 @@ type Spec = {
   /** Wording swaps applied to every string the shared sample code wrote (examples, schema types). */
   retext: (c: Ctx) => [RegExp, string][];
   /** Last edits to the finished reports, for template output that doesn't fit the business. */
-  patch?: (r: Record<AgentId, AgentResult>, c: Ctx) => void;
+  patch?: (r: Record<Exclude<AgentId, "gbp">, AgentResult>, c: Ctx) => void;
 };
 
 const SPECS: Record<SampleBusinessId, Spec> = {
@@ -1297,7 +1297,7 @@ function retext<T>(value: T, pairs: [RegExp, string][]): T {
 }
 
 async function demoOf(agent: AgentId, raw: Record<string, unknown>, ws: WorkspaceRow): Promise<SampleReport> {
-  const def = { keywords: keywordsAgent, visibility: visibilityAgent, content: contentAgent, ads: adsAgent, compliance: complianceAgent }[agent as Exclude<AgentId, "site">];
+  const def = { keywords: keywordsAgent, visibility: visibilityAgent, content: contentAgent, ads: adsAgent, compliance: complianceAgent }[agent as Exclude<AgentId, "site" | "gbp">];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const input = (def.parseInput as (r: unknown, w: WorkspaceRow) => any)(raw, ws);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

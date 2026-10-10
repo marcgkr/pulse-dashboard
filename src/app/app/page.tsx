@@ -162,7 +162,7 @@ export default async function Dashboard() {
                 <div className="flex items-start justify-between gap-2">
                   <span className="rounded-full bg-white/60 px-2.5 py-0.5 font-display text-sm font-extrabold italic">℞</span>
                   {locked ? (
-                    <Badge className="bg-white/70 ring-transparent">Paid plans</Badge>
+                    <Badge className="bg-white/70 ring-transparent">{id === "gbp" ? "Pro" : "Paid plans"}</Badge>
                   ) : last?.score != null ? (
                     <span className="rounded-full bg-white px-2.5 py-0.5 text-sm font-bold tabular-nums" style={{ color: scoreColor(last.score) }}>
                       {last.score}
