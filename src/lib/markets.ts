@@ -1,10 +1,11 @@
 // Countries MarketingRx sells in. Drives currency and prices on the website, and tells every
 // specialist which market, search location, messaging habits and advertising rules apply.
 //
-// Prices are placeholders to set before launch. The webcare add-on is S$299 in Singapore. Every other
-// market's webcare price is a rough conversion from S$299 (the same ratio to SG as that market's plan
-// prices, rounded to a local price point) for the owner to confirm. Regulator lists name the main bodies only;
-// agents are told to point owners to the official source rather than quote rules from memory.
+// Singapore prices are set by hand. Every other market's prices are the Singapore price converted at
+// the rate below, rounded up to the next whole amount ending in 9 (US$76.20 becomes US$79). To follow
+// the exchange rate later, change SGD_RATES; existing subscribers keep the price they signed up at.
+// Regulator lists name the main bodies only; agents are told to point owners to the official source
+// rather than quote rules from memory.
 
 export type MarketCode = "SG" | "MY" | "ID" | "PH" | "HK" | "AU" | "NZ" | "GB" | "US" | "AE" | "INTL";
 
@@ -36,6 +37,41 @@ export type Market = {
   exampleArea: string;
 };
 
+type Prices = Market["prices"];
+
+/** Singapore list prices, in SGD. */
+export const SGD_PRICES: Prices = { starter: 99, growth: 249, pro: 499, outlet: 10, webcare: 299 };
+
+/**
+ * Units of each currency per S$1, mid-market around 9 October 2026 (Bloomberg, Yahoo Finance, OFX).
+ * HKD and AED follow the USD rate through their pegs (7.78 and 3.6725).
+ */
+export const SGD_RATES: Record<string, number> = {
+  USD: 0.7811,
+  MYR: 3.1916,
+  HKD: 6.077,
+  AUD: 1.1197,
+  NZD: 1.3955,
+  GBP: 0.5909,
+  AED: 2.8686,
+};
+
+/** The smallest whole amount ending in 9 that is at least `x`. */
+export function upToNine(x: number): number {
+  let n = Math.ceil(x - 1e-9);
+  while (n % 10 !== 9) n++;
+  return n;
+}
+
+/** A market's prices from the Singapore ones. */
+export function convertedPrices(currency: string): Prices {
+  const rate = SGD_RATES[currency];
+  if (!rate) throw new Error(`No SGD rate for ${currency}`);
+  const out = {} as Prices;
+  for (const k of Object.keys(SGD_PRICES) as (keyof Prices)[]) out[k] = upToNine(SGD_PRICES[k] * rate);
+  return out;
+}
+
 export const MARKETS: Market[] = [
   {
     code: "SG",
@@ -45,7 +81,7 @@ export const MARKETS: Market[] = [
     symbol: "S$",
     locale: "en-SG",
     timeZone: "Asia/Singapore",
-    prices: { starter: 99, growth: 249, pro: 499, outlet: 10, webcare: 299 },
+    prices: SGD_PRICES,
     searchCountry: "SG",
     messaging: "WhatsApp",
     healthAdRules: "MOH advertising rules under the Healthcare Services Act, the SMC Ethical Code and Ethical Guidelines",
@@ -60,7 +96,7 @@ export const MARKETS: Market[] = [
     symbol: "RM",
     locale: "en-MY",
     timeZone: "Asia/Kuala_Lumpur",
-    prices: { starter: 249, growth: 649, pro: 1299, outlet: 29, webcare: 779 },
+    prices: convertedPrices("MYR"),
     searchCountry: "MY",
     messaging: "WhatsApp",
     healthAdRules: "the Medicines (Advertisement and Sale) Act and Medicine Advertisements Board approval, Malaysian Medical Council guidelines",
@@ -75,7 +111,7 @@ export const MARKETS: Market[] = [
     symbol: "US$",
     locale: "en-ID",
     timeZone: "Asia/Jakarta",
-    prices: { starter: 79, growth: 199, pro: 399, outlet: 8, webcare: 239 },
+    prices: convertedPrices("USD"),
     searchCountry: "ID",
     messaging: "WhatsApp",
     healthAdRules: "Ministry of Health rules on advertising health services, the Indonesian medical code of ethics",
@@ -90,7 +126,7 @@ export const MARKETS: Market[] = [
     symbol: "US$",
     locale: "en-PH",
     timeZone: "Asia/Manila",
-    prices: { starter: 79, growth: 199, pro: 399, outlet: 8, webcare: 239 },
+    prices: convertedPrices("USD"),
     searchCountry: "PH",
     messaging: "Messenger",
     healthAdRules: "Department of Health and FDA Philippines rules for health products and services",
@@ -105,7 +141,7 @@ export const MARKETS: Market[] = [
     symbol: "HK$",
     locale: "en-HK",
     timeZone: "Asia/Hong_Kong",
-    prices: { starter: 590, growth: 1490, pro: 2990, outlet: 59, webcare: 1790 },
+    prices: convertedPrices("HKD"),
     searchCountry: "HK",
     messaging: "WhatsApp",
     healthAdRules: "the Undesirable Medical Advertisements Ordinance (Cap. 231), the Medical Council of Hong Kong Code of Professional Conduct",
@@ -120,7 +156,7 @@ export const MARKETS: Market[] = [
     symbol: "A$",
     locale: "en-AU",
     timeZone: "Australia/Sydney",
-    prices: { starter: 119, growth: 299, pro: 599, outlet: 12, webcare: 359 },
+    prices: convertedPrices("AUD"),
     searchCountry: "AU",
     messaging: "SMS",
     healthAdRules: "Ahpra advertising guidelines under the National Law (including the ban on testimonials), the TGA Therapeutic Goods Advertising Code",
@@ -135,7 +171,7 @@ export const MARKETS: Market[] = [
     symbol: "NZ$",
     locale: "en-NZ",
     timeZone: "Pacific/Auckland",
-    prices: { starter: 129, growth: 329, pro: 649, outlet: 13, webcare: 389 },
+    prices: convertedPrices("NZD"),
     searchCountry: "NZ",
     messaging: "SMS",
     healthAdRules: "Medicines Act advertising rules, Medical Council of New Zealand statements",
@@ -150,7 +186,7 @@ export const MARKETS: Market[] = [
     symbol: "£",
     locale: "en-GB",
     timeZone: "Europe/London",
-    prices: { starter: 59, growth: 149, pro: 299, outlet: 6, webcare: 179 },
+    prices: convertedPrices("GBP"),
     searchCountry: "GB",
     messaging: "WhatsApp",
     healthAdRules: "MHRA rules (no advertising prescription-only medicines such as botulinum toxin to the public), GMC guidance",
@@ -165,7 +201,7 @@ export const MARKETS: Market[] = [
     symbol: "$",
     locale: "en-US",
     timeZone: "America/New_York",
-    prices: { starter: 79, growth: 199, pro: 399, outlet: 8, webcare: 239 },
+    prices: convertedPrices("USD"),
     searchCountry: "US",
     messaging: "SMS",
     healthAdRules: "FTC truth-in-advertising rules and Endorsement Guides, FDA rules for drugs and devices, your state medical board's advertising rules",
@@ -180,7 +216,7 @@ export const MARKETS: Market[] = [
     symbol: "AED ",
     locale: "en-AE",
     timeZone: "Asia/Dubai",
-    prices: { starter: 289, growth: 729, pro: 1469, outlet: 29, webcare: 879 },
+    prices: convertedPrices("AED"),
     searchCountry: "AE",
     messaging: "WhatsApp",
     healthAdRules: "medical advertising permits from DHA, DoH Abu Dhabi or MOHAP depending on the emirate",
@@ -195,7 +231,7 @@ export const MARKETS: Market[] = [
     symbol: "US$",
     locale: "en-US",
     timeZone: "UTC",
-    prices: { starter: 79, growth: 199, pro: 399, outlet: 8, webcare: 239 },
+    prices: convertedPrices("USD"),
     searchCountry: null,
     messaging: "WhatsApp",
     healthAdRules: "your local health regulator's advertising rules",
