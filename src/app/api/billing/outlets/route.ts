@@ -27,7 +27,10 @@ export async function POST(req: Request) {
       if (current < 1) return NextResponse.json({ error: "You have no extra outlets to remove." }, { status: 409 });
       if (owned.length > outletLimit(primary) - 1) return NextResponse.json({ error: "Every outlet is in use. Remove one of your businesses first." }, { status: 409 });
     }
-    if (change === 1 && current >= 50) return NextResponse.json({ error: "Email us to go past 50 outlets." }, { status: 409 });
+    const plan = planById(primary.plan);
+    if (change === 1 && plan.businesses + current >= plan.maxOutlets) {
+      return NextResponse.json({ error: `${plan.name} covers up to ${plan.maxOutlets} outlets.` }, { status: 409 });
+    }
 
     const sub = await stripe().subscriptions.retrieve(primary.stripe_subscription_id);
     const { outlets } = subscriptionItems(sub);

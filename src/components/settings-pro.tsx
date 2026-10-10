@@ -11,6 +11,8 @@ export function BusinessList({
   currentId,
   max,
   extra,
+  included,
+  most,
   outletPrice,
   canBuy,
   contact,
@@ -20,7 +22,10 @@ export function BusinessList({
   /** Outlets this account can run now: the included one plus extras paid for. */
   max: number;
   extra: number;
-  /** e.g. "S$30" */
+  /** Outlets the plan includes, and the most it allows with extras. */
+  included: number;
+  most: number;
+  /** e.g. "S$10" */
   outletPrice: string;
   /** Has a paid Pro subscription with online payment on, so outlets can be bought here. */
   canBuy: boolean;
@@ -103,8 +108,9 @@ export function BusinessList({
       </ul>
       <div className="space-y-3 border-t border-line px-5 py-4 md:px-6">
         <p className="text-[15px] text-ink-2">
-          Pro includes one outlet. Each extra outlet of the same business is {outletPrice} a month, with its own profile, reports, prescription board and connected
-          accounts. {extra > 0 ? `You pay for ${extra} extra outlet${extra === 1 ? "" : "s"}; ${businesses.length} of ${max} are set up.` : ""}
+          Pro includes {included} outlets of the same business, each with its own profile, Google Business Profile, reports, prescription board and connected
+          accounts. You can add up to {most - included} more at {outletPrice} a month each. {businesses.length} of {max} set up
+          {extra > 0 ? `, including ${extra} extra outlet${extra === 1 ? "" : "s"} you pay for` : ""}.
         </p>
         <div className="flex flex-wrap gap-2">
           {businesses.length < max && (
@@ -112,7 +118,7 @@ export function BusinessList({
               Set up your next outlet
             </Link>
           )}
-          {canBuy ? (
+          {max >= most ? null : canBuy ? (
             <>
               <button
                 type="button"
@@ -137,7 +143,8 @@ export function BusinessList({
               )}
             </>
           ) : (
-            businesses.length >= max && (
+            businesses.length >= max &&
+            max < most && (
               <a
                 href={`mailto:${contact}?subject=${encodeURIComponent("MarketingRx: add an outlet")}`}
                 className="rounded-full px-5 py-2.5 text-sm font-semibold text-ink ring-1 ring-line hover:ring-ink-3"

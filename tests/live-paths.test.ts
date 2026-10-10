@@ -502,11 +502,10 @@ async function main() {
       return wid;
     };
     const a = mk("Auto One", "pro", "2026-01-01T00:00:00.000Z");
-    // Pro includes one outlet; the second business is covered by one paid extra outlet.
-    db().prepare("UPDATE workspaces SET extra_outlets = 1 WHERE id = ?").run(a);
+    // Pro includes three outlets: the fourth business isn't covered without a paid extra outlet.
     const b = mk("Auto Two", "free", "2026-01-02T00:00:00.000Z"); // plan comes from the first business
     const off = mk("Auto Off", "free", "2026-01-03T00:00:00.000Z", "off");
-    const beyond = mk("Auto Beyond", "free", "2026-01-04T00:00:00.000Z"); // past the outlets paid for
+    const beyond = mk("Auto Beyond", "free", "2026-01-04T00:00:00.000Z"); // fourth: past the three included
     const visInput = getAgent("visibility")!.parseInput(cases.find((c) => c.agent === "visibility")!.raw, ws);
     db()
       .prepare("INSERT INTO runs (id, workspace_id, agent, title, input_json, status, progress, demo, created_at) VALUES (?, ?, 'visibility', 'old', ?, 'done', '', 0, ?)")

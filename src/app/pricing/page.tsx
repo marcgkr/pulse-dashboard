@@ -80,9 +80,10 @@ function billingFaq(m: Market) {
       q: "Can I run more than one outlet?",
       a: (
         <p>
-          On {PLANS[3].name}, yes. One outlet is included, and each extra outlet of the same business is {formatPrice(m, m.prices.outlet)} a month, added in
-          Settings and charged straight away. Each outlet gets its own profile, reports, prescription board and connected accounts, and you switch between them from the
-          sidebar. They share the plan&apos;s {PLANS[3].runsPerMonth} reports a month.
+          On {PLANS[3].name}, yes. {PLANS[3].businesses} outlets of the same business are included and you set them up yourself in Settings. Up to{" "}
+          {PLANS[3].maxOutlets - PLANS[3].businesses} more are {formatPrice(m, m.prices.outlet)} a month each, added in Settings and charged straight away. Each outlet gets
+          its own profile, Google Business Profile, reports, prescription board and connected accounts, and you switch between them from the sidebar. They share the
+          plan&apos;s {PLANS[3].runsPerMonth} reports a month.
         </p>
       ),
     },

@@ -54,8 +54,10 @@ export type Plan = {
   forWho: string;
   /** Specialists the plan can use. */
   specialists: AgentKey[];
-  /** Businesses or locations included. Pro can add more outlets for a monthly fee each (extraOutlets). */
+  /** Outlets included. Pro can add more for a monthly fee each (extraOutlets), up to maxOutlets in all. */
   businesses: number;
+  /** Most outlets one account can run on this plan, extras included. */
+  maxOutlets: number;
   /** Extra outlets can be bought on this plan, at the market's outlet price each a month. */
   extraOutlets: boolean;
   /** Weekly Site Doctor and monthly AI Visibility re-checks run on their own (src/lib/autopilot.ts). */
@@ -84,6 +86,7 @@ export const PLANS: Plan[] = [
     forWho: "Try it on your own website before you pay anything.",
     specialists: ["site"],
     businesses: 1,
+    maxOutlets: 1,
     extraOutlets: false,
     autopilot: false,
     transcribeVideos: 0,
@@ -100,6 +103,7 @@ export const PLANS: Plan[] = [
     forWho: "Owners who do their own marketing and want a clear weekly to-do list.",
     specialists: ALL_SPECIALISTS,
     businesses: 1,
+    maxOutlets: 1,
     extraOutlets: false,
     autopilot: false,
     transcribeVideos: 0,
@@ -116,6 +120,7 @@ export const PLANS: Plan[] = [
     forWho: "Businesses spending on Google or Meta ads every month.",
     specialists: ALL_SPECIALISTS,
     businesses: 1,
+    maxOutlets: 1,
     extraOutlets: false,
     autopilot: false,
     transcribeVideos: 20,
@@ -125,21 +130,23 @@ export const PLANS: Plan[] = [
     name: "Pro",
     priceMonthly: 499,
     blurb: "For owners who want everything, including their Google Business Profile.",
-    runsPerMonth: 150,
+    runsPerMonth: 300,
     chatPerMonth: 3000,
     features: [
       "Everything in Growth",
-      "150 reports a month",
+      "300 reports a month, shared across your outlets",
       "Google Business Profile: fixes and post ideas",
       "Your latest 100 videos transcribed",
       "Autopilot: your website re-checked every week, your AI visibility every month",
       "Priority support on WhatsApp",
-      "Extra outlets at a monthly fee each",
+      "3 outlets included, each with its own Google Business Profile",
+      "Up to 2 more outlets at a monthly fee each",
     ],
     stripePriceEnv: "STRIPE_PRICE_PRO",
     forWho: "Owners who want every specialist, their Google Business Profile and a person on WhatsApp when they're stuck.",
     specialists: ALL_SPECIALISTS,
-    businesses: 1,
+    businesses: 3,
+    maxOutlets: 5,
     extraOutlets: true,
     autopilot: true,
     transcribeVideos: 100,
@@ -147,7 +154,7 @@ export const PLANS: Plan[] = [
       "Google Business Profile connected: profile fixes and post ideas",
       "Autopilot: your website re-checked every week and your AI visibility every month",
       "Priority support on WhatsApp with the PULSE team",
-      "More outlets of the same business, at a monthly fee each",
+      "3 outlets included, each with its own Google Business Profile, set up in Settings",
     ],
   },
 ];
@@ -158,7 +165,7 @@ export const PLANS: Plan[] = [
  */
 export function outletLimit(primary: { plan: string; extra_outlets?: number }): number {
   const plan = planById(primary.plan);
-  return plan.businesses + (plan.extraOutlets ? Math.max(0, primary.extra_outlets ?? 0) : 0);
+  return Math.min(plan.maxOutlets, plan.businesses + (plan.extraOutlets ? Math.max(0, primary.extra_outlets ?? 0) : 0));
 }
 
 /** Monthly price of a plan in a market's currency (0 for the free plan). */
@@ -189,7 +196,7 @@ export const PLAN_ROWS: PlanRow[] = [
   { label: "Connect your ad and social accounts", value: (p) => p.id !== "free" },
   { label: "Latest videos transcribed", value: (p) => (p.transcribeVideos > 0 ? `${p.transcribeVideos}` : false) },
   { label: "Google Business Profile: fixes and post ideas", value: (p) => p.id === "pro" },
-  { label: "Extra outlets of the same business", value: (p) => (p.extraOutlets ? "monthly fee each" : false) },
+  { label: "Outlets of the same business", value: (p) => (p.maxOutlets > 1 ? `${p.businesses} included, up to ${p.maxOutlets}` : "1") },
   { label: "Prescription board with re-check dates", value: () => true },
   { label: "Ask PULSE strategist chat", value: (p) => p.chatPerMonth > 0 },
   { label: "Ads Doctor from Google and Meta exports", value: (p) => p.specialists.includes("ads") },

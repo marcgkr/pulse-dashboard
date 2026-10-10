@@ -91,24 +91,27 @@ export function PlanCard({
         <p className={cx("text-xs", highlight ? "text-white/70" : "text-ink-3")}>One report from any specialist counts as one.</p>
 
         <ul className="mt-4 space-y-2.5">
-          {PLAN_ROWS.slice(1).map((row) => {
-            const v = row.value(plan);
-            const on = v !== false;
-            return (
-              <li key={row.label} className={cx("flex gap-2.5 text-sm leading-snug", !on && (highlight ? "text-white/45" : "text-ink-3/70"))}>
-                {on ? (
-                  <Check size={16} className={cx("mt-0.5 shrink-0", highlight ? "text-white" : "text-good")} aria-hidden />
-                ) : (
-                  <Minus size={16} className="mt-0.5 shrink-0" aria-hidden />
-                )}
-                <span>
-                  <span className="sr-only">{on ? "Included: " : "Not included: "}</span>
-                  {row.label}
-                  {typeof v === "string" && <span className={cx("font-semibold", highlight ? "text-white" : "text-ink")}>: {v}</span>}
-                </span>
-              </li>
-            );
-          })}
+          {/* Included first, then what the plan doesn't have, so the ticks line up at the top. */}
+          {[...PLAN_ROWS.slice(1)]
+            .sort((x, y) => Number(x.value(plan) === false) - Number(y.value(plan) === false))
+            .map((row) => {
+              const v = row.value(plan);
+              const on = v !== false;
+              return (
+                <li key={row.label} className={cx("flex gap-2.5 text-sm leading-snug", !on && (highlight ? "text-white/45" : "text-ink-3/70"))}>
+                  {on ? (
+                    <Check size={16} className={cx("mt-0.5 shrink-0", highlight ? "text-white" : "text-good")} aria-hidden />
+                  ) : (
+                    <Minus size={16} className="mt-0.5 shrink-0" aria-hidden />
+                  )}
+                  <span>
+                    <span className="sr-only">{on ? "Included: " : "Not included: "}</span>
+                    {row.label}
+                    {typeof v === "string" && <span className={cx("font-semibold", highlight ? "text-white" : "text-ink")}>: {v}</span>}
+                  </span>
+                </li>
+              );
+            })}
         </ul>
       </div>
     </div>

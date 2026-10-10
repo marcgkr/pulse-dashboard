@@ -103,6 +103,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               currentId={ws.id}
               max={limit}
               extra={allOwned[0]?.extra_outlets ?? 0}
+              included={u.plan.businesses}
+              most={u.plan.maxOutlets}
               outletPrice={formatPrice(market, market.prices.outlet)}
               canBuy={stripeEnabled() && !!ws.stripe_subscription_id && ws.paid_plan === "pro"}
               contact={BRAND.contactEmail}

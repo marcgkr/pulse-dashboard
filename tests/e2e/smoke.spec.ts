@@ -147,9 +147,7 @@ test("Pro accounts can add, switch between and remove businesses", async ({ page
 
   expect((await api.post("/api/admin/claim", { data: { token: "e2e-setup-token-1234567890" } })).ok()).toBeTruthy();
   expect((await api.post("/api/admin/plan", { data: { workspaceId: firstId, plan: "pro" } })).ok()).toBeTruthy();
-  // Pro includes one outlet: no second business until an outlet is added (comped here by the admin).
-  expect((await api.post("/api/workspace", { data: { name: "Outlet Two", add: true } })).status()).toBe(402);
-  expect((await api.post("/api/admin/plan", { data: { workspaceId: firstId, outlets: 1 } })).ok()).toBeTruthy();
+  // Pro includes three outlets, so the second one is set up straight away.
 
   await page.goto("/app");
   await page.getByRole("link", { name: "+ Add an outlet" }).first().click();
@@ -250,7 +248,7 @@ test("owner pays for a plan, upgrades on the spot, then cancels", async ({ page 
   // Pro: buy an extra outlet, set it up, then the outlet item is on the subscription.
   await page.goto("/app/settings#businesses");
   page.once("dialog", (d) => d.accept());
-  await page.locator("#businesses").getByRole("button", { name: "Add an outlet (S$30/month)" }).click();
+  await page.locator("#businesses").getByRole("button", { name: "Add an outlet (S$10/month)" }).click();
   await expect(page.getByRole("heading", { name: "Set up your new outlet" })).toBeVisible();
   await page.getByLabel("Business name").fill("Payer Studio East");
   await page.getByLabel("Industry").selectOption({ index: 1 });
@@ -259,7 +257,7 @@ test("owner pays for a plan, upgrades on the spot, then cancels", async ({ page 
   await expect(page.getByLabel("Your business").first().locator("option:checked")).toHaveText("Payer Studio East");
   const after = (await (await page.request.get(`${STRIPE}/__requests`)).json()) as { method: string; path: string; body: Record<string, string> }[];
   const outletCall = after.filter((c) => c.path.startsWith("/v1/subscriptions/") && c.method === "POST").at(-1)!;
-  expect(outletCall.body["items[0][price_data][unit_amount]"]).toBe("3000");
+  expect(outletCall.body["items[0][price_data][unit_amount]"]).toBe("1000");
   expect(outletCall.body["items[0][metadata][kind]"]).toBe("outlet");
 
   await page.goto("/app/settings#plan");
