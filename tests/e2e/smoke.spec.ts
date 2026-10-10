@@ -369,6 +369,11 @@ test("Keyword Lab writes an article from a brief", async ({ page }) => {
   await page.goto(`/app/runs/${(await started.json()).id}`);
   await expect(page.getByRole("heading", { name: "Briefs for new pages" })).toBeVisible({ timeout: 60_000 });
 
+  const mapUrl = page.url();
+  // The first brief is a service + area page, so the picker starts on Service page.
+  const picker = page.getByLabel("Page type").first();
+  await expect(picker).toHaveValue("service");
+  await picker.selectOption("article");
   await page.getByRole("button", { name: "Write this article" }).first().click();
   await expect(page.getByRole("heading", { level: 1, name: /^Article: / })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByRole("heading", { name: "The article", exact: true })).toBeVisible({ timeout: 60_000 });
@@ -376,4 +381,22 @@ test("Keyword Lab writes an article from a brief", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Copy as HTML" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Copy as Markdown" })).toBeVisible();
   await expect(page.getByText(/Connected accounts and your articles can include your own videos/)).toBeVisible();
+  await expect(page.locator('[data-check="schema"]')).toContainText("Pass");
+  await expect(page.getByText('"@type": "BlogPosting"')).toBeVisible();
+
+  // The same brief as a service page: landing-page layout, Service schema from a medical business, and the checklist.
+  await page.goto(mapUrl);
+  await page.getByLabel("Page type").first().selectOption("service");
+  await page.getByRole("button", { name: "Write this page" }).first().click();
+  await expect(page.getByRole("heading", { level: 1, name: /^Service page: / })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("heading", { name: "The page", exact: true })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("heading", { name: "Best-practice checklist" })).toBeVisible();
+  for (const id of ["h1", "schema", "seo_title", "faq", "cta"]) await expect(page.locator(`[data-check="${id}"]`)).toContainText("Pass");
+  // Sample text is far shorter than a service page, and the checklist counts it.
+  await expect(page.locator('[data-check="length"]')).toContainText("Needs work");
+  await expect(page.getByRole("heading", { name: "Schema (JSON-LD)" })).toBeVisible();
+  await expect(page.getByText('"@type": "MedicalBusiness"')).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy schema" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Key facts" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Internal links to add" })).toBeVisible();
 });

@@ -74,7 +74,7 @@ export type KeywordsInput = {
   data: string;
   /** Read the connected Search Console property (last 90 days) at run time instead of pasted data. */
   gsc?: boolean;
-  /** Article mode: write a blog article from this brief instead of a keyword map. */
+  /** Article mode: write a blog article or website page from this brief instead of a keyword map. */
   article?: ArticleBrief;
 };
 

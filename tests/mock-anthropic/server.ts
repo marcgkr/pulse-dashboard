@@ -253,6 +253,22 @@ function sampleString(name: string, desc: string, idx: number): string {
     const offered = [...currentPrompt.matchAll(/^\s*\[\d+\] url: (\S+)/gm)].map((m) => m[1]);
     return idx === 0 && offered[0] ? offered[0] : `https://www.youtube.com/watch?v=madeUp${idx}abc`;
   }
+  // Article and page writer: the SEO fields are shaped like a good answer (a title tag under 60
+  // characters, a 40-60 word summary, question headings) and use the brief's target keyword, so the
+  // best-practice checklist has real passes to report.
+  const keyword = currentPrompt.match(/^Target keyword: (.+)$/m)?.[1]?.trim();
+  if (keyword) {
+    const kw = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+    if (name === "seo_title") return `${kw} | Sample Clinic`.slice(0, 60);
+    if (name === "title") return `${kw}: what to know before you book`;
+    if (name === "heading") return `How does sample step ${idx + 1} of ${keyword} work?`;
+    if (name === "answer")
+      return `${kw} at Sample Clinic is a sample treatment for people who want clearer skin with little downtime. A session takes about [session length], costs [your price], and starts with a consultation so a doctor can check it suits you. Message us on WhatsApp to book a time.`;
+    if (name === "label") return ["Business", "Area", "Price", "Opening hours"][idx % 4];
+    if (name === "value") return ["Sample Clinic", "Tampines, Singapore", "[your price]", "[your opening hours]"][idx % 4];
+    if (name === "anchor") return `${keyword} ${["prices", "booking", "guide"][idx % 3]}`;
+    if (name === "target") return ["From your homepage", "To your booking page", "From your price page"][idx % 3];
+  }
   if (/^(title|name|idea_title|h1|page|question|quote|rule|hook)$/.test(name)) return `Sample ${w} ${idx + 1}`;
   if (/^(steps|outline|script_or_outline)$/.test(name)) return `Step ${idx + 1}: open the settings page and update the ${w}.`;
   return `Sample ${w} for the owner: a short, realistic sentence about the ${w}.`;
