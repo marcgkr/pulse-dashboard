@@ -174,6 +174,14 @@ export async function structured<S extends z.ZodType>(opts: {
  * Web research step: Claude searches the web and returns written notes.
  * Used before a structured call when the agent needs fresh information (trends, AI answers, competitors).
  */
+/** Countries web search refused as a search location this process. */
+const NO_SEARCH_LOCATION = new Set<string>();
+
+function isUnsupportedCountry(e: unknown): boolean {
+  const err = e as { status?: number; message?: string };
+  return err?.status === 400 && /country code/i.test(String(err.message ?? ""));
+}
+
 export async function research(opts: {
   system: string;
   prompt: string;
@@ -187,24 +195,38 @@ export async function research(opts: {
   let text = "";
 
   // pause_turn means the server-side tool loop hit its iteration cap; resume by re-sending.
+  const country = opts.country === null ? null : (opts.country ?? "SG");
   for (let i = 0; i < 4; i++) {
-    const response = await client().beta.messages.create({
-      model: MODEL,
-      max_tokens: 16000,
-      betas: [FALLBACK_BETA],
-      fallbacks: "default",
-      system: systemBlocks(opts.system),
-      output_config: { effort: opts.effort ?? "medium" },
-      tools: [
-        {
-          type: "web_search_20260209",
-          name: "web_search",
-          max_uses: opts.maxSearches ?? 5,
-          ...(opts.country === null ? {} : { user_location: { type: "approximate" as const, country: opts.country ?? "SG" } }),
-        },
-      ],
-      messages,
-    });
+    const create = (withLocation: boolean) =>
+      client().beta.messages.create({
+        model: MODEL,
+        max_tokens: 16000,
+        betas: [FALLBACK_BETA],
+        fallbacks: "default",
+        system: systemBlocks(opts.system),
+        output_config: { effort: opts.effort ?? "medium" },
+        tools: [
+          {
+            type: "web_search_20260209",
+            name: "web_search",
+            max_uses: opts.maxSearches ?? 5,
+            ...(withLocation && country ? { user_location: { type: "approximate" as const, country } } : {}),
+          },
+        ],
+        messages,
+      });
+    let response: Awaited<ReturnType<typeof create>>;
+    const useLocation = country !== null && !NO_SEARCH_LOCATION.has(country);
+    try {
+      response = await create(useLocation);
+    } catch (e) {
+      // Web search doesn't take every country as a search location (it refused SG). Search without
+      // one; the prompts already name the country and city, so results stay local.
+      if (!useLocation || !isUnsupportedCountry(e)) throw e;
+      NO_SEARCH_LOCATION.add(country!);
+      console.warn(`[research] web search location ${country} not supported; searching without it`);
+      response = await create(false);
+    }
 
     const refused = refusalError(response.stop_reason);
     if (refused) throw refused;

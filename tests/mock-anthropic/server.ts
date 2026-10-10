@@ -182,6 +182,8 @@ function validate(body: Json, headers: http.IncomingHttpHeaders) {
         if (t.user_location !== undefined) {
           check(t.user_location.type === "approximate", `tools.${i}.user_location.type: Input should be 'approximate'`);
           if (t.user_location.country !== undefined) check(/^[A-Z]{2}$/.test(t.user_location.country), `tools.${i}.user_location.country: must be a 2-letter ISO country code`);
+          // The real API refuses some countries as a search location (seen in production for SG).
+          check(t.user_location.country !== "SG", `tools.${i}.web_search_20260209: Country code SG is not supported.`);
         }
         check(!(t.allowed_domains && t.blocked_domains), `tools.${i}: allowed_domains and blocked_domains cannot both be set`);
       }

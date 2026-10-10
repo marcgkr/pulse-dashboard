@@ -302,6 +302,20 @@ async function main() {
     }
   }
 
+  // Web search refuses some countries as a location (SG in production): research must still work.
+  console.log("\ncontent research location (Singapore business, location refused)");
+  try {
+    const agent = getAgent("content")!;
+    const wsSG = { ...ws, country: "SG", location: "Tampines, Singapore" };
+    const raw = cases.find((c) => c.agent === "content")!.raw;
+    const r = (await agent.run(agent.parseInput(raw, wsSG), { ws: wsSG, runId: "live-test", progress: () => {} })) as Record<string, unknown>;
+    assert.ok(Array.isArray(r.ideas), "no ideas");
+    assert.equal(await lastSearchCountry(), undefined, "searched with the refused location again");
+    pass("retried without a search location and finished");
+  } catch (e) {
+    fail("content research location (SG)", e);
+  }
+
   // Compliance Check for a UK business reviews against UK rules, not Singapore's.
   console.log("\ncompliance rules (UK business)");
   try {

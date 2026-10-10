@@ -177,6 +177,8 @@ function friendlyError(e: unknown): string {
   if (err?.status === 401) return "The AI service rejected the API key. Check ANTHROPIC_API_KEY.";
   if (err?.status === 429) return "The AI service is busy right now. Try again in a minute.";
   if (err?.status && err.status >= 500) return "The AI service had a problem. Try again in a minute.";
+  // Raw API errors (JSON bodies, request ids) are for the server log, not the owner.
+  if (err?.status && err.status >= 400) return "The AI service couldn't run this report. Try again, and if it keeps happening, tell us in Help.";
   return err?.message?.slice(0, 400) || "Something went wrong.";
 }
 

@@ -74,16 +74,18 @@ export function ContentForm({ profile, lastInput }: FormProps) {
         <Input value={niche} onChange={(e) => setNiche(e.target.value)} placeholder="e.g. lash extensions for busy professionals" required />
       </Field>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Goal">
-          <Select value={goal} onChange={(e) => setGoal(e.target.value)}>
-            {GOALS.map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </Select>
-        </Field>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <Field label="Goal">
+            <Select value={goal} onChange={(e) => setGoal(e.target.value)}>
+              {GOALS.map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
         <Field label="How many ideas">
           <Select value={count} onChange={(e) => setCount(e.target.value)}>
             {["6", "10", "14"].map((n) => (
@@ -109,7 +111,12 @@ export function ContentForm({ profile, lastInput }: FormProps) {
       </Field>
 
       <Field label="What's working for you (optional)" hint="Posts that got enquiries, formats your customers respond to.">
-        <Textarea value={working} onChange={(e) => setWorking(e.target.value)} className="min-h-20" placeholder={`e.g. Our price explainer Reel got lots of ${market.messaging === "SMS" ? "calls and DMs" : `${market.messaging} messages`}`} />
+        <Textarea
+          value={working}
+          onChange={(e) => setWorking(e.target.value)}
+          className="min-h-20"
+          placeholder={`e.g. Our price explainer Reel got lots of ${market.messaging === "SMS" ? "calls and DMs" : `${market.messaging} messages`}`}
+        />
       </Field>
 
       <Field label="Avoid (optional)" hint="Topics, formats or things you won't do, e.g. dancing, showing faces.">
@@ -120,7 +127,9 @@ export function ContentForm({ profile, lastInput }: FormProps) {
         <input type="checkbox" className="mt-0.5 accent-[var(--color-scrub)]" checked={trends} onChange={(e) => setTrends(e.target.checked)} />
         <span>
           <span className="block text-sm font-semibold text-ink">Include this month's trends</span>
-          <span className="block text-xs text-ink-3">Searches for current formats, sounds and {market.code === "SG" ? "Singapore" : "local"} calendar moments for your niche. Takes a little longer.</span>
+          <span className="block text-xs text-ink-3">
+            Searches for current formats, sounds and {market.code === "SG" ? "Singapore" : "local"} calendar moments for your niche. Takes a little longer.
+          </span>
         </span>
       </label>
 
