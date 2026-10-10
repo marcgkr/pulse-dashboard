@@ -199,7 +199,7 @@ export const PLAN_ROWS: PlanRow[] = [
   { label: "Outlets of the same business", value: (p) => (p.maxOutlets > 1 ? `${p.businesses} included, up to ${p.maxOutlets}` : "1") },
   { label: "Prescription board with re-check dates", value: () => true },
   { label: "Ask PULSE strategist chat", value: (p) => p.chatPerMonth > 0 },
-  { label: "Ads Doctor from Google and Meta exports", value: (p) => p.specialists.includes("ads") },
+  { label: "Ads Doctor from Google, Meta and ChatGPT Ads exports", value: (p) => p.specialists.includes("ads") },
   { label: "Compliance Check for your country's ad rules", value: (p) => p.specialists.includes("compliance") },
   { label: "Download reports as PDF", value: (p) => p.id !== "free" },
   { label: "Live sync from your Google Ads and Meta Ads accounts", value: (p) => LIVE_SYNC_PLANS.includes(p.id) },

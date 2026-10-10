@@ -47,7 +47,7 @@ function specialists(m: Market): Specialist[] {
     },
     {
       agent: "ads",
-      checks: "Your Google and Meta ads results, from an export or a live connection.",
+      checks: "Your Google, Meta and ChatGPT ads results, from an export, or a live connection for Google and Meta.",
       hands: ["The campaigns and ad sets to pause, by name", "Negative keywords to add", "New headlines and ad copy to test"],
     },
     {

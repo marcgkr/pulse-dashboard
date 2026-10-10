@@ -96,7 +96,7 @@ function faq(m: Market) {
       a: (
         <p>
           Free SEO tools give you a score and a list of warnings. {BRAND.name} turns each problem into a prescription: why it costs you customers, where to click on your
-          website builder or ads account, and the copy to paste. It also covers what SEO tools leave out: AI answers, social posts, Google and Meta ads, and the
+          website builder or ads account, and the copy to paste. It also covers what SEO tools leave out: AI answers, social posts, Google, Meta and ChatGPT ads, and the
           advertising rules for regulated businesses.
         </p>
       ),
@@ -116,7 +116,7 @@ function faq(m: Market) {
       q: "Do you store my ad account data?",
       a: (
         <p>
-          Ads Doctor reads your performance data, from an export you upload or a live sync from your Google Ads and Meta Ads accounts, and keeps the reports it makes
+          Ads Doctor reads your performance data, from a Google Ads, Meta Ads or ChatGPT Ads export you upload, or a live sync from your Google Ads and Meta Ads accounts. It keeps the reports it makes
           in your account so you can compare months. It never changes anything in your ad accounts; you make the changes. Your data is not shared with other customers, and you can disconnect an
           account or delete your data at any time. Details are in our <Link href="/privacy">privacy policy</Link>.
         </p>

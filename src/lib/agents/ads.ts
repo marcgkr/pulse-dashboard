@@ -6,6 +6,8 @@ import {
   analyzeAds,
   levelLabel,
   parseReport,
+  PLATFORM_LABEL,
+  PLATFORMS,
   sampleReports,
   type AdRow,
   type AdsAnalysis,
@@ -32,7 +34,7 @@ const AdsAI = z.object({
   diagnosis: z
     .array(
       z.object({
-        platform: z.string().describe("Exactly one of: google, meta"),
+        platform: z.string().describe("Exactly one of: google, meta, chatgpt"),
         verdict: z.string().describe("1-2 sentences on how this platform is doing for this business"),
         points: z.array(z.string()).describe("2-5 short observations backed by the tables"),
       }),
@@ -41,7 +43,7 @@ const AdsAI = z.object({
   what_to_pause: z
     .array(
       z.object({
-        platform: z.string().describe("Exactly one of: google, meta"),
+        platform: z.string().describe("Exactly one of: google, meta, chatgpt"),
         name: z.string().describe("Exact campaign / ad set / ad group / keyword name copied from the tables"),
         reason: z.string().describe("One sentence why, citing the table numbers"),
       }),
@@ -50,7 +52,7 @@ const AdsAI = z.object({
   what_to_scale: z
     .array(
       z.object({
-        platform: z.string().describe("Exactly one of: google, meta"),
+        platform: z.string().describe("Exactly one of: google, meta, chatgpt"),
         name: z.string().describe("Exact name copied from the tables"),
         reason: z.string().describe("One sentence why"),
         budget_shift_pct: z.number().describe("Suggested budget increase as a whole percent, usually 20 or 30. Never a currency amount."),
@@ -67,7 +69,7 @@ const AdsAI = z.object({
   }),
   audience_notes: z.array(z.string()).describe("2-5 audience and targeting notes (locations, exclusions, lookalikes, retargeting windows, search match types)"),
   tracking_issues: z.array(z.string()).describe("Tracking or measurement problems visible in the data. Empty if none."),
-  prescriptions: z.array(PrescriptionSchema).describe("5-9 fixes ordered by priority. Steps must use exact Google Ads or Meta Ads Manager click paths."),
+  prescriptions: z.array(PrescriptionSchema).describe("5-9 fixes ordered by priority. Steps must use exact Google Ads, Meta Ads Manager or ChatGPT Ads Manager click paths."),
 });
 type AdsAIOut = z.infer<typeof AdsAI>;
 
@@ -89,7 +91,7 @@ function cleanReports(raw: unknown): ReportInput[] {
   return raw
     .map((r) => {
       const x = (r ?? {}) as Record<string, unknown>;
-      const platform = x.platform === "google" || x.platform === "meta" ? x.platform : "auto";
+      const platform = PLATFORMS.includes(x.platform as Platform) ? (x.platform as Platform) : "auto";
       return { platform, filename: String(x.filename ?? "pasted report").slice(0, 120), csv: String(x.csv ?? "") } as ReportInput;
     })
     .filter((r) => r.csv.trim().length > 0);
@@ -150,7 +152,10 @@ function brandTerms(ws: WorkspaceRow): string[] {
   return out;
 }
 
-const PLAT: Record<Platform, string> = { google: "Google Ads", meta: "Meta Ads" };
+const PLAT = PLATFORM_LABEL;
+/** Where budgets change on each platform, for prescriptions. */
+const BUDGET_WHERE: Record<Platform, string> = { google: "Google Ads > Campaigns > Budget column", meta: "Meta Ads Manager > Ad sets > Budget", chatgpt: "ChatGPT Ads Manager > Campaigns" };
+const LIST_WHERE: Record<Platform, string> = { google: "Google Ads > Campaigns", meta: "Meta Ads Manager > Ad sets", chatgpt: "ChatGPT Ads Manager > Campaigns" };
 
 function fmt(n: number | null | undefined, d = 0): string {
   if (n == null || !Number.isFinite(n)) return "-";
@@ -248,6 +253,11 @@ function platformBlock(p: PlatformSummary): string {
   const head = `name | parent | spend | share of spend | impr | clicks | CTR | CPC | conv | CPA | ROAS | ${meta ? "frequency" : "search impr share"} | flags`;
   const lines = [
     `== ${PLAT[p.platform]} (currency ${cur}) ==`,
+    ...(p.platform === "chatgpt"
+      ? [
+          "ChatGPT Ads is an early beta: there are no reliable industry benchmarks yet and no search terms report. Judge it only on this account's own numbers and against the other platforms in this report. Conversions appear only when the OpenAI pixel or Conversions API is set up, and can take 24-48 hours to show.",
+        ]
+      : []),
     `Totals: spend ${money(p.spend, cur)}, impressions ${fmt(p.impressions)}, clicks ${fmt(p.clicks)}, CTR ${pct(p.ctr, 2)}, CPC ${money(p.cpc, cur)}, conversions ${p.conv_known ? fmt(p.conversions, 1) : "not in export"}, CPA ${money(p.cpa, cur)}, conv rate ${pct(p.conv_rate, 2)}${p.roas != null ? `, ROAS ${p.roas.toFixed(2)}` : ""}${meta && p.frequency != null ? `, frequency ${p.frequency.toFixed(2)}` : ""}. Health score ${p.score}/100.`,
     `Campaigns (${p.campaign_count}, top 25 by spend):`,
     head,
@@ -297,6 +307,7 @@ export function rulePrescriptions(a: AdsAnalysis, ws: WorkspaceRow): Prescriptio
   const regulated = Boolean(ws.regulated);
   const g = a.platforms.google;
   const m = a.platforms.meta;
+  const c = a.platforms.chatgpt;
   const has = (p: Platform, t: string) => a.flags.some((f) => f.platform === p && f.type === t);
 
   if (g && has("google", "tracking"))
@@ -326,6 +337,19 @@ export function rulePrescriptions(a: AdsAnalysis, ws: WorkspaceRow): Prescriptio
       where: "Meta Events Manager > Data sources",
       priority: "urgent", impact: "high", effort: "half-day", category: "Meta Ads", recheck_days: 7,
     });
+  if (c && has("chatgpt", "tracking"))
+    out.push({
+      title: "Fix ChatGPT Ads conversion tracking before judging results",
+      diagnosis: `ChatGPT Ads spent ${money(c.spend, c.currency)} and recorded zero conversions. Until the OpenAI pixel or Conversions API sends the right event, there's no way to tell which campaigns bring enquiries.`,
+      steps: [
+        "In ChatGPT Ads Manager, check that the OpenAI pixel is on every page of your site, or that the Conversions API is connected.",
+        `Submit a test enquiry or ${chat.button} and confirm the event arrives.`,
+        "Open each campaign and check its conversion event is your lead or sale event. A custom event needs Event type: Custom and the exact name you send.",
+        "Wait 24 to 48 hours for conversions to show in reporting, then export again. Events from a wrong setup aren't filled in later.",
+      ],
+      where: "ChatGPT Ads Manager > Campaigns",
+      priority: "urgent", impact: "high", effort: "half-day", category: "ChatGPT Ads", recheck_days: 7,
+    });
   if (m && has("meta", "objective")) {
     const f = a.flags.find((x) => x.platform === "meta" && x.type === "objective")!;
     out.push({
@@ -354,7 +378,7 @@ export function rulePrescriptions(a: AdsAnalysis, ws: WorkspaceRow): Prescriptio
       priority: "high", impact: "high", effort: "quick", category: "Google Ads", recheck_days: 14,
     });
 
-  for (const p of ["google", "meta"] as const) {
+  for (const p of PLATFORMS) {
     const items = a.pause_candidates.filter((c) => c.platform === p);
     if (!items.length) continue;
     const ps = a.platforms[p]!;
@@ -370,6 +394,14 @@ export function rulePrescriptions(a: AdsAnalysis, ws: WorkspaceRow): Prescriptio
         );
       if (toCut.length) steps.push(`Lower the daily budget on ${list(toCut.map((c) => c.name))} by ${toCut[0].reduce_pct ?? 25}%: click the budget in the Budget column, change it, Save.`);
       steps.push("Leave everything else alone for 7 days, then run Ads Doctor again with a fresh export.");
+    } else if (p === "chatgpt") {
+      if (toPause.length)
+        steps.push(
+          toPause.some((c) => c.level !== "campaign") ? "Open ChatGPT Ads Manager > Campaigns, then open the campaign to see its ad groups and ads." : "Open ChatGPT Ads Manager > Campaigns.",
+          `Pause ${list(toPause.map((c) => c.name))}.`,
+        );
+      if (toCut.length) steps.push(`Lower the budget on ${list(toCut.map((c) => c.name))} by ${toCut[0].reduce_pct ?? 25}%.`);
+      steps.push("ChatGPT Ads is still in beta and has little history to go on, so check again after 7 days with a fresh export before cutting more.");
     } else {
       if (toPause.length) steps.push(`Open Meta Ads Manager > Ad sets tab.`, `Switch off the toggle for ${list(toPause.map((c) => c.name))}.`);
       if (toCut.length) steps.push(`Lower the budget on ${list(toCut.map((c) => c.name))} by ${toCut[0].reduce_pct ?? 25}%. If the budget is set at campaign level (Advantage campaign budget), change it on the Campaigns tab.`);
@@ -380,7 +412,7 @@ export function rulePrescriptions(a: AdsAnalysis, ws: WorkspaceRow): Prescriptio
       title: `${toPause.length ? "Pause" : "Cut budget on"} the ${PLAT[p]} ${items.length === 1 ? lvl(items[0]) : "items"} costing the most per result`,
       diagnosis: `${items.length} ${PLAT[p]} item${items.length === 1 ? "" : "s"} spent ${money(wastedSpend, ps.currency)} with no conversions or at well above your average cost per conversion (${money(ps.cpa, ps.currency)}). ${items[0].reason}`,
       steps,
-      where: p === "google" ? "Google Ads > Campaigns" : "Meta Ads Manager > Ad sets",
+      where: LIST_WHERE[p],
       priority: toPause.length ? "high" : "medium", impact: "high", effort: "quick", category: PLAT[p], recheck_days: 7,
     });
   }
@@ -402,6 +434,7 @@ export function rulePrescriptions(a: AdsAnalysis, ws: WorkspaceRow): Prescriptio
 
   if (a.scale_candidates.length) {
     const s = a.scale_candidates;
+    const plats = PLATFORMS.filter((p) => s.some((c) => c.platform === p));
     out.push({
       title: "Give more budget to the campaigns that bring the cheapest enquiries",
       diagnosis: `${list(s.map((c) => c.name), 4)} ${s.length === 1 ? "brings" : "bring"} conversions below your account's average cost. ${s[0].reason}`,
@@ -410,8 +443,8 @@ export function rulePrescriptions(a: AdsAnalysis, ws: WorkspaceRow): Prescriptio
         "Fund it from the items you paused so total spend stays the same.",
         "Wait 3 to 5 days between increases. Big jumps reset the learning phase and can push cost per result up.",
       ],
-      where: s.every((c) => c.platform === "google") ? "Google Ads > Campaigns > Budget column" : s.every((c) => c.platform === "meta") ? "Meta Ads Manager > Ad sets > Budget" : "Google Ads > Campaigns and Meta Ads Manager > Ad sets",
-      priority: "medium", impact: "high", effort: "quick", category: s[0].platform === "google" ? "Google Ads" : "Meta Ads", recheck_days: 7,
+      where: plats.length === 1 ? BUDGET_WHERE[plats[0]] : plats.map((p) => LIST_WHERE[p]).join(" and "),
+      priority: "medium", impact: "high", effort: "quick", category: PLAT[s[0].platform], recheck_days: 7,
     });
   }
 
@@ -433,7 +466,7 @@ export function rulePrescriptions(a: AdsAnalysis, ws: WorkspaceRow): Prescriptio
     });
 
   const lowCtr = a.flags.filter((f) => f.type === "low_ctr");
-  for (const p of ["google", "meta"] as const) {
+  for (const p of PLATFORMS) {
     const items = lowCtr.filter((f) => f.platform === p);
     if (!items.length) continue;
     out.push({
@@ -447,12 +480,18 @@ export function rulePrescriptions(a: AdsAnalysis, ws: WorkspaceRow): Prescriptio
               "Pin your strongest headline to position 1 only if Ad strength stays Good or better.",
               "For Performance Max, check Asset groups and replace assets rated Low.",
             ]
-          : [
-              "Open the ad set in Ads Manager and duplicate the weakest ad.",
-              "Change the first line and the first 3 seconds of the visual: lead with the customer's problem or question.",
-              "Keep both running for a week, then switch off the one with the lower CTR.",
-            ],
-      where: p === "google" ? "Google Ads > Campaigns > Ads" : "Meta Ads Manager > Ads",
+          : p === "chatgpt"
+            ? [
+                "In ChatGPT Ads Manager, open the campaign and the ad group with the weakest ad.",
+                "Write a new version whose first line answers the question someone would ask ChatGPT about your service, and names your area.",
+                "Keep both running for a week, then pause the one with the lower CTR.",
+              ]
+            : [
+                "Open the ad set in Ads Manager and duplicate the weakest ad.",
+                "Change the first line and the first 3 seconds of the visual: lead with the customer's problem or question.",
+                "Keep both running for a week, then switch off the one with the lower CTR.",
+              ],
+      where: p === "google" ? "Google Ads > Campaigns > Ads" : p === "chatgpt" ? "ChatGPT Ads Manager > Campaigns" : "Meta Ads Manager > Ads",
       priority: "medium", impact: "medium", effort: "half-day", category: PLAT[p], recheck_days: 14,
     });
   }
@@ -467,13 +506,25 @@ export function rulePrescriptions(a: AdsAnalysis, ws: WorkspaceRow): Prescriptio
         "Put the next 10 to 20% of budget into your second-best campaign by cost per conversion.",
         "Review again after 2 weeks.",
       ],
-      where: conc.platform === "google" ? "Google Ads > Campaigns > Budget column" : "Meta Ads Manager > Campaigns",
+      where: conc.platform === "meta" ? "Meta Ads Manager > Campaigns" : BUDGET_WHERE[conc.platform],
       priority: "low", impact: "medium", effort: "quick", category: PLAT[conc.platform], recheck_days: 14,
     });
 
-  for (const p of ["google", "meta"] as const) {
+  for (const p of PLATFORMS) {
     const ps = a.platforms[p];
-    if (ps && !ps.conv_known && !has(p, "objective"))
+    if (ps && !ps.conv_known && p === "chatgpt")
+      out.push({
+        title: "Set up ChatGPT Ads conversion tracking",
+        diagnosis: "This ChatGPT Ads export has no conversion numbers, so we can only compare clicks and cost per click, not which campaigns bring enquiries.",
+        steps: [
+          "In ChatGPT Ads Manager, add the OpenAI pixel to your website, or connect the Conversions API if your developer or booking system can send events.",
+          "Pick your lead or sale event as each campaign's conversion event. A custom event needs Event type: Custom and the exact name you send.",
+          "Give it 24 to 48 hours, then export again with the Conversions column and run this checkup.",
+        ],
+        where: "ChatGPT Ads Manager > Campaigns",
+        priority: "high", impact: "high", effort: "half-day", category: "ChatGPT Ads", recheck_days: 7,
+      });
+    else if (ps && !ps.conv_known && !has(p, "objective"))
       out.push({
         title: `Export ${PLAT[p]} again with the ${p === "google" ? "Conversions" : "Results"} column`,
         diagnosis: `This ${PLAT[p]} export has no conversions column, so we can't tell which campaigns bring enquiries.`,
@@ -554,13 +605,14 @@ function baseResult(g: Gathered, a: AdsAnalysis) {
 }
 
 function platformNames(a: AdsAnalysis) {
-  return (Object.keys(a.platforms) as Platform[]).map((p) => PLAT[p]).join(" and ");
+  const names = PLATFORMS.filter((p) => a.platforms[p]).map((p) => PLAT[p]);
+  return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names.join("");
 }
 
 function ruleSummary(g: Gathered, a: AdsAnalysis, ws: WorkspaceRow): string {
   const parts: string[] = [];
-  const cur = a.platforms.google?.currency ?? a.platforms.meta?.currency ?? marketFor(ws.country).currency;
-  if (g.sample) parts.push(`This is sample data, not ${ws.name ? ws.name + "'s" : "your"} account. Upload your Google Ads or Meta Ads export to see your own numbers.`);
+  const cur = a.platforms.google?.currency ?? a.platforms.meta?.currency ?? a.platforms.chatgpt?.currency ?? marketFor(ws.country).currency;
+  if (g.sample) parts.push(`This is sample data, not ${ws.name ? ws.name + "'s" : "your"} account. Upload your Google Ads, Meta Ads or ChatGPT Ads export to see your own numbers.`);
   else parts.push("Rules-based review of your real numbers (AI writing is off).");
   parts.push(`${platformNames(a)} spent ${money(a.total_spend, cur)} in ${g.period.toLowerCase().startsWith("last") ? "the " + g.period.toLowerCase() : "this period"}, ads health ${a.score ?? "-"}/100.`);
   if (a.tracking.length) parts.push(a.tracking[0]);
@@ -582,9 +634,9 @@ function matchName(name: string, a: AdsAnalysis, platform: Platform): boolean {
 export const adsAgent: AgentDef<Input> = {
   id: "ads",
   name: "Ads Doctor",
-  blurb: "Checks your Google and Meta ads and tells you what to pause, scale and fix.",
+  blurb: "Checks your Google, Meta and ChatGPT ads and tells you what to pause, scale and fix.",
   description:
-    "Connect your Google Ads and Meta ad accounts once, or upload your exports. Ads Doctor works out cost per enquiry for every campaign, finds the spend that brings nothing back, lists negative keywords to add, picks the winners worth more budget and checks your tracking. You make the changes in Ads Manager yourself, with exact click paths.",
+    "Connect your Google Ads and Meta ad accounts once, or upload your exports (ChatGPT Ads works from its CSV export). Ads Doctor works out cost per enquiry for every campaign, finds the spend that brings nothing back, lists negative keywords to add, picks the winners worth more budget and checks your tracking. You make the changes in Ads Manager yourself, with exact click paths.",
 
   parseInput(raw, ws) {
     const r = (raw ?? {}) as Record<string, unknown>;
@@ -605,7 +657,7 @@ export const adsAgent: AgentDef<Input> = {
       }
       if (reports.length === 0) {
         // Without the AI there's nothing to spend, so show the sample. With it, ask for real data.
-        if (aiEnabled()) throw new Error("Upload or paste at least one Google Ads or Meta Ads export, or try the sample data.");
+        if (aiEnabled()) throw new Error("Upload or paste at least one Google Ads, Meta Ads or ChatGPT Ads export, or try the sample data.");
         source = "sample";
       }
     }
@@ -627,7 +679,7 @@ export const adsAgent: AgentDef<Input> = {
 
     const ai = await structured({
       system:
-        "You are Ads Doctor, a Google Ads and Meta Ads specialist at a performance marketing agency. You receive computed metrics and rule-based flags for a small business ad account and turn them into a short diagnosis and a do-it-yourself fix list. The owner makes every change in Google Ads or Meta Ads Manager themselves.",
+        "You are Ads Doctor, a Google Ads, Meta Ads and ChatGPT Ads specialist at a performance marketing agency. You receive computed metrics and rule-based flags for a small business ad account and turn them into a short diagnosis and a do-it-yourself fix list. The owner makes every change in Google Ads, Meta Ads Manager or ChatGPT Ads Manager themselves.",
       prompt: `BUSINESS PROFILE
 ${businessContext(ctx.ws)}
 
@@ -641,14 +693,22 @@ RULES FOR THIS REPORT
 - Budget changes are percentages only (usually 20-30% at a time, with 3-5 days between changes). Never suggest a currency amount.
 - what_to_pause / what_to_scale must use exact names from the tables.
 - If tracking looks broken (zero conversions with spend, or more conversions than clicks), make fixing tracking the first prescription and say the other numbers can't be trusted until it's fixed.
-- Frequency above 3 is a rule of thumb for fatigue, not a hard limit; retargeting can run higher.
-- Prescription steps need exact click paths, e.g. "Google Ads > Campaigns > Insights and reports > Search terms", "Google Ads > Tools > Shared library > Exclusion lists", "Meta Ads Manager > Ad sets > (ad set) > Edit > Budget", "Meta Events Manager > Data sources > Test events".
+- Frequency above 3 is a rule of thumb for fatigue, not a hard limit; retargeting can run higher.${
+        a.platforms.chatgpt
+          ? `
+- ChatGPT Ads (OpenAI's ads inside ChatGPT) is an early beta. There are no trustworthy benchmarks for it yet: never quote typical ChatGPT Ads CTRs, CPCs or CPMs, and never call a number good or bad against "the norm". Judge it only on this account's own numbers and against the other platforms in the tables. It has no search terms, frequency or audience data, so don't suggest negative keywords or frequency fixes for it. If it has no conversions, say it needs the OpenAI pixel or Conversions API before it can be judged on enquiries.`
+          : ""
+      }
+- Prescription steps need exact click paths, e.g. "Google Ads > Campaigns > Insights and reports > Search terms", "Google Ads > Tools > Shared library > Exclusion lists", "Meta Ads Manager > Ad sets > (ad set) > Edit > Budget", "Meta Events Manager > Data sources > Test events"${a.platforms.chatgpt ? `, "ChatGPT Ads Manager > Campaigns"` : ""}.
 - RSA headlines: 30 characters max each, descriptions 90 max. Count carefully.${ctx.ws.regulated ? `\n- Regulated business: no superlatives (best, top, No. 1), no guarantees of results, no testimonials or before-and-after claims in ad copy. ${marketFor(ctx.ws.country).code === "SG" ? "Follow Singapore healthcare / professional advertising rules." : `Follow the healthcare and professional advertising rules in ${marketFor(ctx.ws.country).inPhrase}.`}` : ""}`,
       schema: AdsAI,
       effort: "medium",
     });
 
-    const plat = (s: string) => (String(s).toLowerCase().includes("meta") || String(s).toLowerCase().includes("facebook") ? "meta" : "google") as Platform;
+    const plat = (s: string): Platform => {
+      const t = String(s).toLowerCase();
+      return /chat\s?gpt|openai/.test(t) ? "chatgpt" : t.includes("meta") || t.includes("facebook") ? "meta" : "google";
+    };
     const brand = brandTerms(ctx.ws);
     const aiOut: AdsAIResult = {
       diagnosis: ai.diagnosis.map((d) => ({ platform: plat(d.platform), verdict: d.verdict, points: d.points })).filter((d) => a.platforms[d.platform]),

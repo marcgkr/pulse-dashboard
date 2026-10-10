@@ -159,6 +159,7 @@ export function AdsForm({ profile, connected, lastInput }: FormProps) {
                 <option value="auto">Auto-detect</option>
                 <option value="google">Google Ads</option>
                 <option value="meta">Meta Ads</option>
+                <option value="chatgpt">ChatGPT Ads</option>
               </Select>
             </Field>
             <Field label="Upload CSV exports" hint="Up to 6 files, 2 MB each. A campaigns report plus a search terms report works best for Google.">
@@ -197,6 +198,10 @@ export function AdsForm({ profile, connected, lastInput }: FormProps) {
               <p>
                 <span className="font-semibold text-ink">Meta Ads Manager:</span> open the Ad sets tab, pick the date range, then Reports &gt; Export table data &gt; .csv. Keep the Results,
                 Reach and Frequency columns.
+              </p>
+              <p>
+                <span className="font-semibold text-ink">ChatGPT Ads Manager:</span> open your campaigns report, pick the date range, then the three-dot menu at the top right &gt;
+                Download Cumulative Values. Pick ChatGPT Ads under Platform before you add the file.
               </p>
             </div>
           </details>
