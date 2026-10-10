@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { currentUser, ownedWorkspaces } from "@/lib/auth";
-import { planById } from "@/lib/config";
+import { PLANS, planById } from "@/lib/config";
+import { stripeEnabled } from "@/lib/billing";
 import { checkPromo } from "@/lib/promos";
 import { Logo } from "@/components/brand";
 import { ProfileForm } from "@/components/profile-form";
@@ -9,7 +10,7 @@ import { visitorMarket } from "@/lib/market-server";
 
 export const metadata = { title: "Set up your business" };
 
-export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ website?: string; country?: string; add?: string; code?: string }> }) {
+export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ website?: string; country?: string; add?: string; code?: string; plan?: string }> }) {
   const user = await currentUser();
   if (!user) redirect("/login");
   const sp = await searchParams;
@@ -46,7 +47,14 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
             )}
             <ProfileForm
               mode={adding ? "add" : "create"}
-              initial={{ website: sp.website ?? "", location: "", country: adding ? owned[0].country : country, promo: promo?.code }}
+              initial={{
+                website: sp.website ?? "",
+                location: "",
+                country: adding ? owned[0].country : country,
+                promo: promo?.code,
+                // A paid plan picked on the pricing page opens checkout after this step (only when payments are on).
+                checkoutPlan: !adding && !promo && stripeEnabled() && PLANS.some((p) => p.id === sp.plan && p.id !== "free") ? sp.plan : undefined,
+              }}
             />
           </div>
         </div>

@@ -43,7 +43,7 @@ See `.env.example`. The important ones:
 - `DATABASE_PATH` is the SQLite file. In production, put it on a persistent volume.
 - `ADMIN_SETUP_TOKEN` (16+ characters) lets you make your own account an admin: sign up, open `/admin/claim`, enter the token, then remove the variable.
 - `GOOGLE_PSI_KEY` (optional) adds Google PageSpeed mobile scores to Site Doctor.
-- `STRIPE_*` (optional) turns on self-serve upgrades. Create one recurring price per paid plan and point the webhook at `/api/billing/webhook` with events `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`.
+- `STRIPE_SECRET_KEY` turns on self-serve payments: every plan card in Settings gets its own button. New customers go straight to Stripe Checkout and the plan is active the moment they're back; subscribers switch plans on the spot (upgrades charge the prorated difference to their card now, downgrades credit the next invoice); choosing the free plan cancels at the end of the paid month. Prices come from `src/lib/markets.ts` in the customer's currency, so nothing needs setting up in Stripe. Add `STRIPE_WEBHOOK_SECRET` with a webhook to `/api/billing/webhook` (events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `customer.subscription.updated`, `customer.subscription.deleted`) so renewals, failed payments and cancellations reach the app. `STRIPE_PRICE_*` are optional fixed prices that override the price list.
 
 Plans and prices live in `src/lib/config.ts`. The brand name, domain and the enquiry email (used by every contact and done-for-you link) are there too.
 

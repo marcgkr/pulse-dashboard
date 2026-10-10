@@ -13,6 +13,11 @@ export default defineConfig({
       reuseExistingServer: true,
     },
     {
+      command: "npx tsx tests/mock-stripe/server.ts",
+      url: "http://127.0.0.1:4700/__requests",
+      reuseExistingServer: false,
+    },
+    {
       command: "rm -f data/e2e.db* && npx next start -p 3100",
       url: "http://127.0.0.1:3100/api/health",
       reuseExistingServer: false,
@@ -24,6 +29,9 @@ export default defineConfig({
         // Every test signs up from the same address.
         SIGNUPS_PER_IP_PER_HOUR: "50",
         ANTHROPIC_API_KEY: "",
+        // Payments against tests/mock-stripe.
+        STRIPE_SECRET_KEY: "sk_test_mock",
+        STRIPE_API_BASE: "http://127.0.0.1:4700",
         NO_PROXY: "*",
       },
     },

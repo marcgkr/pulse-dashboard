@@ -1,10 +1,10 @@
 import { ownedWorkspaces, requireWorkspace } from "@/lib/auth";
 import { PLANS, BRAND, planPrice } from "@/lib/config";
 import { formatPrice, marketFor } from "@/lib/markets";
-import { stripeEnabled } from "@/lib/billing";
+import { applyCheckout, stripe, stripeEnabled } from "@/lib/billing";
 import { usage } from "@/lib/runs";
 import { ProfileForm } from "@/components/profile-form";
-import { PlanButtons } from "@/components/settings-forms";
+import { PlanPicker } from "@/components/plan-picker";
 import { Badge, ButtonLink, Card, Label, PageHeader } from "@/components/ui";
 import { clientConnections } from "@/lib/connectors/store";
 import { feedbackForWorkspace } from "@/lib/memory";
@@ -16,8 +16,21 @@ import { planById } from "@/lib/config";
 
 export const metadata = { title: "Settings" };
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ upgraded?: string }> }) {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ upgraded?: string; checkout?: string }> }) {
   const sp = await searchParams;
+  // Back from Stripe Checkout: apply the plan now rather than waiting for the webhook.
+  let justPaid = false;
+  if (sp.checkout && /^cs_[A-Za-z0-9_]+$/.test(sp.checkout) && stripeEnabled()) {
+    const me = await requireWorkspace();
+    const owned = ownedWorkspaces(me.user.id);
+    try {
+      const session = await stripe().checkout.sessions.retrieve(sp.checkout);
+      const forMe = owned.some((w) => w.id === (session.client_reference_id || session.metadata?.workspace_id));
+      justPaid = forMe && applyCheckout(session);
+    } catch (e) {
+      console.warn("[billing] checkout session lookup failed", (e as Error).message);
+    }
+  }
   const { user, ws } = await requireWorkspace();
   const u = usage(ws);
   const market = marketFor(ws.country);
@@ -113,7 +126,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       <section id="plan">
         <Label className="mb-2">Plan</Label>
-        {sp.upgraded && <p className="mb-3 rounded-md border border-scrub/30 bg-mint px-3 py-2 text-sm text-scrub-dark">Payment received. Your plan updates within a minute.</p>}
+        {(justPaid || sp.upgraded || sp.checkout) && (
+          <p className="mb-3 rounded-2xl border border-scrub/30 bg-mint px-4 py-3 text-[15px] text-scrub-dark">
+            {justPaid ? "Payment received. Your new plan is active now." : "Payment received. Your plan updates within a minute."}
+          </p>
+        )}
         <Card className="p-5 md:p-6">
           {promoActive(ws) && ws.plan !== ws.paid_plan && (
             <p className="mb-4 rounded-2xl bg-mint px-4 py-3 text-[15px] text-scrub-dark">
@@ -127,27 +144,21 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <p className="text-sm text-ink-2">
             Prices in {market.currency}. You&apos;re on <strong>{u.plan.name}</strong>. {u.used} of {u.limit} reports used this month{u.plan.businesses > 1 ? ", across all your businesses" : ""} (sample reports in demo mode don&apos;t count).
           </p>
-          <div className="mt-5 grid gap-3 md:grid-cols-4">
-            {PLANS.map((p) => (
-              <div key={p.id} className={`rounded-3xl p-5 ring-1 ${p.id === ws.plan ? "bg-mint ring-scrub" : "ring-line"}`}>
-                <div className="flex items-center justify-between">
-                  <span className="font-display font-semibold">{p.name}</span>
-                  {p.id === ws.plan && <Badge tone="green">Current</Badge>}
-                </div>
-                <div className="mt-1 font-display text-2xl font-extrabold tabular-nums">
-                  {p.id === "free" ? "Free" : formatPrice(market, planPrice(p, market))}
-                  <span className="text-xs font-semibold text-ink-3">{p.id === "free" ? "" : "/mo"}</span>
-                </div>
-                <ul className="mt-2 space-y-1 text-xs text-ink-2">
-                  {p.features.map((f) => (
-                    <li key={f}>{f}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
           <div className="mt-5">
-            <PlanButtons current={ws.paid_plan ?? ws.plan} stripe={stripeEnabled()} hasCustomer={!!ws.stripe_customer_id} hasSubscription={!!ws.stripe_subscription_id} contact={BRAND.contactEmail} />
+            <PlanPicker
+              plans={PLANS.map((p) => ({
+                id: p.id,
+                name: p.name,
+                price: p.id === "free" ? "Free" : `${formatPrice(market, planPrice(p, market))}/mo`,
+                features: p.features,
+              }))}
+              current={ws.plan}
+              paid={ws.paid_plan ?? ws.plan}
+              stripe={stripeEnabled()}
+              hasSubscription={!!ws.stripe_subscription_id}
+              hasCustomer={!!ws.stripe_customer_id}
+              contact={BRAND.contactEmail}
+            />
           </div>
           <div className="mt-6 border-t border-line pt-5">
             <PromoRedeem />

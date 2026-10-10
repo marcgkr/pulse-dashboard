@@ -21,6 +21,8 @@ export type Profile = {
   regulated?: boolean;
   /** Promo code carried from the signup link. Not shown; used once when the first business is saved. */
   promo?: string;
+  /** Paid plan picked on the pricing page. After the first business is saved, Checkout opens for it. */
+  checkoutPlan?: string;
 };
 
 const INDUSTRIES = [
@@ -65,6 +67,15 @@ export function ProfileForm({ mode, initial }: { mode: "create" | "add" | "edit"
     const data = await res.json().catch(() => ({}));
     setPending(false);
     if (!res.ok) return setError(data.error || "Couldn't save.");
+    if (mode === "create" && p.checkoutPlan) {
+      // Picked a paid plan on the pricing page: pay now. If checkout can't open, carry on to the free plan.
+      const co = await fetch("/api/billing/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ plan: p.checkoutPlan }) });
+      const url = ((await co.json().catch(() => ({}))) as { url?: string }).url;
+      if (co.ok && url) {
+        window.location.href = url;
+        return;
+      }
+    }
     if (mode !== "edit") {
       router.push(data.firstRunId ? `/app/runs/${data.firstRunId}` : "/app?welcome=1");
       router.refresh();

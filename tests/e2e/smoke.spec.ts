@@ -214,3 +214,35 @@ test("admin creates a promo code and a friend signs up with it", async ({ page, 
   await promos.getByRole("button", { name: "End access now" }).click();
   await expect(promos.getByText(/ended/)).toBeVisible();
 });
+
+test("owner pays for a plan, upgrades on the spot, then cancels", async ({ page }) => {
+  const api = page.request;
+  await api.post("/api/auth/signup", { data: { email: "payer@example.com", name: "Payer", password: "payer-pass-123" } });
+  await api.post("/api/workspace", { data: { name: "Payer Studio", industry: "Agency", country: "SG" } });
+
+  await page.goto("/app/settings#plan");
+  const plan = page.locator("#plan");
+  await plan.getByRole("button", { name: "Choose Growth" }).click();
+  // The mock Stripe checkout "pays" and sends us back with the session id.
+  await expect(page).toHaveURL(/\/app\/settings\?checkout=cs_test_/);
+  await expect(plan.getByText("Payment received. Your new plan is active now.")).toBeVisible();
+  await expect(plan.getByText("You're on Growth")).toBeVisible();
+
+  page.once("dialog", (d) => d.accept());
+  await plan.getByRole("button", { name: "Upgrade to Pro" }).click();
+  await expect(plan.getByText("Done. You're on Pro.")).toBeVisible();
+  await expect(page.getByText(/You're on Pro/).first()).toBeVisible();
+
+  const calls = (await (await page.request.get("http://127.0.0.1:4700/__requests")).json()) as { method: string; path: string; body: Record<string, string> }[];
+  const checkout = calls.find((c) => c.path === "/v1/checkout/sessions" && c.method === "POST")!;
+  expect(checkout.body["line_items[0][price_data][currency]"]).toBe("sgd");
+  expect(checkout.body["line_items[0][price_data][unit_amount]"]).toBe("24900");
+  const change = calls.filter((c) => c.path.startsWith("/v1/subscriptions/") && c.method === "POST").at(-1)!;
+  expect(change.body["items[0][price_data][unit_amount]"]).toBe("49900");
+  expect(change.body["proration_behavior"]).toBe("always_invoice");
+  expect(change.body["metadata[plan]"]).toBe("pro");
+
+  page.once("dialog", (d) => d.accept());
+  await plan.getByRole("button", { name: "Cancel plan" }).click();
+  await expect(plan.getByText(/Cancelled. You keep Pro until/)).toBeVisible();
+});
