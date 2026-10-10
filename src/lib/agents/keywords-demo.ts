@@ -4,6 +4,7 @@
 import type { WorkspaceRow } from "../db";
 import type { Prescription } from "../ai";
 import { marketFor } from "../markets";
+import type { ArticleBrief } from "./article-format";
 
 // ---------- Shared types ----------
 
@@ -66,13 +67,15 @@ export type ParsedData = {
 export type KeywordsInput = {
   seeds: string[];
   location: string;
-  focus: "discover" | "expand";
+  focus: "discover" | "expand" | "article";
   /** Keyword to drill into. Empty string when not expanding. */
   expand: string;
   /** Raw pasted CSV / text from Search Console or Keyword Planner. */
   data: string;
   /** Read the connected Search Console property (last 90 days) at run time instead of pasted data. */
   gsc?: boolean;
+  /** Article mode: write a blog article from this brief instead of a keyword map. */
+  article?: ArticleBrief;
 };
 
 // ---------- Small text helpers ----------

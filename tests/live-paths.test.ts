@@ -278,6 +278,113 @@ async function main() {
     }
   }
 
+  // Keyword Lab article mode: "Write this article" on a brief, with the owner's own videos.
+  console.log("\nkeywords (article mode, with the owner's videos)");
+  {
+    const { relevantVideos } = await import("@/lib/videos");
+    const { articleHtml, articleMarkdown } = await import("@/lib/agents/article-format");
+    const RELATED = "https://www.youtube.com/watch?v=PicoLaser01";
+    const UNRELATED = "https://www.tiktok.com/@lumenskin/video/7300000000000000001";
+    const addVideo = (platform: string, ext: string, url: string, title: string, caption: string, transcript: string | null) =>
+      db()
+        .prepare(
+          "INSERT INTO social_videos (workspace_id, platform, external_id, url, title, caption, published_at, transcript, transcript_status, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .run(ws.id, platform, ext, url, title, caption, now(), transcript, transcript ? "done" : "none", now());
+    addVideo("youtube", "PicoLaser01", RELATED, "What a pico laser session for pigmentation looks like", "Pico laser at our Tampines clinic", "Today we walk you through a pico laser session for pigmentation.");
+    addVideo("tiktok", "7300000000000000001", UNRELATED, "Meet Biscuit, our office dog", "Say hi at reception", null);
+    const brief = {
+      title: "Pico Laser in Tampines | Lumen Skin Clinic",
+      slug: "/pico-laser-tampines",
+      h1: "Pico laser in Tampines",
+      outline: ["Opening answer (40 to 60 words): what pico laser does for pigmentation", "Price and what is included", "How a session works, step by step", "Who it suits and who it does not"],
+      must_include: ["A visible 'Last updated' date", "Real prices from your price list"],
+      internal_links: ["Homepage", "Contact or booking page"],
+    };
+    const agent = getAgent("keywords")!;
+    const inserted = new Set([RELATED, UNRELATED]);
+    try {
+      const topic = [brief.title, "pico laser in tampines", ...brief.outline].join(" ");
+      const cands = relevantVideos(ws.id, topic, 8).map((v) => v.url);
+      assert.ok(cands.includes(RELATED), "related video is not a candidate");
+      assert.ok(!cands.includes(UNRELATED), "unrelated video was offered as a candidate");
+      pass("relevantVideos offers the related video and leaves out the unrelated one");
+    } catch (e) {
+      fail("relevantVideos", e);
+    }
+    let input: import("@/lib/agents/keywords-demo").KeywordsInput | null = null;
+    try {
+      // Sent from an expand report: article mode wins and the drill-down is dropped.
+      input = agent.parseInput({ seeds: "pico laser", location: "Tampines, Singapore", focus: "expand", expand: "pico laser tampines", data: gsc, article: brief }, ws) as import("@/lib/agents/keywords-demo").KeywordsInput;
+      assert.equal(input.focus, "article");
+      assert.equal(input.expand, "");
+      assert.equal(input.data, "");
+      assert.equal(input.article?.target_keyword, "pico laser in tampines");
+      assert.equal(agent.runTitle(input, ws), `Article: ${brief.title}`);
+      const big = agent.parseInput(
+        { seeds: "x", article: { ...brief, title: "T".repeat(500), outline: Array.from({ length: 50 }, (_, i) => `Section ${i} ${"y".repeat(400)}`), must_include: "a\nb", internal_links: 7 } },
+        ws,
+      ) as import("@/lib/agents/keywords-demo").KeywordsInput;
+      assert.ok(big.article!.title.length <= 120 && big.article!.outline.length === 12 && big.article!.outline.every((o) => o.length <= 300), "article brief not bounded");
+      assert.deepEqual(big.article!.must_include, ["a", "b"]);
+      assert.deepEqual(big.article!.internal_links, []);
+      assert.throws(() => agent.parseInput({ seeds: "x", article: "write me something" }, ws), /article brief/);
+      assert.throws(() => agent.parseInput({ seeds: "x", article: { outline: ["a"] } }, ws), /needs a title/);
+      pass("parseInput: article mode, bounds and bad briefs");
+    } catch (e) {
+      fail("article parseInput", e);
+    }
+    if (input) {
+      try {
+        const r = (await agent.run(input, { ws, runId: "live-test", progress: () => {} })) as Record<string, unknown>;
+        checkResult(r, "keywords (article)");
+        const a = r.article as import("@/lib/agents/article-format").Article;
+        assert.equal(r.mode, "article");
+        assert.ok(a && Array.isArray(a.sections), "no article sections");
+        if (!EMPTY_MODE) assert.ok(a.sections.length > 0, "article has no sections");
+        assert.ok(a.meta_description.length <= 155, `meta description is ${a.meta_description.length} chars`);
+        assert.ok(a.videos.every((v) => inserted.has(v.url)), `embedded a video that is not the owner's: ${a.videos.map((v) => v.url).join(", ")}`);
+        assert.ok(!a.videos.some((v) => v.url === UNRELATED), "embedded the unrelated video");
+        if (!EMPTY_MODE) assert.deepEqual(a.videos.map((v) => v.url), [RELATED], "expected the offered video only (the made-up one must be dropped)");
+        const reqs = (await (await fetch(`${MOCK_URL}/__requests`)).json()) as { system?: { text: string }[]; messages?: { content: unknown }[] }[];
+        const req = reqs.filter((x) => x.system?.some((b) => b.text.includes("Keyword Lab's article writer"))).at(-1);
+        const sent = JSON.stringify(req?.messages ?? []);
+        assert.ok(sent.includes(RELATED), "related video not offered to the model");
+        assert.ok(!sent.includes(UNRELATED), "unrelated video offered to the model");
+        const html = articleHtml(a);
+        if (!EMPTY_MODE) assert.ok(html.includes("youtube-nocookie.com/embed/PicoLaser01") && articleMarkdown(a).includes("## "), "HTML or Markdown copy is missing parts");
+        const Report = AGENT_REPORTS.keywords;
+        const page = renderToString(
+          createElement(AppRouterContext.Provider, { value: router as never }, createElement(Report, { result: JSON.parse(JSON.stringify(r)), run: { id: "r_live", agent: "keywords", title: String(r.title), created_at: now(), input: input as unknown as Record<string, unknown> } })),
+        );
+        assert.ok(page.includes("Copy as HTML") && page.includes("Copy as Markdown"), "article report has no copy buttons");
+        assert.ok(!page.includes("Keyword clusters"), "article rendered as a keyword map");
+        pass(`run: "${r.title}" (${a.sections.length} sections, ${a.faq.length} FAQ, ${a.videos.length} video), report renders`);
+      } catch (e) {
+        // An answer with no sections is refused with a readable error rather than saved as an empty article.
+        if (EMPTY_MODE && /without any sections/.test((e as Error).message)) pass(`empty answer -> "${(e as Error).message}"`);
+        else fail("article run", e);
+      }
+      try {
+        const r = (await agent.demo(input, { ws, runId: "live-test", progress: () => {} })) as Record<string, unknown>;
+        const a = r.article as import("@/lib/agents/article-format").Article;
+        assert.equal(r.demo, true);
+        assert.equal(r.mode, "article");
+        assert.ok(a.sections.length > 0 && a.faq.length > 0 && a.cta.button, "demo article is missing parts");
+        assert.ok(a.sections.some((s) => s.heading === "Price and what is included"), "demo sections don't follow the outline");
+        assert.ok(a.intro[0].includes("[Sample text]"), "demo text is not marked as sample");
+        assert.ok(a.videos.length <= 2 && a.videos.every((v) => inserted.has(v.url)) && a.videos.some((v) => v.url === RELATED), "demo videos");
+        assert.ok((r.prescriptions as unknown[]).length > 0, "demo has no prescriptions");
+        const wsNoVideos = { ...ws, id: id("w_") };
+        const none = (await agent.demo(input, { ws: wsNoVideos, runId: "live-test", progress: () => {} })) as Record<string, unknown>;
+        assert.ok(/Connected accounts/.test(String(none.video_note)), `no-video note: ${none.video_note}`);
+        pass("demo: sections from the outline, sample text marked, owner's videos only, connect note without videos");
+      } catch (e) {
+        fail("article demo", e);
+      }
+    }
+  }
+
   // The workspace's country (not the location text) sets where web searches run from.
   type MockRequest = { system?: { type: string; text: string }[]; tools?: { type: string; user_location?: { country?: string } }[]; messages?: unknown[] };
   const lastSearchCountry = async () => {
