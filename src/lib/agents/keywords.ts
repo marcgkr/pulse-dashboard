@@ -24,6 +24,7 @@ import {
   uniqueKeywords,
   visibilityScore,
 } from "./keywords-demo";
+import { articleRunTitle, demoArticle, parseArticleBrief, writeArticle } from "./article";
 
 type Input = KeywordsInput;
 
@@ -140,7 +141,7 @@ function baseResult(input: Input, loaded: LoadedData) {
   const vis = visibilityScore(data);
   return {
     data_from: loaded.from,
-    mode: input.focus,
+    mode: input.focus === "expand" ? ("expand" as const) : ("discover" as const),
     seeds: input.seeds,
     location: input.location,
     expand: input.expand,
@@ -151,6 +152,7 @@ function baseResult(input: Input, loaded: LoadedData) {
 }
 
 function title(input: Input): string {
+  if (input.article) return articleRunTitle(input.article);
   if (input.expand) return `Keyword Lab: expand '${input.expand}'`;
   return `Keyword Lab: ${input.seeds[0] ?? "keywords"}`;
 }
@@ -162,19 +164,23 @@ export const keywordsAgent: AgentDef<Input> = {
   name: "Keyword Lab",
   blurb: "Finds the searches and AI questions your customers use, and maps each to a page.",
   description:
-    "Looks at what ranks today and what people ask Google and AI assistants in your area, then groups keywords by intent, maps each group to a page to fix or create, and writes briefs for the new pages. Connect Search Console, or paste a Search Console or Keyword Planner export, to ground it in your real numbers. Click Expand on any keyword to drill deeper.",
+    "Looks at what ranks today and what people ask Google and AI assistants in your area, then groups keywords by intent, maps each group to a page to fix or create, and writes briefs for the new pages. Connect Search Console, or paste a Search Console or Keyword Planner export, to ground it in your real numbers. Click Expand on any keyword to drill deeper, or Write this article on any brief to get the full page.",
 
   parseInput(raw, ws) {
     const r = (raw ?? {}) as Record<string, unknown>;
-    const expand = cleanKeyword(String(r.expand ?? "")).slice(0, 80);
+    const article = parseArticleBrief(r.article);
+    // Article mode writes one page from a brief; drill-down and search data don't apply.
+    const expand = article ? "" : cleanKeyword(String(r.expand ?? "")).slice(0, 80);
     let seeds = splitSeeds(r.seeds);
+    if (!seeds.length && article) seeds = [article.target_keyword];
     if (!seeds.length) seeds = splitSeeds(ws.offers);
     if (!seeds.length && ws.industry) seeds = [ws.industry.trim()];
     if (!seeds.length && expand) seeds = [expand];
     if (!seeds.length) throw new Error("Add at least one service or topic to research.");
-    const focus = expand ? "expand" : "discover";
+    const focus = article ? "article" : expand ? "expand" : "discover";
     const m = marketFor(ws.country);
     const location = String(r.location ?? "").trim().slice(0, 120) || ws.location?.trim() || (m.code === "INTL" ? "your area" : m.name);
+    if (article) return { seeds, location, focus, expand, data: "", gsc: false, article };
     let data = typeof r.data === "string" ? r.data : "";
     if (data.length > MAX_DATA_CHARS) data = data.slice(0, MAX_DATA_CHARS);
     // On by default whenever a Search Console property is selected; the form can switch it off.
@@ -185,6 +191,7 @@ export const keywordsAgent: AgentDef<Input> = {
   runTitle: (input) => title(input),
 
   async run(input, ctx) {
+    if (input.article) return writeArticle(input, ctx);
     const loaded = await loadData(input, ctx);
     const data = loaded.data;
     if (data) ctx.progress(`Read ${data.total_rows} rows from your ${loaded.from ? "Search Console" : "pasted"} data`);
@@ -292,6 +299,10 @@ Write the keyword strategy. Quick wins: ${computedWins.length ? "turn the candid
   },
 
   async demo(input, ctx) {
+    if (input.article) {
+      ctx.progress("Laying out a sample article from the brief");
+      return demoArticle(input, ctx.ws);
+    }
     ctx.progress("Building sample keyword map");
     const loaded = await loadData(input, ctx);
     const data = loaded.data;

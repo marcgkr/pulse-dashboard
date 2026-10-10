@@ -228,6 +228,9 @@ function words(name: string): string {
   return name.replace(/_/g, " ").trim() || "item";
 }
 
+// The prompt being answered, so a few fields can echo what the prompt offered (like a model would).
+let currentPrompt = "";
+
 function sampleString(name: string, desc: string, idx: number): string {
   const one = desc.match(/Exactly one of:\s*([^.]+?)(?:\.|$)/i) ?? desc.match(/Exactly one of the [^:]*:\s*([^.]+)/i);
   if (one) return one[1].split(",")[0].trim();
@@ -237,6 +240,12 @@ function sampleString(name: string, desc: string, idx: number): string {
   if (name === "businesses") return ["Glow Aesthetics", "The Skin Lab SG", "Radiance Medical"][idx % 3];
   if (name === "domain") return `example${idx + 1}.com`;
   if (name === "day") return `Week 1 ${["Mon", "Wed", "Fri"][idx % 3]}`;
+  // Article videos: the first pick is a candidate from the prompt, the rest are made up, so the
+  // agent's check that it only embeds offered videos gets exercised.
+  if (name === "video_url") {
+    const offered = [...currentPrompt.matchAll(/^\s*\[\d+\] url: (\S+)/gm)].map((m) => m[1]);
+    return idx === 0 && offered[0] ? offered[0] : `https://www.youtube.com/watch?v=madeUp${idx}abc`;
+  }
   if (/^(title|name|idea_title|h1|page|question|quote|rule|hook)$/.test(name)) return `Sample ${w} ${idx + 1}`;
   if (/^(steps|outline|script_or_outline)$/.test(name)) return `Step ${idx + 1}: open the settings page and update the ${w}.`;
   return `Sample ${w} for the owner: a short, realistic sentence about the ${w}.`;
@@ -410,6 +419,7 @@ function webSearchResponse(body: Json) {
 
 function structuredResponse(body: Json) {
   const schema = body.output_config.format.schema;
+  currentPrompt = lastUserText(body);
   const instance = generate(schema, schema, "root", 0, 0);
   const text = JSON.stringify(instance);
   const prompt = lastUserText(body);

@@ -274,3 +274,26 @@ test("free accounts can't connect accounts", async ({ page }) => {
   const res = await page.request.get("/api/connect/google/start", { maxRedirects: 0 });
   expect(res.headers()["location"]).toContain("error=plan");
 });
+
+test("Keyword Lab writes an article from a brief", async ({ page }) => {
+  const api = page.request;
+  await api.post("/api/auth/signup", { data: { email: "writer@example.com", name: "Writer", password: "writer-pass-123" } });
+  const ws = await api.post("/api/workspace", { data: { name: "Lumen Skin Clinic", industry: "Aesthetic clinic", country: "SG", offers: "Pico laser, Hydrafacial" } });
+  const workspaceId = (await ws.json()).id as string;
+  // Free accounts only get Site Doctor.
+  expect((await api.post("/api/admin/claim", { data: { token: "e2e-setup-token-1234567890" } })).ok()).toBeTruthy();
+  expect((await api.post("/api/admin/plan", { data: { workspaceId, plan: "growth" } })).ok()).toBeTruthy();
+
+  const started = await api.post("/api/runs", { data: { agent: "keywords", input: { seeds: "pico laser\nhydrafacial", location: "Tampines, Singapore" } } });
+  expect(started.ok()).toBeTruthy();
+  await page.goto(`/app/runs/${(await started.json()).id}`);
+  await expect(page.getByRole("heading", { name: "Briefs for new pages" })).toBeVisible({ timeout: 60_000 });
+
+  await page.getByRole("button", { name: "Write this article" }).first().click();
+  await expect(page.getByRole("heading", { level: 1, name: /^Article: / })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("heading", { name: "The article", exact: true })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText("Follow-up to")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy as HTML" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy as Markdown" })).toBeVisible();
+  await expect(page.getByText(/Connected accounts and your articles can include your own videos/)).toBeVisible();
+});

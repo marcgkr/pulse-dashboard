@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, FileText, Search, Zap } from "lucide-react";
+import { ExternalLink, FileText, PenLine, Search, Zap } from "lucide-react";
 import type { AeoQuestion, ContentBrief, DataColumn, KeywordCluster, ParsedData } from "@/lib/agents/keywords-demo";
 import { isQuickWinRow } from "@/lib/agents/keywords-demo";
+import { briefKeyword, type Article } from "@/lib/agents/article-format";
 import { Badge, Card, Label, ReportSection, cx } from "../ui";
 import { CopyButton } from "../copy-button";
 import { useRunAgent } from "../run-agent";
+import { ArticleReport, type ArticleResultView } from "./article-report";
 
 type KeywordsResult = {
-  mode?: "discover" | "expand";
+  mode?: "discover" | "expand" | "article";
   seeds?: string[];
   location?: string;
   expand?: string;
@@ -21,6 +23,10 @@ type KeywordsResult = {
   data_from?: string | null;
   score_note?: string | null;
   sources?: { title: string; url: string }[];
+  /** Article mode ("Write this article" on a brief). */
+  article?: Article;
+  brief?: ArticleResultView["brief"];
+  video_note?: string | null;
 };
 
 type RunRef = { id: string; input: Record<string, unknown> } | undefined;
@@ -151,7 +157,45 @@ function briefText(b: ContentBrief): string {
   ].join("\n");
 }
 
-function BriefCard({ b }: { b: ContentBrief }) {
+/** Starts a Keyword Lab run in article mode from one brief. */
+function WriteArticleButton({ b, run }: { b: ContentBrief; run: RunRef }) {
+  const { start, pending, error } = useRunAgent("keywords");
+  if (!run) return null;
+  const go = () => {
+    // The public sample report (/sample) has no account behind it: send visitors to sign up.
+    if (run.id === "sample") return window.location.assign("/signup?from=sample");
+    void start(
+      {
+        ...run.input,
+        article: {
+          title: b.title,
+          target_keyword: briefKeyword(b),
+          slug: b.slug,
+          h1: b.h1,
+          outline: b.outline,
+          must_include: b.must_include,
+          internal_links: b.internal_links,
+        },
+      },
+      run.id,
+    );
+  };
+  return (
+    <span className="inline-flex flex-col items-end gap-1">
+      <button
+        type="button"
+        onClick={go}
+        disabled={pending}
+        className="inline-flex items-center gap-1 rounded border border-scrub/40 bg-white px-2 py-1 text-xs font-semibold text-scrub hover:bg-mint disabled:opacity-50"
+      >
+        <PenLine size={13} /> {pending ? "Starting..." : "Write this article"}
+      </button>
+      {error && <span className="text-xs text-pulse">{error}</span>}
+    </span>
+  );
+}
+
+function BriefCard({ b, run }: { b: ContentBrief; run: RunRef }) {
   return (
     <Card className="p-5">
       <div className="flex items-start justify-between gap-2">
@@ -162,7 +206,10 @@ function BriefCard({ b }: { b: ContentBrief }) {
           <h4 className="font-display text-lg font-semibold leading-snug">{b.h1}</h4>
           <p className="break-all font-mono text-xs text-ink-2">{b.slug}</p>
         </div>
-        <CopyButton text={briefText(b)} label="Copy brief" />
+        <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
+          <CopyButton text={briefText(b)} label="Copy brief" />
+          <WriteArticleButton b={b} run={run} />
+        </div>
       </div>
       <div className="mt-4 flex items-start gap-3 rounded-md border border-line bg-paper/60 px-4 py-3 text-[15px]">
         <span className="w-12 shrink-0 pt-0.5 text-[13px] font-semibold text-ink-2">Title</span>
@@ -307,6 +354,11 @@ function DataTable({ data }: { data: ParsedData }) {
 // ---------- Report ----------
 
 export function KeywordsReport({ result, run }: { result: KeywordsResult; run?: RunRef }) {
+  if (result.article) return <ArticleReport result={{ ...result, article: result.article }} />;
+  return <KeywordMapReport result={result} run={run} />;
+}
+
+function KeywordMapReport({ result, run }: { result: KeywordsResult; run?: RunRef }) {
   const clusters = result.clusters ?? [];
   const questions = result.aeo_questions ?? [];
   const briefs = result.content_briefs ?? [];
@@ -393,10 +445,13 @@ export function KeywordsReport({ result, run }: { result: KeywordsResult; run?: 
       )}
 
       {briefs.length > 0 && (
-        <ReportSection title="Briefs for new pages" hint="What to put on each new page. Copy a brief and hand it to whoever writes the page.">
+        <ReportSection
+          title="Briefs for new pages"
+          hint={runRef ? "What to put on each new page. Copy a brief for whoever writes the page, or click Write this article to get the full article." : "What to put on each new page. Copy a brief and hand it to whoever writes the page."}
+        >
           <div className="space-y-4">
             {briefs.map((b, i) => (
-              <BriefCard key={`${b.slug}-${i}`} b={b} />
+              <BriefCard key={`${b.slug}-${i}`} b={b} run={runRef} />
             ))}
           </div>
         </ReportSection>
