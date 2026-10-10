@@ -28,8 +28,8 @@ export async function POST(req: Request) {
   }
   try {
     const selected = setSelected(auth.ws.id, provider, kind, body.ids as string[]);
-    // Shares the "Read my posts now" limit, so ticking accounts on and off can't trigger endless syncs.
-    if (SOCIAL_KINDS.includes(kind) && rateLimit(`social-sync:${auth.ws.id}`, 6, 60 * 60_000)) void syncSocialVideos(auth.ws).catch(() => {});
+    // Its own limit, generous enough for ticking a handful of accounts, so it doesn't use up "Read my posts now".
+    if (SOCIAL_KINDS.includes(kind) && rateLimit(`social-pick:${auth.ws.id}`, 20, 60 * 60_000)) void syncSocialVideos(auth.ws).catch(() => {});
     return NextResponse.json({ ok: true, selected });
   } catch (e) {
     if (e instanceof ConnectorError) return NextResponse.json({ error: e.message }, { status: 404 });

@@ -13,7 +13,7 @@ import { MemoryList } from "@/components/memory-list";
 import { AutopilotToggle, BusinessList, PromoRedeem } from "@/components/settings-pro";
 import { promoActive } from "@/lib/promos";
 import { outletLimit, planById } from "@/lib/config";
-import { webcareActive } from "@/lib/webcare";
+import { webcareActive, webcareEnding } from "@/lib/webcare";
 import Link from "next/link";
 
 export const metadata = { title: "Settings" };
@@ -53,6 +53,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const allOwned = ownedWorkspaces(user.id);
   const limit = outletLimit(allOwned[0] ?? ws);
   const owned = allOwned.slice(0, limit);
+  const primary = allOwned[0] ?? ws;
   return (
     <div className="space-y-10">
       <PageHeader eyebrow="Settings" title="Your business" />
@@ -157,7 +158,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           </p>
           {webcareActive(ws) && (
             <p className="mt-2 text-sm text-ink-2">
-              Website changes by PULSE is on ({formatPrice(market, market.prices.webcare)}/month).{" "}
+              {webcareEnding(primary)
+                ? `Website changes by PULSE stops on ${new Date(webcareEnding(primary)!).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: market.timeZone })}.`
+                : primary.webcare !== 1 && primary.webcare_comp === 1
+                  ? "Website changes by PULSE is included on your account."
+                  : `Website changes by PULSE is on (${formatPrice(market, market.prices.webcare)}/month).`}{" "}
               <Link href="/app/website-changes" className="font-semibold text-scrub hover:underline">
                 Manage it
               </Link>

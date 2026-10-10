@@ -286,6 +286,8 @@ function migrate(db: Database.Database) {
   addColumn(db, "connections", "last_error", "TEXT");
   // Google Ads accounts reached through a manager account need the manager's id on every request.
   addColumn(db, "connection_accounts", "login_customer_id", "TEXT");
+  // Grants made before webcare_comp existed sat in `webcare`. With no subscription they can only be grants.
+  db.exec("UPDATE workspaces SET webcare_comp = 1, webcare = 0 WHERE webcare = 1 AND stripe_subscription_id IS NULL");
   // Ads reports saved before native connections named the old sync supplier. Keep them white-labelled.
   db.exec(`UPDATE runs SET
       title = REPLACE(title, 'Windsor.ai, ', 'live sync, '),

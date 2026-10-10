@@ -542,8 +542,12 @@ test("Growth owners can have PULSE make their website changes, and Starter owner
   page.once("dialog", (d) => d.accept());
   await page.locator("#plan").getByRole("button", { name: "Switch to Starter" }).click();
   await expect(page.getByText(/You're on Starter/).first()).toBeVisible();
-  const down = (await subCalls()).at(-1)!;
-  expect(down.body["items[1][deleted]"]).toBe("true");
+  // The add-on comes off first, on its own and with no refund credit; then the plan changes.
+  const calls = await subCalls();
+  const drop = calls.at(-2)!;
+  expect(drop.body["items[0][deleted]"]).toBe("true");
+  expect(drop.body["proration_behavior"]).toBe("none");
+  expect(calls.at(-1)!.body["items[1][deleted]"]).toBeUndefined();
   await page.goto("/app/website-changes");
   await expect(page.getByText("Website changes are an add-on for Growth and Pro.")).toBeVisible();
   await expect(page.locator("aside").getByRole("link", { name: "Website changes" })).toHaveCount(0);

@@ -80,6 +80,8 @@ export default async function WebsiteChangesPage() {
   ).at;
   const outlets = ownedWorkspaces(user.id).length > 1;
   const ending = webcareEnding(primary);
+  // Switched on free by the PULSE team: nothing to pay or stop here.
+  const granted = primary.webcare !== 1 && primary.webcare_comp === 1 && !ending;
   const tasks = (
     db()
       .prepare(
@@ -154,9 +156,13 @@ export default async function WebsiteChangesPage() {
 
       <section className="flex flex-col gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-ink-2">
-          {ending ? `Website changes by PULSE stops on ${date(ending)}. You can send rounds until then.` : `Website changes by PULSE is on for ${price}/month.`}
+          {ending
+            ? `Website changes by PULSE stops on ${date(ending)}. You can send rounds until then.`
+            : granted
+              ? "Website changes by PULSE is included on your account."
+              : `Website changes by PULSE is on for ${price}/month.`}
         </p>
-        <WebcareToggle on price={price} canBuy={canBuy} contact={BRAND.contactEmail} ending={!!ending} />
+        {!granted && <WebcareToggle on price={price} canBuy={canBuy} contact={BRAND.contactEmail} ending={!!ending} />}
       </section>
     </div>
   );

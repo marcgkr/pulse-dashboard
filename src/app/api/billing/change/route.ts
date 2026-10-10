@@ -33,11 +33,17 @@ export async function POST(req: Request) {
     // Growth and Pro: moving to Starter stops that add-on too.
     const dropOutlets = outlets && !planById(plan).extraOutlets;
     const dropWebcare = webcare && !planById(plan).websiteCare;
+    // Website changes come off first, on their own and without a refund credit: the paid month runs
+    // to its end, the same as stopping it from the add-on page.
+    let webcareUntil: string | null = null;
+    if (dropWebcare) {
+      await stripe().subscriptions.update(sub.id, { items: [{ id: webcare.id, deleted: true }], proration_behavior: "none" });
+      webcareUntil = webcare.current_period_end ? new Date(webcare.current_period_end * 1000).toISOString() : null;
+    }
     await stripe().subscriptions.update(sub.id, {
       items: [
         { id: item.id, ...(await fixedOrInline(plan, ws.country)) },
         ...(dropOutlets ? [{ id: outlets.id, deleted: true }] : []),
-        ...(dropWebcare ? [{ id: webcare.id, deleted: true }] : []),
       ],
       metadata: { ...sub.metadata, plan, workspace_id: ws.id },
       cancel_at_period_end: false,
@@ -46,8 +52,8 @@ export async function POST(req: Request) {
       payment_behavior: "error_if_incomplete",
     });
     db()
-      .prepare(`UPDATE workspaces SET plan = ?${dropOutlets ? ", extra_outlets = 0" : ""}${!planById(plan).websiteCare ? ", webcare = 0" : ""} WHERE id = ?`)
-      .run(plan, ws.id);
+      .prepare(`UPDATE workspaces SET plan = ?${dropOutlets ? ", extra_outlets = 0" : ""}${dropWebcare ? ", webcare = 0, webcare_until = ?" : ""} WHERE id = ?`)
+      .run(...(dropWebcare ? [plan, webcareUntil, ws.id] : [plan, ws.id]));
     return NextResponse.json({ ok: true, plan: planById(plan).name });
   } catch (e) {
     const err = e as { type?: string; message?: string };

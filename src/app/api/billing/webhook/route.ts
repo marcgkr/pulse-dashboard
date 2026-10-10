@@ -21,13 +21,18 @@ export async function POST(req: Request) {
   }
 
   if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
-    const sub = event.data.object as Stripe.Subscription;
+    // Read the subscription as it is now: events can arrive out of order, so a late snapshot from an
+    // earlier change must not undo a later one.
+    const snapshot = event.data.object as Stripe.Subscription;
+    const sub = await stripe()
+      .subscriptions.retrieve(snapshot.id)
+      .catch(() => snapshot);
     // Only the workspace's current subscription can change its plan; stale or duplicate ones are ignored.
     const ws = db().prepare("SELECT id FROM workspaces WHERE stripe_subscription_id = ?").get(sub.id) as { id: string } | undefined;
     if (ws) {
       const active = sub.status === "active" || sub.status === "trialing";
       if (event.type === "customer.subscription.deleted" || !active) {
-        db().prepare("UPDATE workspaces SET plan = 'free', extra_outlets = 0, webcare = 0, stripe_subscription_id = CASE WHEN ? THEN NULL ELSE stripe_subscription_id END WHERE id = ?").run(event.type === "customer.subscription.deleted" ? 1 : 0, ws.id);
+        db().prepare("UPDATE workspaces SET plan = 'free', extra_outlets = 0, webcare = 0, webcare_until = NULL, stripe_subscription_id = CASE WHEN ? THEN NULL ELSE stripe_subscription_id END WHERE id = ?").run(event.type === "customer.subscription.deleted" ? 1 : 0, ws.id);
       } else {
         const plan = planOfSubscription(sub);
         if (plan) db().prepare("UPDATE workspaces SET plan = ? WHERE id = ?").run(plan, ws.id);

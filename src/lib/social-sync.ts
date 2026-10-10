@@ -2,7 +2,7 @@
 // and TikTok accounts, then transcribes the latest videos the plan covers. Every step is best effort:
 // one account failing doesn't stop the others. Server only. Logs never include tokens or media links.
 
-import { planById } from "./config";
+import { outletLimit, planById } from "./config";
 import { db, now, type VideoRow, type WorkspaceRow } from "./db";
 import { monthStartSgt } from "./time";
 import { ConnectorError } from "./connectors/http";
@@ -168,12 +168,18 @@ export async function transcribeLatest(ws: Pick<WorkspaceRow, "id" | "plan">): P
     const owner = db().prepare("SELECT owner_id, (SELECT COUNT(*) FROM workspaces w2 WHERE w2.owner_id = w.owner_id) AS n FROM workspaces w WHERE id = ?").get(ws.id) as
       | { owner_id: string; n: number }
       | undefined;
+    const first = db().prepare("SELECT plan, extra_outlets FROM workspaces WHERE owner_id = ? ORDER BY created_at, id LIMIT 1").get(owner?.owner_id ?? "") as
+      | { plan: string; extra_outlets: number }
+      | undefined;
+    // Only the outlets the plan covers count (a downgrade can leave extra businesses behind).
+    const outlets = Math.max(1, Math.min(owner?.n ?? 1, first ? outletLimit({ plan: ws.plan, extra_outlets: first.extra_outlets }) : 1));
+    // Each video counts once a month, however many times it's retried.
     const used = (
       db()
-        .prepare("SELECT COUNT(*) AS n FROM usage_events WHERE kind = 'transcript' AND created_at >= ? AND workspace_id IN (SELECT id FROM workspaces WHERE owner_id = ?)")
+        .prepare("SELECT COUNT(DISTINCT workspace_id || ref) AS n FROM usage_events WHERE kind = 'transcript' AND created_at >= ? AND workspace_id IN (SELECT id FROM workspaces WHERE owner_id = ?)")
         .get(monthStartSgt(), owner?.owner_id ?? "") as { n: number }
     ).n;
-    const allowance = Math.max(0, cap * Math.max(1, owner?.n ?? 1) - used);
+    const allowance = Math.max(0, cap * outlets - used);
     if (todo.length > allowance) {
       for (const v of todo.slice(allowance)) set(v, "skipped", "This month's transcriptions are used up. They continue next month.");
       todo.length = allowance;
@@ -188,13 +194,14 @@ export async function transcribeLatest(ws: Pick<WorkspaceRow, "id" | "plan">): P
     const worker = async () => {
       while (!stop && i < todo.length) {
         const v = todo[i++];
+        let charged: number | null = null;
         try {
           const link = v.platform === "instagram" ? await instagramMediaUrl(token, v.external_id) : await facebookVideoSource(token, v.account_id, v.external_id);
           if (!link) {
             set(v, "unavailable", `${LABEL[v.platform]} didn't share the video file.`);
             continue;
           }
-          charge.run(ws.id, `${v.platform}:${v.external_id}`, now());
+          charged = Number(charge.run(ws.id, `${v.platform}:${v.external_id}`, now()).lastInsertRowid);
           const text = await transcribeMediaUrl(link);
           set(v, "done", text ? "" : "No speech in this video.", text.slice(0, 20_000));
           res.done++;
@@ -203,9 +210,16 @@ export async function transcribeLatest(ws: Pick<WorkspaceRow, "id" | "plan">): P
           res.failed++;
           // A bad key or a used-up quota fails every video the same way: stop both workers and leave the
           // video waiting, so the next sync tries again.
-          if (e instanceof ConnectorError && (e.code === "auth" || e.code === "rate_limit")) {
+          const code = e instanceof ConnectorError ? e.code : "api";
+          if (code === "auth" || code === "rate_limit" || code === "config") {
+            // Nothing was transcribed and the next sync tries again, so it doesn't count.
+            if (charged) db().prepare("DELETE FROM usage_events WHERE rowid = ?").run(charged);
             set(v, "none", "");
             stop = true;
+          } else if (code === "too_much_data") {
+            set(v, "skipped", "Too large to transcribe.");
+          } else if (e instanceof ConnectorError && /isn't one we can read/.test(e.message)) {
+            set(v, "unavailable", `${LABEL[v.platform]} shared a link we can't read.`);
           } else {
             set(v, "error", "Couldn't transcribe this one. We'll try again on the next read.");
           }

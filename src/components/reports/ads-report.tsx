@@ -241,6 +241,7 @@ function ActionCard({
 }) {
   return (
     <ReportSection
+      navLabel={title}
       title={
         <>
           {icon}

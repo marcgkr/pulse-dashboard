@@ -68,16 +68,19 @@ export default async function Dashboard() {
       done: [ws.industry, ws.location, ws.offers, ws.audience].every((v) => String(v ?? "").trim().length > 2),
     },
     { id: "site", label: "Check your website", why: "About a minute. Most of your first fixes come from here.", href: "/app/agents/site", action: "Run it", done: !!latestRun(ws.id, "site") },
-    plan.id === "free"
-      ? { id: "connect", label: "Connect Google, Meta and your socials", why: "On the paid plans: reports read your real numbers and your own posts.", href: "/app/settings#plan", action: "See plans", done: false }
-      : {
-          id: "connect",
-          label: "Connect Google, Meta and your socials",
-          why: "Reports read your real numbers and your own posts instead of guesses.",
-          href: "/app/settings/connections",
-          action: "Connect",
-          done: PROVIDERS.some((p) => getConnection(ws.id, p)),
-        },
+    // Connecting is a paid-plan step, so Checkup's list doesn't hold it open forever.
+    ...(plan.id === "free"
+      ? []
+      : [
+          {
+            id: "connect",
+            label: "Connect Google, Meta and your socials",
+            why: "Reports read your real numbers and your own posts instead of guesses.",
+            href: "/app/settings/connections",
+            action: "Connect",
+            done: PROVIDERS.some((p) => getConnection(ws.id, p)),
+          },
+        ]),
     ...(plan.gbp
       ? [{ id: "gbp", label: "Pick this outlet's Google Business Profile", why: "Unlocks profile fixes, posts and review replies.", href: "/app/settings/connections", action: "Pick it", done: selectedAccounts(ws.id, "gbp_location").length > 0 }]
       : []),
