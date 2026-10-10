@@ -37,6 +37,7 @@ function rows(m: Market): { group: string; label: string; detail?: string; cells
   const per = (f: (p: (typeof PLANS)[number]) => Cell) => Object.fromEntries(PLANS.map((p) => [p.id, f(p)])) as Record<PlanId, Cell>;
   return [
     ...SPECIALIST_ORDER.map((id) => ({ group: "Specialists", label: AGENT_COLORS[id].label, cells: per((p) => p.specialists.includes(id)) })),
+    { group: "Specialists", label: "Google Business Profile", cells: per((p) => p.gbp) },
     ...PLAN_ROWS.map((r) => ({ group: "What each plan includes", label: r.label, detail: r.detail, cells: per((p) => r.value(p, m)) })),
   ];
 }
@@ -61,8 +62,8 @@ function billingFaq(m: Market) {
       a: (
         <p>
           One report is one finished piece of work from one specialist: a Site Doctor checkup of your website, a Keyword Lab plan for one service, a 2-week content
-          plan, an Ads Doctor review of a period of campaigns. Re-checking after a fix is a report too, and so is each autopilot re-check on Pro. Failed reports
-          don&apos;t count.
+          plan, an Ads Doctor review of a period of campaigns. Re-checking after a fix is a report too; autopilot re-checks on Pro don&apos;t count. Failed
+          reports don&apos;t count either.
         </p>
       ),
     },

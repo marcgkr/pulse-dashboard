@@ -35,11 +35,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   }
   const { user, ws } = await requireWorkspace();
   const u = usage(ws);
-  const market = marketFor(ws.country);
+  // Plans and add-ons are billed on the first business, in its currency.
+  const market = marketFor((ownedWorkspaces(user.id)[0] ?? ws).country);
   const conns = clientConnections(ws.id);
   const summary = conns
     .filter((c) => c.connected)
-    .map((c) => `${c.provider === "google" ? "Google" : "Meta"}${c.needsReconnect ? " (reconnect needed)" : ""}`);
+    .map((c) => `${c.provider === "google" ? "Google" : c.provider === "tiktok" ? "TikTok" : "Meta"}${c.needsReconnect ? " (reconnect needed)" : ""}`);
   const memory = feedbackForWorkspace(ws.id).map((f) => ({
     id: f.id,
     agentName: getAgent(f.agent)?.name ?? f.agent,

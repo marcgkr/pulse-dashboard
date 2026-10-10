@@ -7,15 +7,17 @@ import { Button, Field, Input, Textarea, cx } from "./ui";
 const errorOf = async (res: Response) => ((await res.json().catch(() => ({}))) as { error?: string }).error || "That didn't go through. Try again.";
 
 /** Adds or stops the add-on on the plan subscription. Without online payment, an email link instead. */
-export function WebcareToggle({ on, price, canBuy, contact }: { on: boolean; price: string; canBuy: boolean; contact: string }) {
+export function WebcareToggle({ on, price, canBuy, contact, ending }: { on: boolean; price: string; canBuy: boolean; contact: string; ending?: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   async function change(next: boolean) {
-    const q = next
+    const q = next && ending
+      ? `Keep website changes by PULSE? This month is already paid; ${price} a month starts again from your next bill.`
+      : next
       ? `Add website changes by PULSE for ${price} a month? You're charged for the rest of this month now, on the card you pay with.`
-      : "Stop website changes by PULSE? The rest of this month is credited to your next invoice.";
+      : "Stop website changes by PULSE? You can keep sending rounds until the end of the month you've paid for, then billing stops.";
     if (!window.confirm(q)) return;
     setBusy(true);
     setError("");
@@ -41,7 +43,7 @@ export function WebcareToggle({ on, price, canBuy, contact }: { on: boolean; pri
   }
   return (
     <div className="space-y-2">
-      {on ? (
+      {on && !ending ? (
         <button
           type="button"
           disabled={busy}
@@ -52,7 +54,7 @@ export function WebcareToggle({ on, price, canBuy, contact }: { on: boolean; pri
         </button>
       ) : (
         <Button type="button" disabled={busy} onClick={() => change(true)}>
-          {busy ? "One moment..." : `Add website changes (${price}/month)`}
+          {busy ? "One moment..." : ending ? "Keep website changes" : `Add website changes (${price}/month)`}
         </Button>
       )}
       {error && (

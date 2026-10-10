@@ -3,7 +3,24 @@
 import { useState } from "react";
 import { PLANS, planById } from "@/lib/config";
 
-export function AdminPlanSelect({ workspaceId, plan, outlets, webcare }: { workspaceId: string; plan: string; outlets: number; webcare: boolean }) {
+export function AdminPlanSelect({
+  workspaceId,
+  plan,
+  outlets,
+  webcare,
+  paidWebcare = false,
+  primary = true,
+}: {
+  workspaceId: string;
+  plan: string;
+  outlets: number;
+  /** Granted free by an admin. */
+  webcare: boolean;
+  /** Paid through Stripe. */
+  paidWebcare?: boolean;
+  /** The account's first business, which holds the plan and add-ons. */
+  primary?: boolean;
+}) {
   const [value, setValue] = useState(plan);
   const [extra, setExtra] = useState(String(outlets));
   const [care, setCare] = useState(webcare);
@@ -44,7 +61,8 @@ export function AdminPlanSelect({ workspaceId, plan, outlets, webcare }: { works
           outlets
         </label>
       )}
-      {planById(value).websiteCare && (
+      {primary && planById(value).websiteCare && paidWebcare && <span className="text-xs text-scrub-dark">Website changes (paid)</span>}
+      {primary && planById(value).websiteCare && !paidWebcare && (
         <label className="flex items-center gap-1 text-xs text-ink-2">
           <input
             type="checkbox"
@@ -58,7 +76,7 @@ export function AdminPlanSelect({ workspaceId, plan, outlets, webcare }: { works
             }}
             aria-label="Website changes add-on"
           />
-          Website changes
+          Website changes (free)
         </label>
       )}
       {state === "saved" && <span className="text-xs text-scrub">Saved</span>}

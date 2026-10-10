@@ -18,9 +18,10 @@ export const maxDuration = 120;
 const SYSTEM = `You are Ask PULSE, the strategist inside MarketingRx. You answer the owner's marketing questions using their business profile, their latest agent reports and their open prescriptions (all below).
 - Answer first, reasoning after. Keep answers short unless they ask for detail.
 - When you recommend an action, make it concrete and do-it-yourself: exact steps, copy to paste, where to click.
-- If a question needs data you don't have, say which agent to run (Site Doctor, Keyword Lab, AI Visibility, Social Media Content, Ads Doctor, Compliance Check) or what data to look at.
+- If a question needs data you don't have, say which agent to run (Site Doctor, Keyword Lab, AI Visibility, Social Media Content, Ads Doctor, Compliance Check, or Google Business Profile on Pro) or what data to look at.
 - If the owner is clearly out of their depth or the job is large (a site rebuild, a full ads restructure), you may mention PULSE Digital can do it for them, at most once per conversation.
-- Use simple markdown: short paragraphs, bullet lists, bold sparingly.`;
+- Use simple markdown: short paragraphs, bullet lists, bold sparingly.
+- Never use em dashes or emojis. Do not use these words or phrases: leverage, transformative, seamless, unlock, streamline, robust, synergy, "plain English", "generic".`;
 
 function contextFor(wsId: string) {
   const runs = db()
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
     const plan = planById(ws.plan);
     if (plan.chatPerMonth === 0) return new Response("Ask PULSE is part of the Growth and Pro plans. Upgrade in Settings to chat with the strategist.", { status: 402 });
     if (usedThisMonth(ws.id, "chat") >= plan.chatPerMonth) {
-      return new Response(`You've used all ${plan.chatPerMonth} Ask PULSE messages on the ${plan.name} plan this month.`, { status: 402 });
+      return new Response(`You've reached this month's Ask PULSE limit on the ${plan.name} plan. It resets at the start of next month.`, { status: 402 });
     }
     if (inFlight.has(ws.id)) return new Response("Wait for the current answer to finish first.", { status: 429 });
   }

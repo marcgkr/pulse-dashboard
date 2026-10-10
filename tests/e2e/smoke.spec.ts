@@ -21,7 +21,7 @@ test("owner signs up, runs Site Doctor, and works a prescription", async ({ page
   await expect(page).toHaveURL(/\/app\/runs\//);
   await expect(page.getByText("Diagnosis")).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText("Sample output").first()).toBeVisible();
-  await expect(page.getByText("Every check we ran")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Every check we ran" })).toBeVisible();
   const firstDone = page.getByRole("button", { name: "Mark done" }).first();
   await firstDone.click();
   await expect(page.getByRole("button", { name: "Undo" }).first()).toBeVisible();
@@ -93,7 +93,7 @@ test("owner notes on a report are remembered, listed in settings, and can be for
   await page.getByLabel("What you sell").fill("Kitchen and bathroom renovations");
   await page.getByRole("button", { name: "Save and open my dashboard" }).click();
   await expect(page).toHaveURL(/\/app\/runs\//);
-  await expect(page.getByText("Every check we ran")).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("heading", { name: "Every check we ran" })).toBeVisible({ timeout: 60_000 });
   const runUrl = page.url();
 
   await page.getByPlaceholder(/We only serve the north/).fill("We only serve the north of the city.");
@@ -417,7 +417,7 @@ test("Growth owners can have PULSE make their website changes, and Starter owner
   await sp.locator("#plan").getByRole("button", { name: "Choose Starter" }).click();
   await expect(sp.locator("#plan").getByText("You're on Starter")).toBeVisible();
   await sp.goto(`/app/runs/${starterRun}`);
-  await expect(sp.getByText("Every check we ran")).toBeVisible({ timeout: 60_000 });
+  await expect(sp.getByRole("heading", { name: "Every check we ran" })).toBeVisible({ timeout: 60_000 });
   await expect(sp.getByText(nudge)).toHaveCount(0);
   await sp.goto("/app/plan");
   await expect(sp.locator("article").first()).toBeVisible();
@@ -436,7 +436,7 @@ test("Growth owners can have PULSE make their website changes, and Starter owner
   await expect(page.locator("#plan").getByText("Payment received. Your new plan is active now.")).toBeVisible();
 
   await page.goto(`/app/runs/${runId}`);
-  await expect(page.getByText("Every check we ran")).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("heading", { name: "Every check we ran" })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText(nudge)).toHaveCount(1);
   await expect(page.getByText(/twice a month, as many as you need each round, for S\$299\/month/)).toBeVisible();
   await expect(page.locator("aside").getByRole("link", { name: "Website changes" })).toHaveCount(0);

@@ -5,22 +5,13 @@ import { getAgent, type AgentResult } from "./agents";
 import { envInt } from "./load-guard";
 import { memoryFor } from "./memory";
 
-const SGT_OFFSET_MS = 8 * 60 * 60 * 1000;
+import { monthStartSgt, todaySgt } from "./time";
 
-/** Start of the current calendar month in Singapore time, as an ISO timestamp. */
-export function monthStartSgt(d = new Date()): string {
-  const sg = new Date(d.getTime() + SGT_OFFSET_MS);
-  return new Date(Date.UTC(sg.getUTCFullYear(), sg.getUTCMonth(), 1) - SGT_OFFSET_MS).toISOString();
-}
-
-/** Today's date (YYYY-MM-DD) in Singapore time. */
-export function todaySgt(d = new Date()): string {
-  return new Date(d.getTime() + SGT_OFFSET_MS).toISOString().slice(0, 10);
-}
+export { monthStartSgt, todaySgt } from "./time";
 
 /** Counts from usage_events, not runs, so deleting a report doesn't hand back a run. */
 /** Usage this month across every business on the same login (Pro accounts share one allowance). */
-export function usedThisMonth(workspaceId: string, kind: "run" | "chat"): number {
+export function usedThisMonth(workspaceId: string, kind: "run" | "chat" | "transcript"): number {
   const row = db()
     .prepare(
       `SELECT COUNT(*) AS n FROM usage_events
@@ -35,7 +26,7 @@ export function runsThisMonth(workspaceId: string): number {
   return usedThisMonth(workspaceId, "run");
 }
 
-export function recordUsage(workspaceId: string, kind: "run" | "chat", ref: string) {
+export function recordUsage(workspaceId: string, kind: "run" | "chat" | "transcript", ref: string) {
   db().prepare("INSERT INTO usage_events (workspace_id, kind, ref, created_at) VALUES (?, ?, ?, ?)").run(workspaceId, kind, ref, now());
 }
 
@@ -68,7 +59,8 @@ export class RunError extends Error {
 export function startRun(ws: WorkspaceRow, agentId: string, rawInput: unknown, parentRunId?: string | null, opts: { autopilot?: boolean } = {}): RunRow {
   const agent = getAgent(agentId);
   if (!agent) throw new RunError("Unknown agent.", 404);
-  if (!agentAllowed(ws, agentId)) throw new RunError(`${agent.name} is part of the paid plans. Upgrade in Settings to use it.`, 402);
+  if (!agentAllowed(ws, agentId))
+    throw new RunError(agent.id === "gbp" ? `${agent.name} is on the Pro plan. Upgrade in Settings to use it.` : `${agent.name} is part of the paid plans. Upgrade in Settings to use it.`, 402);
 
   const live = aiEnabled();
   if (live && !opts.autopilot) {

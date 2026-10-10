@@ -14,6 +14,8 @@ const SPECIALIST_NAMES: Record<string, string> = {
   compliance: "Compliance Check",
 };
 
+const SIX = Object.keys(SPECIALIST_NAMES).length;
+
 /**
  * A plan card that spells out what the plan includes: who it's for, which specialists,
  * what the run allowance means, and a tick or cross for every row in PLAN_ROWS.
@@ -34,7 +36,7 @@ export function PlanCard({
   badge?: string;
 }) {
   const price = planPrice(plan, market);
-  const all = plan.specialists.length === Object.keys(SPECIALIST_NAMES).length;
+  const all = plan.specialists.length === SIX;
   return (
     <div
       className={cx(
@@ -79,13 +81,16 @@ export function PlanCard({
       )}
 
       <div className={cx("mt-6 border-t pt-5", highlight ? "border-white/20" : "border-line")}>
-        <p className={cx("text-xs font-bold", highlight ? "text-white/70" : "text-ink-3")}>{all ? "All six specialists" : "Specialists"}</p>
+        <p className={cx("text-xs font-bold", highlight ? "text-white/70" : "text-ink-3")}>{all ? (plan.gbp ? "All seven specialists" : "All six specialists") : "Specialists"}</p>
         <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Specialists included">
           {plan.specialists.map((id) => (
             <li key={id} className={cx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold text-ink", agentColor(id).box)}>
               {SPECIALIST_NAMES[id]}
             </li>
           ))}
+          {plan.gbp && (
+            <li className={cx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold text-ink", agentColor("gbp").box)}>Business Profile</li>
+          )}
         </ul>
         <p className={cx("mt-4 text-sm font-semibold", highlight ? "text-white" : "text-ink")}>{runsInPlainWords(plan)}</p>
         <p className={cx("text-xs", highlight ? "text-white/70" : "text-ink-3")}>One report from any specialist counts as one.</p>

@@ -143,7 +143,8 @@ export function SpecialistShelf({ market }: { market: Market }) {
         <div className="flex-1">
           <h3 className="font-display text-2xl font-extrabold tracking-[-0.02em] md:text-3xl">Ask PULSE, the strategist</h3>
           <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-white/75">
-            A chat that has read your profile, your reports and your board. Ask what to do first this week, why a fix matters, or how to do a step on your setup.
+            A chat that has read your profile, your reports and your board. Ask what to do first this week, why a fix matters, or how to do a step on your setup. On
+            Growth and Pro.
           </p>
         </div>
         <span className="hidden md:block">

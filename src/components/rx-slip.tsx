@@ -31,7 +31,8 @@ const effortLabel = { quick: "Under 30 min", "half-day": "A few hours", project:
  * A prescription slip: a pharmacy label in the colour of the specialist that wrote it.
  * Pass task-backed data (with `id`) to get status controls; without `id` it is read-only.
  */
-export function RxSlip({ data, defaultOpen = false }: { data: SlipData; defaultOpen?: boolean }) {
+/** `pulseLink`: the "Rather have PULSE do it?" link, for public pages. Inside the app one offer per page is enough. */
+export function RxSlip({ data, defaultOpen = false, pulseLink = true }: { data: SlipData; defaultOpen?: boolean; pulseLink?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   const [status, setStatus] = useState(data.status ?? "todo");
   const [saving, setSaving] = useState(false);
@@ -147,12 +148,11 @@ export function RxSlip({ data, defaultOpen = false }: { data: SlipData; defaultO
               )}
             </>
           )}
-          <a
-            href={BRAND.doneForYouUrl}
-            className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-ink-3 hover:text-scrub"
-          >
-            Rather have PULSE do it? <Mail size={12} aria-hidden />
-          </a>
+          {pulseLink && (
+            <a href={BRAND.doneForYouUrl} className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-ink-3 hover:text-scrub">
+              Rather have PULSE do it? <Mail size={12} aria-hidden />
+            </a>
+          )}
         </div>
       </div>
     </article>

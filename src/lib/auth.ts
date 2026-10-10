@@ -105,6 +105,8 @@ export function workspaceFor(userId: string): WorkspaceRow | null {
     promo_until: primary.promo_until,
     promo_code: primary.promo_code,
     webcare: primary.webcare,
+    webcare_until: primary.webcare_until,
+    webcare_comp: primary.webcare_comp,
     stripe_customer_id: primary.stripe_customer_id,
     stripe_subscription_id: primary.stripe_subscription_id,
   };

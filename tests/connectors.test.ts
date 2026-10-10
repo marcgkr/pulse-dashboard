@@ -730,18 +730,28 @@ async function main() {
     });
     try {
       const t = await sync.transcribeLatest(ws);
-      assert.equal(t.done, 19, "20 latest: 19 Instagram Reels plus the YouTube video");
+      assert.equal(t.done, 20, "the 20 latest Instagram and Facebook videos; YouTube doesn't take a place");
       const status = db().prepare("SELECT transcript_status AS s, COUNT(*) AS n FROM social_videos WHERE workspace_id = ? GROUP BY s ORDER BY s").all(ws.id);
       assert.deepEqual(status, [
-        { s: "done", n: 19 },
-        { s: "skipped", n: 22 },
+        { s: "done", n: 20 },
+        { s: "skipped", n: 21 },
         { s: "unavailable", n: 1 },
       ]);
       const lib = latestVideos(ws.id, 1)[0];
       assert.match(lib.transcriptExcerpt ?? "", /hydrafacial/);
-      // Pro picks up the skipped ones (21 older Reels and the Facebook video) on the next run.
-      assert.equal((await sync.transcribeLatest({ ...ws, plan: "pro" })).done, 22);
+      // Pro picks up the skipped ones (20 older Reels and the Facebook video) on the next run.
+      assert.equal((await sync.transcribeLatest({ ...ws, plan: "pro" })).done, 21);
       assert.equal(sent.length, 41);
+      // Re-ticking brings videos back untranscribed, but the month's allowance caps what that can cost.
+      db().prepare("UPDATE social_videos SET transcript_status = 'none', transcript = NULL WHERE workspace_id = ?").run(ws.id);
+      assert.equal((await sync.transcribeLatest(ws)).done, 0, "Growth's 20 for this month are used");
+      // A bad key stops both workers and leaves the videos waiting for the next read.
+      reset(...socialRoutes({ media: 60 }), (c) => (c.url.hostname === "api.elevenlabs.io" ? json({ detail: { message: "invalid api key" } }, 401) : null));
+      const before = sent.length;
+      const bad = await sync.transcribeLatest({ ...ws, plan: "pro" });
+      assert.ok(bad.failed <= 2, `kept going after a bad key: ${bad.failed} failures`);
+      assert.equal(sent.length, before);
+      assert.equal((db().prepare("SELECT COUNT(*) AS n FROM social_videos WHERE workspace_id = ? AND transcript_status = 'error'").get(ws.id) as { n: number }).n, 0);
       assert.equal((await sync.transcribeLatest({ ...ws, plan: "starter" })).done, 0, "Starter doesn't transcribe");
     } finally {
       delete process.env.ELEVENLABS_API_KEY;

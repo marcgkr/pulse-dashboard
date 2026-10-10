@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { apiWorkspace } from "@/lib/auth";
-import { errorResponse, readJson } from "@/lib/http";
+import { errorResponse, rateLimit, readJson } from "@/lib/http";
 import { ConnectorError } from "@/lib/connectors/http";
 import { isProvider } from "@/lib/connectors/oauth";
 import { PROVIDER_KINDS, setSelected } from "@/lib/connectors/store";
@@ -28,7 +28,8 @@ export async function POST(req: Request) {
   }
   try {
     const selected = setSelected(auth.ws.id, provider, kind, body.ids as string[]);
-    if (SOCIAL_KINDS.includes(kind)) void syncSocialVideos(auth.ws).catch(() => {});
+    // Shares the "Read my posts now" limit, so ticking accounts on and off can't trigger endless syncs.
+    if (SOCIAL_KINDS.includes(kind) && rateLimit(`social-sync:${auth.ws.id}`, 6, 60 * 60_000)) void syncSocialVideos(auth.ws).catch(() => {});
     return NextResponse.json({ ok: true, selected });
   } catch (e) {
     if (e instanceof ConnectorError) return NextResponse.json({ error: e.message }, { status: 404 });

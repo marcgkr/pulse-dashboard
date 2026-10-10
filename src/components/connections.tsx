@@ -218,7 +218,7 @@ function AccountPicker({ provider, kind, c, livePlan, gbpPlan }: { provider: Cli
               {kind === "gbp_location" ? "Pick this outlet's location." : single ? "Pick the property for your website." : "Tick the accounts you want us to read."}
             </p>
           )}
-          {kind === "gbp_location" && !gbpPlan && <p className="mt-2 text-xs text-ink-3">Business Profile fixes and post ideas are on the Pro plan.</p>}
+          {kind === "gbp_location" && !gbpPlan && <p className="mt-2 text-xs text-ink-3">Business Profile fixes, posts and review replies are on the Pro plan.</p>}
           {social && selected.length > 0 && (
             <p className="mt-2 text-xs text-ink-3">We read your latest videos for Social Media Content ideas and to link them in your articles.</p>
           )}

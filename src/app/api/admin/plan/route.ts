@@ -21,7 +21,8 @@ export async function POST(req: Request) {
   // Website changes add-on (comped, or fixing a billing mismatch). It only counts on Growth and Pro.
   if (webcare !== undefined) {
     if (typeof webcare !== "boolean") return NextResponse.json({ error: "Bad request." }, { status: 400 });
-    db().prepare("UPDATE workspaces SET webcare = ? WHERE id = ?").run(webcare ? 1 : 0, workspaceId);
+    // A free grant, kept apart from the Stripe-backed flag so a renewal doesn't switch it off.
+    db().prepare("UPDATE workspaces SET webcare_comp = ? WHERE id = ?").run(webcare ? 1 : 0, workspaceId);
   }
   return NextResponse.json({ ok: true });
 }

@@ -266,9 +266,12 @@ function IdeaCard({
   // Older reports have one line per beat; split them the same way a live report arrives.
   const text = /text post|thread/i.test(idea.format);
   const beats = (text ? [] : (idea.beats ?? beatsFromLines(idea.script_or_outline))).map(fixBeat).map((b, k) =>
-    // "Say the hook" in the first beat: put the hook's words where they're said.
-    k === 0 && !b.say && /\bhook\b/i.test(b.shot) ? { ...b, say: idea.hook } : b,
+    // "The hook" in the first beat: put the hook's words where they go (said on video, shown on a slide).
+    k === 0 && !b.say && /\bhook\b/i.test(b.shot) ? (isVideo ? { ...b, say: idea.hook } : { ...b, on_screen: b.on_screen || idea.hook }) : b,
   );
+  // Carousels and photo posts have nothing to say out loud, so they drop the Say column.
+  const showSay = isVideo || beats.some((b) => b.say);
+  const cols = showSay ? "md:grid-cols-[5.5rem_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,1fr)]" : "md:grid-cols-[5.5rem_minmax(0,1.1fr)_minmax(0,1.3fr)]";
   const style = text ? null : (idea.shoot_style ?? defaultShootStyle(idea.format, idea.platform));
   const spoken = spokenScript(beats);
   const refs = idea.references ?? [];
@@ -360,15 +363,15 @@ function IdeaCard({
             {spoken && <CopyButton text={spoken} label="Copy spoken script" />}
           </div>
           <div className="overflow-hidden rounded-2xl ring-1 ring-line">
-            <div className="hidden grid-cols-[5.5rem_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,1fr)] bg-paper text-xs font-bold uppercase tracking-[0.06em] text-ink-2 md:grid">
+            <div className={cx("hidden bg-paper text-xs font-bold uppercase tracking-[0.06em] text-ink-2 md:grid", cols)}>
               <div className="px-3 py-2.5">{isVideo ? "When" : "Slide"}</div>
               <div className="border-l border-line px-3 py-2.5">{isVideo ? "Film" : "Show"}</div>
-              <div className="border-l border-line px-3 py-2.5">Say</div>
+              {showSay && <div className="border-l border-line px-3 py-2.5">Say</div>}
               <div className="border-l border-line px-3 py-2.5">On screen</div>
             </div>
             <ol>
               {beats.map((b, k) => (
-                <li key={k} className="grid border-t border-line first:border-t-0 md:grid-cols-[5.5rem_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,1fr)] md:first:border-t">
+                <li key={k} className={cx("grid border-t border-line first:border-t-0 md:first:border-t", cols)}>
                   <div className="flex items-center gap-2 bg-paper/50 px-3 py-2.5 md:block md:bg-transparent">
                     <span
                       className="inline-flex rounded-full px-2.5 py-0.5 text-[13px] font-bold tabular-nums text-ink"
@@ -378,7 +381,7 @@ function IdeaCard({
                     </span>
                   </div>
                   <BeatCell label={isVideo ? "Film" : "Show"} text={b.shot} />
-                  <BeatCell label="Say" text={b.say} quote />
+                  {showSay && <BeatCell label="Say" text={b.say} quote />}
                   <BeatCell label="On screen" text={b.on_screen} screen />
                 </li>
               ))}

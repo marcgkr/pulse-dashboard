@@ -13,6 +13,10 @@ import { agentColor } from "@/lib/agent-colors";
 import { SiteForm } from "@/components/forms/site-form";
 import { Sparkline } from "@/components/sparkline";
 import { connectedSources } from "@/lib/connectors";
+import { getConnection, selectedAccounts } from "@/lib/connectors/store";
+import { PROVIDERS } from "@/lib/connectors/oauth";
+import { planById } from "@/lib/config";
+import { SetupChecklist, type SetupStep } from "@/components/setup-checklist";
 
 export const metadata = { title: "Chart" };
 
@@ -53,6 +57,35 @@ export default async function Dashboard() {
   const partOfDay = hour < 12 ? "Morning" : hour < 18 ? "Afternoon" : "Evening";
 
   const firstName = user.name.split(" ")[0];
+  const plan = planById(ws.plan);
+  const steps: SetupStep[] = [
+    {
+      id: "profile",
+      label: "Tell us who you serve and what you sell",
+      why: "Your area, services and customers go into every report.",
+      href: "/app/settings",
+      action: "Edit profile",
+      done: [ws.industry, ws.location, ws.offers, ws.audience].every((v) => String(v ?? "").trim().length > 2),
+    },
+    { id: "site", label: "Check your website", why: "About a minute. Most of your first fixes come from here.", href: "/app/agents/site", action: "Run it", done: !!latestRun(ws.id, "site") },
+    plan.id === "free"
+      ? { id: "connect", label: "Connect Google, Meta and your socials", why: "On the paid plans: reports read your real numbers and your own posts.", href: "/app/settings#plan", action: "See plans", done: false }
+      : {
+          id: "connect",
+          label: "Connect Google, Meta and your socials",
+          why: "Reports read your real numbers and your own posts instead of guesses.",
+          href: "/app/settings/connections",
+          action: "Connect",
+          done: PROVIDERS.some((p) => getConnection(ws.id, p)),
+        },
+    ...(plan.gbp
+      ? [{ id: "gbp", label: "Pick this outlet's Google Business Profile", why: "Unlocks profile fixes, posts and review replies.", href: "/app/settings/connections", action: "Pick it", done: selectedAccounts(ws.id, "gbp_location").length > 0 }]
+      : []),
+    ...(plan.specialists.includes("content")
+      ? [{ id: "content", label: "Get your first content plan", why: "Ideas with the script, caption and shoot style written out.", href: "/app/agents/content", action: "Write it", done: !!latestRun(ws.id, "content") }]
+      : []),
+    { id: "fix", label: "Mark your first fix done", why: "Your Pulse Score moves when fixes are done, not just found.", href: "/app/plan", action: "Open board", done: count("done") > 0 },
+  ];
   const profile = {
     name: ws.name,
     website: ws.website,
@@ -101,54 +134,59 @@ export default async function Dashboard() {
         </section>
       )}
 
-      {hasRuns && (
-        <section className="rise grid gap-4 lg:grid-cols-[1.1fr_1fr_1fr]">
-          <div className="pillbox flex items-center gap-6 bg-ink p-6 text-white">
-            <div className="rounded-full bg-white p-1.5">
-              <ScoreDial score={pulse.score} label="Pulse" />
-            </div>
-            <div>
-              <p className="font-display text-xl font-bold">Your marketing pulse</p>
-              <p className="mt-1 text-sm leading-relaxed text-white/70">From the latest report of each specialist, plus how many fixes you&apos;ve done.</p>
-            </div>
-          </div>
-          <Card className="space-y-3.5 p-6">
-            {pulse.parts.map((p) => (
-              <Meter key={p.key} label={p.label} value={p.value} />
-            ))}
-          </Card>
-          <Card className="flex flex-col p-6">
-            <Label>Pulse over time</Label>
-            <div className="flex-1 pt-3">
-              {history.length > 1 ? (
-                <Sparkline points={history.map((h) => h.score)} labels={history.map((h) => h.day)} />
-              ) : (
-                <p className="text-sm leading-relaxed text-ink-3">Your trend line starts once you have scores on two different days. Mark fixes done and re-run checkups to see it move.</p>
-              )}
-            </div>
-          </Card>
-        </section>
-      )}
+      {hasRuns && <SetupChecklist steps={steps} />}
 
-      {hasRuns && (
-        <section>
-          <div className="mb-4 flex items-end justify-between gap-4">
-            <h2 className="font-display text-2xl font-extrabold tracking-[-0.02em] md:text-3xl">Do these next</h2>
-            <Link href="/app/plan" className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-scrub hover:underline">
-              All prescriptions <ArrowRight size={15} />
-            </Link>
-          </div>
-          {tasks.length ? (
-            <div className="grid gap-4 xl:grid-cols-2">
-              {tasks.map((t) => (
-                <RxSlip key={t.id} data={{ ...t, where: t.where_to, agentName: AGENTS[t.agent as keyof typeof AGENTS]?.name }} />
-              ))}
+      {/* On a phone the to-do list comes before the scoreboard: it's what you open the app for. */}
+      <div className="flex flex-col gap-12">
+        {hasRuns && (
+          <section className="rise order-2 grid gap-4 md:order-none lg:grid-cols-[1.1fr_1fr_1fr]">
+            <div className="pillbox flex items-center gap-6 bg-ink p-6 text-white">
+              <div className="rounded-full bg-white p-1.5">
+                <ScoreDial score={pulse.score} label="Pulse" />
+              </div>
+              <div>
+                <p className="font-display text-xl font-bold">Your marketing pulse</p>
+                <p className="mt-1 text-sm leading-relaxed text-white/70">From the latest report of each specialist, plus how many fixes you&apos;ve done.</p>
+              </div>
             </div>
-          ) : (
-            <EmptyState title="Nothing open. Nice work.">Re-run a checkup to confirm your fixes worked, or try a specialist you haven&apos;t used yet.</EmptyState>
-          )}
-        </section>
-      )}
+            <Card className="space-y-3.5 p-6">
+              {pulse.parts.map((p) => (
+                <Meter key={p.key} label={p.label} value={p.value} />
+              ))}
+            </Card>
+            <Card className="flex flex-col p-6">
+              <Label>Pulse over time</Label>
+              <div className="flex-1 pt-3">
+                {history.length > 1 ? (
+                  <Sparkline points={history.map((h) => h.score)} labels={history.map((h) => h.day)} />
+                ) : (
+                  <p className="text-sm leading-relaxed text-ink-3">Your trend line starts once you have scores on two different days. Mark fixes done and re-run checkups to see it move.</p>
+                )}
+              </div>
+            </Card>
+          </section>
+        )}
+
+        {hasRuns && (
+          <section className="order-1 md:order-none">
+            <div className="mb-4 flex items-end justify-between gap-4">
+              <h2 className="font-display text-2xl font-extrabold tracking-[-0.02em] md:text-3xl">Do these next</h2>
+              <Link href="/app/plan" className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-scrub hover:underline">
+                All prescriptions <ArrowRight size={15} />
+              </Link>
+            </div>
+            {tasks.length ? (
+              <div className="grid gap-4 xl:grid-cols-2">
+                {tasks.map((t) => (
+                  <RxSlip pulseLink={false} key={t.id} data={{ ...t, where: t.where_to, agentName: AGENTS[t.agent as keyof typeof AGENTS]?.name }} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="Nothing open. Nice work.">Re-run a checkup to confirm your fixes worked, or try a specialist you haven&apos;t used yet.</EmptyState>
+            )}
+          </section>
+        )}
+      </div>
 
       <section>
         <h2 className="mb-4 font-display text-2xl font-extrabold tracking-[-0.02em] md:text-3xl">Who do you want to see?</h2>

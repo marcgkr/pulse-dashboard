@@ -14,6 +14,7 @@ import {
   STATUS_LABEL,
   STATUS_TONE,
   webcareActive,
+  webcareEnding,
   webcareAvailable,
 } from "@/lib/webcare";
 import { RoundForm, WebcareToggle, WebsiteLoginForm } from "@/components/website-changes";
@@ -47,7 +48,7 @@ export default async function WebsiteChangesPage() {
               than sharing your own password. It&apos;s stored encrypted and only the PULSE team can see it.
             </li>
             <li>
-              <span className="font-semibold">3. Send a round every two weeks.</span> List as many changes as you want, or pick them from your prescriptions. We make
+              <span className="font-semibold">3. Send up to two rounds a month.</span> List as many changes as you want, or pick them from your prescriptions. We make
               them on your website and mark the round done here.
             </li>
           </ol>
@@ -78,6 +79,7 @@ export default async function WebsiteChangesPage() {
       .get(user.id) as { at: string | null }
   ).at;
   const outlets = ownedWorkspaces(user.id).length > 1;
+  const ending = webcareEnding(primary);
   const tasks = (
     db()
       .prepare(
@@ -151,8 +153,10 @@ export default async function WebsiteChangesPage() {
       </section>
 
       <section className="flex flex-col gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-ink-2">Website changes by PULSE is on for {price}/month.</p>
-        <WebcareToggle on price={price} canBuy={canBuy} contact={BRAND.contactEmail} />
+        <p className="text-sm text-ink-2">
+          {ending ? `Website changes by PULSE stops on ${date(ending)}. You can send rounds until then.` : `Website changes by PULSE is on for ${price}/month.`}
+        </p>
+        <WebcareToggle on price={price} canBuy={canBuy} contact={BRAND.contactEmail} ending={!!ending} />
       </section>
     </div>
   );

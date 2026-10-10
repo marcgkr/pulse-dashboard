@@ -3,7 +3,8 @@ import { apiWorkspace, ownedWorkspaces } from "@/lib/auth";
 import { stripe, stripeEnabled, subscriptionItems, webcarePriceData } from "@/lib/billing";
 import { BRAND, planById } from "@/lib/config";
 import { db } from "@/lib/db";
-import { errorResponse, readJson } from "@/lib/http";
+import { errorResponse, rateLimit, readJson } from "@/lib/http";
+import { webcareEnding } from "@/lib/webcare";
 
 /**
  * Growth and Pro: adds the website changes add-on to the plan subscription (charged now, prorated,
@@ -26,26 +27,31 @@ export async function POST(req: Request) {
     }
     const { on } = await readJson<{ on?: unknown }>(req, 500);
     if (typeof on !== "boolean") return NextResponse.json({ error: "Bad request." }, { status: 400 });
+    if (!rateLimit(`webcare-toggle:${found.user.id}`, 6, 3_600_000)) return NextResponse.json({ error: "Too many changes in the last hour. Try again later." }, { status: 429 });
+    // Stopped earlier this month: the month is already paid, so adding it back starts billing next month.
+    const paidUntil = webcareEnding(primary);
 
     const sub = await stripe().subscriptions.retrieve(primary.stripe_subscription_id);
     const { webcare } = subscriptionItems(sub);
     if (on && !webcare) {
       await stripe().subscriptions.update(sub.id, {
         items: [{ price_data: await webcarePriceData(primary.country), quantity: 1, metadata: { kind: "webcare" } }],
-        // Charged for the rest of this month now, on the card on file.
-        proration_behavior: "always_invoice",
+        // Charged for the rest of this month now, on the card on file (unless this month is already paid).
+        proration_behavior: paidUntil ? "none" : "always_invoice",
         payment_behavior: "error_if_incomplete",
       });
     } else if (!on && webcare) {
       await stripe().subscriptions.update(sub.id, {
         items: [{ id: webcare.id, deleted: true }],
-        // The unused part of this month is credited to the next invoice.
-        proration_behavior: "create_prorations",
+        // No credit: the month they paid for keeps running to its end, then billing stops.
+        proration_behavior: "none",
         payment_behavior: "error_if_incomplete",
       });
     }
-    db().prepare("UPDATE workspaces SET webcare = ? WHERE id = ?").run(on ? 1 : 0, primary.id);
-    return NextResponse.json({ ok: true, on });
+    const periodEnd = webcare?.current_period_end ?? sub.items.data[0]?.current_period_end;
+    const until = !on && webcare && periodEnd ? new Date(periodEnd * 1000).toISOString() : on ? null : (primary.webcare_until ?? null);
+    db().prepare("UPDATE workspaces SET webcare = ?, webcare_until = ? WHERE id = ?").run(on ? 1 : 0, until, primary.id);
+    return NextResponse.json({ ok: true, on, until });
   } catch (e) {
     const err = e as { type?: string; message?: string };
     if (err?.type?.startsWith?.("Stripe")) {

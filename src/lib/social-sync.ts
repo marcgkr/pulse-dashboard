@@ -4,6 +4,7 @@
 
 import { planById } from "./config";
 import { db, now, type VideoRow, type WorkspaceRow } from "./db";
+import { monthStartSgt } from "./time";
 import { ConnectorError } from "./connectors/http";
 import type { Provider } from "./connectors/oauth";
 import {
@@ -95,10 +96,8 @@ export async function syncSocialVideos(ws: Pick<WorkspaceRow, "id" | "plan">, op
       }
       return tokens.get(p)!;
     };
-    const keep = new Map<Platform, Set<string>>(VIDEO_PLATFORMS.map((p) => [p, new Set<string>()]));
     for (const s of SOURCES) {
       for (const a of selectedAccounts(ws.id, s.kind)) {
-        keep.get(s.platform)!.add(a.provider_account_id);
         try {
           const videos = await fetchFor(await token(s.provider), s.platform, a);
           upsert(ws.id, a.provider_account_id, videos);
@@ -109,7 +108,10 @@ export async function syncSocialVideos(ws: Pick<WorkspaceRow, "id" | "plan">, op
         }
       }
     }
-    // Videos from accounts that were unticked or disconnected leave the library.
+    // Videos from accounts that were unticked or disconnected leave the library. Read the ticked
+    // accounts again now: the owner may have disconnected while the fetches above were running.
+    const keep = new Map<Platform, Set<string>>(VIDEO_PLATFORMS.map((p) => [p, new Set<string>()]));
+    for (const s of SOURCES) for (const a of selectedAccounts(ws.id, s.kind)) keep.get(s.platform)!.add(a.provider_account_id);
     const del = db().prepare("DELETE FROM social_videos WHERE workspace_id = ? AND platform = ? AND account_id = ?");
     const rows = db().prepare("SELECT DISTINCT platform, account_id FROM social_videos WHERE workspace_id = ?").all(ws.id) as { platform: Platform; account_id: string }[];
     for (const r of rows) if (!keep.get(r.platform)?.has(r.account_id)) del.run(ws.id, r.platform, r.account_id);
@@ -139,16 +141,21 @@ export async function transcribeLatest(ws: Pick<WorkspaceRow, "id" | "plan">): P
   if (cap <= 0 || !transcriptionReady() || transcribing.has(ws.id)) return res;
   transcribing.add(ws.id);
   try {
-    const latest = db().prepare("SELECT * FROM social_videos WHERE workspace_id = ? ORDER BY published_at DESC LIMIT ?").all(ws.id, cap) as VideoRow[];
     const mark = db().prepare("UPDATE social_videos SET transcript = ?, transcript_status = ?, transcript_note = ?, updated_at = ? WHERE workspace_id = ? AND platform = ? AND external_id = ?");
     const set = (v: VideoRow, status: VideoRow["transcript_status"], note: string, text: string | null = null) =>
       mark.run(text, status, note.slice(0, 200), now(), ws.id, v.platform, v.external_id);
 
+    // YouTube and TikTok never share the file, so they don't take a place in the plan's latest videos.
+    const noFile = db().prepare("SELECT * FROM social_videos WHERE workspace_id = ? AND platform IN ('youtube', 'tiktok') AND transcript_status IN ('none', 'skipped')").all(ws.id) as VideoRow[];
+    for (const v of noFile) set(v, "unavailable", `${LABEL[v.platform]} doesn't share the video file, so we use the title and caption.`);
+    const latest = db()
+      .prepare("SELECT * FROM social_videos WHERE workspace_id = ? AND platform IN ('instagram', 'facebook') ORDER BY published_at DESC LIMIT ?")
+      .all(ws.id, cap) as VideoRow[];
     const todo: VideoRow[] = [];
     for (const v of latest) {
-      if (v.transcript_status !== "none" && v.transcript_status !== "skipped") continue;
-      if (v.platform === "youtube" || v.platform === "tiktok") set(v, "unavailable", `${LABEL[v.platform]} doesn't share the video file, so we use the title and caption.`);
-      else if ((v.duration_seconds ?? 0) > MAX_TRANSCRIBE_SECONDS) set(v, "skipped", "Longer than 30 minutes.");
+      // Failed ones are tried again; the monthly allowance below bounds what retries can cost.
+      if (v.transcript_status !== "none" && v.transcript_status !== "skipped" && v.transcript_status !== "error") continue;
+      if ((v.duration_seconds ?? 0) > MAX_TRANSCRIBE_SECONDS) set(v, "skipped", "Longer than 30 minutes.");
       else todo.push(v);
     }
     // Older videos beyond the plan's number wait as skipped, so an upgrade picks them up.
@@ -156,13 +163,30 @@ export async function transcribeLatest(ws: Pick<WorkspaceRow, "id" | "plan">): P
     const older = db().prepare("SELECT platform, external_id FROM social_videos WHERE workspace_id = ? AND transcript_status = 'none'").all(ws.id) as VideoRow[];
     for (const v of older) if (!ids.has(`${v.platform}|${v.external_id}`)) set(v, "skipped", "Outside your plan's latest videos.");
 
+    // A monthly allowance across the login (each outlet's latest videos once), so re-syncing can't
+    // run up the transcription bill: untick and re-tick an account and its videos come back untranscribed.
+    const owner = db().prepare("SELECT owner_id, (SELECT COUNT(*) FROM workspaces w2 WHERE w2.owner_id = w.owner_id) AS n FROM workspaces w WHERE id = ?").get(ws.id) as
+      | { owner_id: string; n: number }
+      | undefined;
+    const used = (
+      db()
+        .prepare("SELECT COUNT(*) AS n FROM usage_events WHERE kind = 'transcript' AND created_at >= ? AND workspace_id IN (SELECT id FROM workspaces WHERE owner_id = ?)")
+        .get(monthStartSgt(), owner?.owner_id ?? "") as { n: number }
+    ).n;
+    const allowance = Math.max(0, cap * Math.max(1, owner?.n ?? 1) - used);
+    if (todo.length > allowance) {
+      for (const v of todo.slice(allowance)) set(v, "skipped", "This month's transcriptions are used up. They continue next month.");
+      todo.length = allowance;
+    }
     if (todo.length === 0) return res;
+    const charge = db().prepare("INSERT INTO usage_events (workspace_id, kind, ref, created_at) VALUES (?, 'transcript', ?, ?)");
     const meta = getConnection(ws.id, "meta");
     if (!meta) return res;
     const token = await accessToken(meta);
     let i = 0;
+    let stop = false;
     const worker = async () => {
-      while (i < todo.length) {
+      while (!stop && i < todo.length) {
         const v = todo[i++];
         try {
           const link = v.platform === "instagram" ? await instagramMediaUrl(token, v.external_id) : await facebookVideoSource(token, v.account_id, v.external_id);
@@ -170,15 +194,21 @@ export async function transcribeLatest(ws: Pick<WorkspaceRow, "id" | "plan">): P
             set(v, "unavailable", `${LABEL[v.platform]} didn't share the video file.`);
             continue;
           }
+          charge.run(ws.id, `${v.platform}:${v.external_id}`, now());
           const text = await transcribeMediaUrl(link);
           set(v, "done", text ? "" : "No speech in this video.", text.slice(0, 20_000));
           res.done++;
         } catch (e) {
           logFailure(`transcribing ${v.platform} ${v.external_id}`, e);
-          set(v, "error", "Couldn't transcribe this one.");
           res.failed++;
-          // A bad key or a used-up quota fails every video the same way: stop and try again on the next sync.
-          if (e instanceof ConnectorError && (e.code === "auth" || e.code === "rate_limit")) break;
+          // A bad key or a used-up quota fails every video the same way: stop both workers and leave the
+          // video waiting, so the next sync tries again.
+          if (e instanceof ConnectorError && (e.code === "auth" || e.code === "rate_limit")) {
+            set(v, "none", "");
+            stop = true;
+          } else {
+            set(v, "error", "Couldn't transcribe this one. We'll try again on the next read.");
+          }
         }
       }
     };

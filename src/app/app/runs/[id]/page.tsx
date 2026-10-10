@@ -11,6 +11,7 @@ import { parseTask } from "@/lib/runs";
 import { AGENT_REPORTS } from "@/components/reports";
 import { RunProgress } from "@/components/run-agent";
 import { RxSlip } from "@/components/rx-slip";
+import { ReportContents } from "@/components/report-contents";
 import { ReportNotes } from "@/components/feedback-bar";
 import { PdfButton } from "@/components/pdf-button";
 import { ScoreDial } from "@/components/brand";
@@ -84,6 +85,20 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
   const Report = AGENT_REPORTS[run.agent as AgentId];
   const feedback = Object.fromEntries(feedbackForRun(ws.id, run.id).map((f) => [f.item, { verdict: f.verdict, comment: f.comment }]));
 
+  // Content plans and written pages lead with the work itself; checkups lead with what to fix.
+  const makes = run.agent === "content" || (run.agent === "keywords" && Boolean((result as { article?: unknown }).article));
+  const prescriptions = tasks.length > 0 && (
+    <section className="mb-10 scroll-mt-24" id="s-prescriptions" data-report-section={makes ? "Fixes to your setup" : "Your prescriptions"}>
+      <h2 className="font-display text-2xl font-extrabold tracking-[-0.02em]">{makes ? "Fixes to your setup" : "Your prescriptions"}</h2>
+      <p className="mb-4 mt-1 text-sm text-ink-2">They&apos;re on your Prescriptions board too. Mark them done as you go.</p>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {tasks.map((t, i) => (
+          <RxSlip pulseLink={false} key={t.id} defaultOpen={i === 0 && !makes} data={{ ...t, where: t.where_to }} />
+        ))}
+      </div>
+    </section>
+  );
+
   return (
     <div>
       {header}
@@ -104,22 +119,13 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
         </div>
       </Card>
 
-      {tasks.length > 0 && (
-        <section className="mb-10">
-          <h2 className="font-display text-2xl font-extrabold tracking-[-0.02em]">Your prescriptions</h2>
-          <p className="mb-4 mt-1 text-sm text-ink-2">They&apos;re on your Prescriptions board too. Mark them done as you go.</p>
-          <div className="grid gap-4 xl:grid-cols-2">
-            {tasks.map((t, i) => (
-              <RxSlip key={t.id} defaultOpen={i === 0} data={{ ...t, where: t.where_to }} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      <div style={{ "--rx-accent": agentColor(run.agent).accent } as CSSProperties}>
+      <div id="report-body" style={{ "--rx-accent": agentColor(run.agent).accent } as CSSProperties}>
+        <ReportContents rootId="report-body" />
+        {!makes && prescriptions}
         {Report && (
           <Report result={result} run={{ id: run.id, agent: run.agent, title: run.title, created_at: run.created_at, input }} feedback={feedback} webcare={webcareOffer(ws)} />
         )}
+        {makes && <div className="mt-12">{prescriptions}</div>}
         <div className="mt-12 print:hidden">
           <ReportNotes runId={run.id} agentName={getAgent(run.agent)?.name ?? "This specialist"} initial={feedback[""]} />
         </div>

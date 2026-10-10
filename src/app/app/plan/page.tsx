@@ -93,7 +93,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {tasks.map((t) => (
-            <RxSlip key={t.id} data={{ ...t, where: t.where_to, agentName: AGENTS[t.agent as keyof typeof AGENTS]?.name }} />
+            <RxSlip pulseLink={false} key={t.id} data={{ ...t, where: t.where_to, agentName: AGENTS[t.agent as keyof typeof AGENTS]?.name }} />
           ))}
         </div>
       )}

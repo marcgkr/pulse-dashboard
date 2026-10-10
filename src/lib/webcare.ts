@@ -26,15 +26,22 @@ export function webcareAvailable(ws: Pick<WorkspaceRow, "plan">): boolean {
   return planById(ws.plan).websiteCare;
 }
 
-/** The account pays for the add-on (or it was switched on by an admin) and its plan includes it. */
-export function webcareActive(ws: Pick<WorkspaceRow, "plan" | "webcare">): boolean {
-  return webcareAvailable(ws) && ws.webcare === 1;
+/** The add-on was stopped but the paid month hasn't ended: the date it ends, else null. */
+export function webcareEnding(ws: Pick<WorkspaceRow, "webcare" | "webcare_until">, now = Date.now()): string | null {
+  return ws.webcare !== 1 && ws.webcare_until && Date.parse(ws.webcare_until) > now ? ws.webcare_until : null;
+}
+
+/** The account pays for the add-on (or it was switched on by an admin, or its last paid month is still running) and its plan includes it. */
+export function webcareActive(ws: Pick<WorkspaceRow, "plan" | "webcare" | "webcare_until" | "webcare_comp">): boolean {
+  return webcareAvailable(ws) && (ws.webcare === 1 || ws.webcare_comp === 1 || webcareEnding(ws) !== null);
 }
 
 /** Null for plans without the add-on, so the nudge only reaches Growth and Pro owners. */
 export function webcareOffer(ws: WorkspaceRow): WebcareOffer | null {
   if (!webcareAvailable(ws)) return null;
-  const m = marketFor(ws.country);
+  // Billed on the account's first business, in its currency.
+  const first = db().prepare("SELECT country FROM workspaces WHERE owner_id = ? ORDER BY created_at, id LIMIT 1").get(ws.owner_id) as { country: string } | undefined;
+  const m = marketFor(first?.country ?? ws.country);
   return { active: webcareActive(ws), price: formatPrice(m, m.prices.webcare) };
 }
 

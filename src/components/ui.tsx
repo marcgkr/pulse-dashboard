@@ -50,8 +50,10 @@ export function ReportSection({
   className?: string;
   children: ReactNode;
 }) {
+  // Sections with a plain-text title get an anchor, so the report's "On this page" bar can link to them.
+  const anchor = typeof title === "string" ? `s-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}` : undefined;
   return (
-    <section className={className}>
+    <section className={cx("scroll-mt-24", className)} id={anchor} data-report-section={anchor ? title : undefined}>
       <div className="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <h3 className="flex items-center gap-2.5 font-display text-xl font-bold leading-tight tracking-[-0.015em] text-ink md:text-[22px]">

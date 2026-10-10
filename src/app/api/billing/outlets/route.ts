@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     const owned = ownedWorkspaces(found.user.id);
     const primary = owned[0];
     if (!primary || !planById(primary.plan).extraOutlets) return NextResponse.json({ error: "Extra outlets are part of the Pro plan." }, { status: 402 });
-    if (!stripeEnabled()) return NextResponse.json({ error: "Online payment isn't switched on yet. Email us to add an outlet." }, { status: 503 });
+    if (!stripeEnabled()) return NextResponse.json({ error: "Online payment isn't switched on yet. Message us on Help and we'll add the outlet for you." }, { status: 503 });
     if (!primary.stripe_subscription_id || primary.paid_plan !== "pro") {
       return NextResponse.json({ error: "Outlets are added to a paid Pro subscription. Choose Pro first." }, { status: 409 });
     }

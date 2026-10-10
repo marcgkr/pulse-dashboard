@@ -145,11 +145,8 @@ export function BusinessList({
           ) : (
             businesses.length >= max &&
             max < most && (
-              <a
-                href={`mailto:${contact}?subject=${encodeURIComponent("MarketingRx: add an outlet")}`}
-                className="rounded-full px-5 py-2.5 text-sm font-semibold text-ink ring-1 ring-line hover:ring-ink-3"
-              >
-                Email us to add an outlet
+              <a href="/app/help" className="rounded-full px-5 py-2.5 text-sm font-semibold text-ink ring-1 ring-line hover:ring-ink-3">
+                Message us on Help to add an outlet
               </a>
             )
           )}
@@ -182,7 +179,7 @@ export function AutopilotToggle({ on, businessName }: { on: boolean; businessNam
         <p className="font-semibold">Autopilot for {businessName}</p>
         <p className="mt-1 text-[15px] leading-relaxed text-ink-2">
           Site Doctor re-checks your website every week. AI Visibility re-asks your last set of questions every month, once you&apos;ve run it yourself. New
-          findings land on your prescription board and your Pulse Score updates. Each re-check uses one report from your allowance.
+          findings land on your prescription board and your Pulse Score updates. Re-checks don&apos;t use your monthly reports.
         </p>
       </div>
       <button

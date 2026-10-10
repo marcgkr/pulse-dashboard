@@ -31,7 +31,7 @@ export function GbpForm({ connected, lastInput }: FormProps) {
           <Link href="/app/settings/connections" className="font-semibold text-scrub underline underline-offset-2">
             Connected accounts
           </Link>{" "}
-          first. Until then you&apos;ll see a sample profile.
+          first. Each outlet picks its own location.
         </p>
       )}
       <Field label="Anything to focus on?" hint="Optional. For example a new service, a slow weekday, or more reviews from a certain kind of customer.">
@@ -45,7 +45,7 @@ export function GbpForm({ connected, lastInput }: FormProps) {
         </Select>
       </Field>
       <FormError error={error} />
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending || !location}>
         <MapPin size={16} /> {pending ? "Starting..." : "Check my Business Profile"}
       </Button>
     </form>

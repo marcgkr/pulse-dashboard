@@ -276,6 +276,10 @@ function migrate(db: Database.Database) {
   addColumn(db, "social_videos", "account_id", "TEXT NOT NULL DEFAULT ''");
   // Growth and Pro: "Website changes by PULSE" add-on (a Stripe subscription item, metadata.kind = "webcare").
   addColumn(db, "workspaces", "webcare", "INTEGER NOT NULL DEFAULT 0");
+  // When an owner stops the add-on, the month they paid for runs to its end (no refund credit).
+  addColumn(db, "workspaces", "webcare_until", "TEXT");
+  // Switched on free by an admin. Kept apart from `webcare`, which follows the Stripe subscription.
+  addColumn(db, "workspaces", "webcare_comp", "INTEGER NOT NULL DEFAULT 0");
   addColumn(db, "workspaces", "stripe_subscription_id", "TEXT");
   addColumn(db, "workspaces", "country", "TEXT NOT NULL DEFAULT 'SG'");
   addColumn(db, "connections", "last_sync_at", "TEXT");
@@ -333,6 +337,10 @@ export type WorkspaceRow = {
   videos_synced_at?: string | null;
   /** 1 when the account pays for the website changes add-on. Extra businesses copy it from the first one. */
   webcare?: number;
+  /** The add-on was stopped; rounds can still be sent until this date. */
+  webcare_until?: string | null;
+  /** 1 when an admin switched the add-on on without a Stripe item. */
+  webcare_comp?: number;
   /** Not a column. The plan the account pays for, when a promo lifts `plan` above it. */
   paid_plan?: string;
   stripe_customer_id: string | null;

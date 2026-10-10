@@ -21,7 +21,7 @@ import { LoopProgress, Reveal } from "@/components/motion";
 export const metadata: Metadata = {
   title: { absolute: `${BRAND.name} | More customers from the marketing you already have` },
   description:
-    "Run a free website checkup and get your first fixes in about a minute. Six AI specialists check your website, Google search, AI answers, social and ads, then hand you the exact clicks and copy to paste. Built by PULSE Digital.",
+    "Run a free website checkup and get your first fixes in about a minute. Six AI specialists (seven on Pro) check your website, Google search, AI answers, social and ads, then hand you the exact clicks and copy to paste. Built by PULSE Digital.",
 };
 
 /** Where the fictional sample businesses are; "Anywhere else" has no real place, so they get a made-up one. */
@@ -201,7 +201,7 @@ export default async function LandingPage() {
                       More customers from the marketing you <span className="text-scrub">already have.</span>
                     </h1>
                     <p className="rise mt-6 max-w-2xl text-lg leading-relaxed text-ink-2 md:text-xl" style={{ animationDelay: "180ms" }}>
-                      Six AI specialists check your website, Google search, AI answers, social posts and ads, then write down every fix to the click, so you can do it
+                      Six AI specialists (seven on Pro, with Google Business Profile) check your website, Google search, AI answers, social posts and ads, then write down every fix to the click, so you can do it
                       yourself.
                     </p>
                     <TimeChips className="rise mt-6" />
