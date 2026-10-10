@@ -372,7 +372,7 @@ async function main() {
         assert.equal(r.mode, "article");
         assert.ok(a.sections.length > 0 && a.faq.length > 0 && a.cta.button, "demo article is missing parts");
         assert.ok(a.sections.some((s) => s.heading === "Price and what is included"), "demo sections don't follow the outline");
-        assert.ok(a.intro[0].includes("[Sample text]"), "demo text is not marked as sample");
+        assert.ok(a.answer.includes("[Sample text]") && a.intro.length === 0, "demo text is not marked as sample");
         assert.ok(a.videos.length <= 2 && a.videos.every((v) => inserted.has(v.url)) && a.videos.some((v) => v.url === RELATED), "demo videos");
         assert.ok((r.prescriptions as unknown[]).length > 0, "demo has no prescriptions");
         const wsNoVideos = { ...ws, id: id("w_") };
@@ -381,6 +381,96 @@ async function main() {
         pass("demo: sections from the outline, sample text marked, owner's videos only, connect note without videos");
       } catch (e) {
         fail("article demo", e);
+      }
+
+      // The same brief as a service page: landing-page copy, JSON-LD built from the content, and a checklist computed from the output.
+      const fmt = await import("@/lib/agents/article-format");
+      type KI = import("@/lib/agents/keywords-demo").KeywordsInput;
+      const passedOf = (cs: { ok: boolean }[]) => `${cs.filter((c) => c.ok).length} of ${cs.length}`;
+      const svcInput = agent.parseInput({ seeds: "pico laser", location: "Tampines, Singapore", article: { ...brief, page_type: "service" } }, ws) as KI;
+      try {
+        assert.equal(svcInput.article?.page_type, "service");
+        assert.equal(agent.runTitle(svcInput, ws), `Service page: ${brief.title}`);
+        assert.equal((agent.parseInput({ seeds: "x", article: { ...brief, page_type: "landing" } }, ws) as KI).article?.page_type, "article", "unknown page type should fall back to a blog article");
+        const r = (await agent.run(svcInput, { ws, runId: "live-test", progress: () => {} })) as Record<string, unknown>;
+        checkResult(r, "keywords (service page)");
+        const a = r.article as import("@/lib/agents/article-format").Article;
+        assert.equal(a.page_type, "service");
+        assert.equal(r.regulated, true);
+        assert.ok(a.seo_title.length > 0 && a.seo_title.length <= 60, `SEO title is ${a.seo_title.length} chars`);
+        assert.ok(a.meta_description.length <= 155, `meta description is ${a.meta_description.length} chars`);
+        assert.ok(Array.isArray(a.key_facts) && Array.isArray(a.internal_links), "key facts or internal links missing");
+
+        const html = fmt.articleHtml(a);
+        assert.equal((html.match(/<h1[\s>]/g) ?? []).length, 1, "Copy as HTML should have exactly one H1");
+        const ld = html.match(/<script type="application\/ld\+json">\n([\s\S]*?)\n<\/script>/);
+        assert.ok(ld, "Copy as HTML has no JSON-LD script");
+        type Node = Record<string, unknown> & { "@type": string };
+        const graph = (JSON.parse(ld[1]) as { "@context": string; "@graph": Node[] })["@graph"];
+        const svc = graph.find((n) => n["@type"] === "Service");
+        assert.ok(svc, `no Service schema: ${graph.map((n) => n["@type"]).join(", ")}`);
+        assert.equal(svc.name, a.title, "Service name should be the H1");
+        assert.equal((svc.provider as Node)["@type"], "MedicalBusiness", "an aesthetic clinic should be a MedicalBusiness");
+        assert.equal((svc.provider as Node).name, ws.name);
+        assert.equal(svc.url, `${new URL(SITE_URL).origin}${a.slug}`);
+        const faqNode = graph.find((n) => n["@type"] === "FAQPage") as { mainEntity: { name: string }[] } | undefined;
+        if (a.faq.length) assert.deepEqual(faqNode?.mainEntity.map((q) => q.name), a.faq.map((f) => f.question), "FAQPage schema doesn't match the FAQ");
+        assert.ok(!/rating|review|priceRange|"price"|datePublished|award/i.test(ld[1]), "schema carries facts nobody gave");
+        assert.ok(!fmt.articleMarkdown(a).includes("ld+json"), "Markdown copy should not carry the script tag");
+
+        const checks = fmt.pageChecklist(a, { keyword: svcInput.article!.target_keyword, regulated: true });
+        const byId = Object.fromEntries(checks.map((c) => [c.id, c]));
+        // Only with the default mock: sparse answers (MOCK_ARRAY_ITEMS) rightly fail the checks that count things.
+        if (!process.env.MOCK_ARRAY_ITEMS)
+          for (const id of ["seo_title", "meta", "slug", "h1", "answer", "keyword", "questions", "schema", "cta", "links", "words", "claims"])
+            assert.ok(byId[id]?.ok, `checklist "${id}" should pass: ${byId[id]?.detail}`);
+        // The word count is counted from the page: a page cut down to its summary is too short for a service page.
+        assert.match(byId.length?.detail ?? "", /^\d[\d,]* words \(aim for 450 to 1,600\)$/);
+        const short = fmt.pageChecklist({ ...a, intro: [], sections: a.sections.slice(0, 1), faq: [] }, { keyword: svcInput.article!.target_keyword });
+        assert.equal(short.find((c) => c.id === "length")?.ok, false, "a cut-down page should fail the word count");
+        // Checks read the output: risky claims, filler words and a missing summary are caught.
+        const bad = fmt.pageChecklist(
+          { ...a, answer: "", sections: [...a.sections, { heading: "Results", paragraphs: ["We guarantee the best results with a seamless visit."], bullets: [] }] },
+          { keyword: svcInput.article!.target_keyword, regulated: true },
+        );
+        const badById = Object.fromEntries(bad.map((c) => [c.id, c]));
+        assert.ok(!badById.answer.ok && !badById.claims.ok && !badById.words.ok, "checklist missed a missing summary, a risky claim or a filler word");
+        assert.ok(/guarantee/.test(badById.claims.detail) && /seamless/.test(badById.words.detail), "checklist details don't name what to fix");
+
+        const reqs = (await (await fetch(`${MOCK_URL}/__requests`)).json()) as { system?: { text: string }[] }[];
+        const sys = reqs.filter((x) => x.system?.some((b) => b.text.includes("Keyword Lab's article writer"))).at(-1)?.system?.map((b) => b.text).join("\n") ?? "";
+        assert.ok(sys.includes("service page: a landing page"), "the writer wasn't told it is a service page");
+        assert.ok(sys.includes("never use em dashes") && sys.includes("leverage") && sys.includes("REGULATED CATEGORY"), "house style or compliance rules missing from the prompt");
+
+        const page = renderToString(
+          createElement(AppRouterContext.Provider, { value: router as never }, createElement(AGENT_REPORTS.keywords, { result: JSON.parse(JSON.stringify(r)), run: { id: "r_live", agent: "keywords", title: String(r.title), created_at: now(), input: svcInput as unknown as Record<string, unknown> } })),
+        );
+        for (const s of ["Service page", "Best-practice checklist", "Needs work", "Schema (JSON-LD)", "The page", "Key facts", "Internal links to add", "Copy schema"]) assert.ok(page.includes(s), `service page report is missing "${s}"`);
+        assert.ok(!page.includes("—"), "report has an em dash");
+
+        // Articles saved before page types existed still render, with their first paragraph as the summary.
+        const legacy = { ...a, intro: [a.answer, ...a.intro] } as Partial<typeof a>;
+        for (const k of ["page_type", "seo_title", "answer", "key_facts", "internal_links", "schema"] as const) delete legacy[k];
+        const old = renderToString(createElement(AppRouterContext.Provider, { value: router as never }, createElement(AGENT_REPORTS.keywords, { result: { ...JSON.parse(JSON.stringify(r)), article: legacy, brief: { ...brief, target_keyword: "pico laser in tampines" } }, run: { id: "r_old", agent: "keywords", title: "Article: old", created_at: now(), input: {} } })));
+        assert.ok(old.includes("Blog article") && old.includes("Best-practice checklist"), "an article saved before page types doesn't render");
+        pass(`service page: "${r.title}" (${passedOf(checks)} checks pass, schema ${graph.map((n) => n["@type"]).join(" + ")}), report renders, old articles still render`);
+      } catch (e) {
+        if (EMPTY_MODE && /without any sections/.test((e as Error).message)) pass(`service page, empty answer -> "${(e as Error).message}"`);
+        else fail("service page run", e);
+      }
+      try {
+        const faqInput = agent.parseInput({ seeds: "pico laser", location: "Tampines, Singapore", article: { ...brief, page_type: "faq" } }, ws) as KI;
+        const r = (await agent.demo(faqInput, { ws, runId: "live-test", progress: () => {} })) as Record<string, unknown>;
+        const a = r.article as import("@/lib/agents/article-format").Article;
+        assert.equal(a.page_type, "faq");
+        assert.ok(a.faq.length >= 6, "a sample FAQ page needs 6 or more questions");
+        const types = ((a.schema as { "@graph": { "@type": string }[] })["@graph"] ?? []).map((n) => n["@type"]);
+        assert.deepEqual(types, ["FAQPage"]);
+        const checks = fmt.pageChecklist(a, { keyword: faqInput.article!.target_keyword });
+        assert.ok(checks.find((c) => c.id === "faq")?.ok && checks.find((c) => c.id === "schema")?.ok && checks.find((c) => c.id === "h1")?.ok, "sample FAQ page checklist");
+        pass(`demo FAQ page: ${a.faq.length} questions, FAQPage schema, ${passedOf(checks)} checks pass`);
+      } catch (e) {
+        fail("faq page demo", e);
       }
     }
   }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ExternalLink, FileText, PenLine, Search, Zap } from "lucide-react";
 import type { AeoQuestion, ContentBrief, DataColumn, KeywordCluster, ParsedData } from "@/lib/agents/keywords-demo";
 import { isQuickWinRow } from "@/lib/agents/keywords-demo";
-import { briefKeyword, type Article } from "@/lib/agents/article-format";
+import { PAGE_TYPES, briefKeyword, suggestPageType, type Article, type PageType } from "@/lib/agents/article-format";
 import { Badge, Card, Label, ReportSection, cx } from "../ui";
 import { CopyButton } from "../copy-button";
 import { useRunAgent } from "../run-agent";
@@ -27,6 +27,7 @@ type KeywordsResult = {
   article?: Article;
   brief?: ArticleResultView["brief"];
   video_note?: string | null;
+  regulated?: boolean;
 };
 
 type RunRef = { id: string; input: Record<string, unknown> } | undefined;
@@ -157,9 +158,10 @@ function briefText(b: ContentBrief): string {
   ].join("\n");
 }
 
-/** Starts a Keyword Lab run in article mode from one brief. */
+/** Starts a Keyword Lab run in article mode from one brief, as a blog article or a website page. */
 function WriteArticleButton({ b, run }: { b: ContentBrief; run: RunRef }) {
   const { start, pending, error } = useRunAgent("keywords");
+  const [type, setType] = useState<PageType>(() => suggestPageType(b));
   if (!run) return null;
   const go = () => {
     // The public sample report (/sample) has no account behind it: send visitors to sign up.
@@ -168,6 +170,7 @@ function WriteArticleButton({ b, run }: { b: ContentBrief; run: RunRef }) {
       {
         ...run.input,
         article: {
+          page_type: type,
           title: b.title,
           target_keyword: briefKeyword(b),
           slug: b.slug,
@@ -182,14 +185,29 @@ function WriteArticleButton({ b, run }: { b: ContentBrief; run: RunRef }) {
   };
   return (
     <span className="inline-flex flex-col items-end gap-1">
-      <button
-        type="button"
-        onClick={go}
-        disabled={pending}
-        className="inline-flex items-center gap-1 rounded border border-scrub/40 bg-white px-2 py-1 text-xs font-semibold text-scrub hover:bg-mint disabled:opacity-50"
-      >
-        <PenLine size={13} /> {pending ? "Starting..." : "Write this article"}
-      </button>
+      <span className="inline-flex items-stretch">
+        <select
+          aria-label="Page type"
+          value={type}
+          onChange={(e) => setType(e.target.value as PageType)}
+          disabled={pending}
+          className="rounded-l border border-r-0 border-scrub/40 bg-white px-1.5 py-1 text-xs font-semibold text-ink-2 disabled:opacity-50"
+        >
+          {PAGE_TYPES.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={go}
+          disabled={pending}
+          className="inline-flex items-center gap-1 rounded-r border border-scrub/40 bg-white px-2 py-1 text-xs font-semibold text-scrub hover:bg-mint disabled:opacity-50"
+        >
+          <PenLine size={13} /> {pending ? "Starting..." : type === "article" ? "Write this article" : "Write this page"}
+        </button>
+      </span>
       {error && <span className="text-xs text-pulse">{error}</span>}
     </span>
   );
@@ -447,7 +465,7 @@ function KeywordMapReport({ result, run }: { result: KeywordsResult; run?: RunRe
       {briefs.length > 0 && (
         <ReportSection
           title="Briefs for new pages"
-          hint={runRef ? "What to put on each new page. Copy a brief for whoever writes the page, or click Write this article to get the full article." : "What to put on each new page. Copy a brief and hand it to whoever writes the page."}
+          hint={runRef ? "What to put on each new page. Copy a brief for whoever writes the page, or pick a page type and click Write to get the full blog article or website page." : "What to put on each new page. Copy a brief and hand it to whoever writes the page."}
         >
           <div className="space-y-4">
             {briefs.map((b, i) => (

@@ -164,12 +164,12 @@ export const keywordsAgent: AgentDef<Input> = {
   name: "Keyword Lab",
   blurb: "Finds the searches and AI questions your customers use, and maps each to a page.",
   description:
-    "Looks at what ranks today and what people ask Google and AI assistants in your area, then groups keywords by intent, maps each group to a page to fix or create, and writes briefs for the new pages. Connect Search Console, or paste a Search Console or Keyword Planner export, to ground it in your real numbers. Click Expand on any keyword to drill deeper, or Write this article on any brief to get the full page.",
+    "Looks at what ranks today and what people ask Google and AI assistants in your area, then groups keywords by intent, maps each group to a page to fix or create, and writes briefs for the new pages. Connect Search Console, or paste a Search Console or Keyword Planner export, to ground it in your real numbers. Click Expand on any keyword to drill deeper, or Write this article on any brief to get the full blog article or website page (service, location or FAQ page), with schema and a best-practice checklist.",
 
   parseInput(raw, ws) {
     const r = (raw ?? {}) as Record<string, unknown>;
     const article = parseArticleBrief(r.article);
-    // Article mode writes one page from a brief; drill-down and search data don't apply.
+    // Article mode writes one article or page from a brief; drill-down and search data don't apply.
     const expand = article ? "" : cleanKeyword(String(r.expand ?? "")).slice(0, 80);
     let seeds = splitSeeds(r.seeds);
     if (!seeds.length && article) seeds = [article.target_keyword];
