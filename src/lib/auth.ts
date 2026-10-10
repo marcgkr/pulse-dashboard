@@ -86,7 +86,7 @@ export function primaryWorkspace(userId: string): WorkspaceRow | null {
 
 /**
  * The business the owner is looking at. Pro accounts can switch between up to five; every other
- * plan always gets the first. Extra businesses take the plan and billing of the first one.
+ * plan always gets the first. Extra businesses take the plan, billing and add-ons of the first one.
  */
 export function workspaceFor(userId: string): WorkspaceRow | null {
   const all = ownedWorkspaces(userId);
@@ -104,6 +104,7 @@ export function workspaceFor(userId: string): WorkspaceRow | null {
     promo_plan: primary.promo_plan,
     promo_until: primary.promo_until,
     promo_code: primary.promo_code,
+    webcare: primary.webcare,
     stripe_customer_id: primary.stripe_customer_id,
     stripe_subscription_id: primary.stripe_subscription_id,
   };

@@ -9,6 +9,7 @@ import {
   ClipboardList,
   FileSearch,
   FileText,
+  Globe,
   KeyRound,
   LifeBuoy,
   Menu,
@@ -48,6 +49,8 @@ export type NavProps = {
   admin: boolean;
   /** Team replies in the Help chat the owner hasn't read yet. */
   supportUnread: number;
+  /** The account has the website changes add-on: show its page in the menu. */
+  websiteChanges: boolean;
 };
 
 function Item({
@@ -172,6 +175,7 @@ export function AppNav(props: NavProps) {
         <Item href="/app/plan" icon={ClipboardList} label="Prescriptions" badge={props.openTasks} />
         <Item href="/app/ask" icon={MessageCircle} label="Ask PULSE" />
         <Item href="/app/reports" icon={FileText} label="Reports" />
+        {props.websiteChanges && <Item href="/app/website-changes" icon={Globe} label="Website changes" />}
       </div>
 
       <div onClick={() => setOpen(false)}>

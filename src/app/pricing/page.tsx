@@ -33,11 +33,11 @@ const SPECIALIST_ORDER: AgentKey[] = ["site", "keywords", "visibility", "content
 
 // Comparison rows, built from the same plan data as the cards (plan.specialists and PLAN_ROWS),
 // so the table and the cards can't disagree.
-function rows(): { group: string; label: string; detail?: string; cells: Record<PlanId, Cell> }[] {
+function rows(m: Market): { group: string; label: string; detail?: string; cells: Record<PlanId, Cell> }[] {
   const per = (f: (p: (typeof PLANS)[number]) => Cell) => Object.fromEntries(PLANS.map((p) => [p.id, f(p)])) as Record<PlanId, Cell>;
   return [
     ...SPECIALIST_ORDER.map((id) => ({ group: "Specialists", label: AGENT_COLORS[id].label, cells: per((p) => p.specialists.includes(id)) })),
-    ...PLAN_ROWS.map((r) => ({ group: "What each plan includes", label: r.label, detail: r.detail, cells: per((p) => r.value(p)) })),
+    ...PLAN_ROWS.map((r) => ({ group: "What each plan includes", label: r.label, detail: r.detail, cells: per((p) => r.value(p, m)) })),
   ];
 }
 
@@ -123,6 +123,17 @@ function billingFaq(m: Market) {
       ),
     },
     {
+      q: "Can PULSE make the changes for me?",
+      a: (
+        <p>
+          On {PLANS[2].name} and {PLANS[3].name}, yes, with the website changes add-on for {formatPrice(m, m.prices.webcare)} a month. Twice a month you send us a round of
+          changes, as many as you want in each round, and the PULSE team makes them on your website. You can add fixes straight from your prescriptions. After you add it
+          in the app, you share a login for your website once. We recommend creating a separate staff or admin user for PULSE rather
+          than giving us your own password, so you can remove our access any time. Stop the add-on whenever you like.
+        </p>
+      ),
+    },
+    {
       q: "Can PULSE Digital do the work for me instead?",
       a: (
         <p>
@@ -158,7 +169,7 @@ function CellMark({ value }: { value: Cell }) {
 
 export default async function PricingPage() {
   const market = await visitorMarket();
-  const table = rows();
+  const table = rows(market);
 
   return (
     <>

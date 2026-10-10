@@ -3,6 +3,8 @@ import type { SiteAudit, Check } from "@/lib/agents/site-audit";
 import { Meter } from "../brand";
 import { Badge, Card, ReportSection } from "../ui";
 import { CopyButton } from "../copy-button";
+import { WebsiteCareNudge } from "../website-care-nudge";
+import type { WebcareOffer } from "@/lib/webcare";
 
 type SiteResult = {
   strengths?: string[];
@@ -17,7 +19,7 @@ const icon = {
   fail: <CircleX size={16} className="text-pulse" />,
 };
 
-export function SiteReport({ result }: { result: SiteResult }) {
+export function SiteReport({ result, webcare }: { result: SiteResult; webcare?: WebcareOffer | null }) {
   const a = result.audit;
   const groups = Object.keys(a.groupScores) as (keyof typeof a.groupScores)[];
   return (
@@ -82,6 +84,8 @@ export function SiteReport({ result }: { result: SiteResult }) {
           </div>
         </ReportSection>
       )}
+
+      <WebsiteCareNudge offer={webcare} />
 
       <ReportSection title="Every check we ran" hint="Failed checks first, then warnings, then passes.">
         <Card className="divide-y divide-line">

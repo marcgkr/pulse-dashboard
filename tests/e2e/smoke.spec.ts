@@ -400,3 +400,151 @@ test("Keyword Lab writes an article from a brief", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Key facts" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Internal links to add" })).toBeVisible();
 });
+
+test("Growth owners can have PULSE make their website changes, and Starter owners aren't offered it", async ({ page, browser }) => {
+  const nudge = "Want us to make these changes on your website?";
+  type Call = { method: string; path: string; body: Record<string, string> };
+  const subCalls = async () =>
+    ((await (await page.request.get(`${STRIPE}/__requests`)).json()) as Call[]).filter((c) => c.path.startsWith("/v1/subscriptions/") && c.method === "POST");
+
+  // Starter: no offer in the Site Doctor report or on the prescriptions.
+  const starter = await browser.newContext({ baseURL: APP });
+  const sp = await starter.newPage();
+  await sp.request.post("/api/auth/signup", { data: { email: "starter-web@example.com", name: "Sam", password: "starter-web-pass-1" } });
+  const sws = await sp.request.post("/api/workspace", { data: { name: "Starter Salon", industry: "Salon", country: "SG", website: "http://127.0.0.1:4555/" } });
+  const starterRun = (await sws.json()).firstRunId as string;
+  await sp.goto("/app/settings#plan");
+  await sp.locator("#plan").getByRole("button", { name: "Choose Starter" }).click();
+  await expect(sp.locator("#plan").getByText("You're on Starter")).toBeVisible();
+  await sp.goto(`/app/runs/${starterRun}`);
+  await expect(sp.getByText("Every check we ran")).toBeVisible({ timeout: 60_000 });
+  await expect(sp.getByText(nudge)).toHaveCount(0);
+  await sp.goto("/app/plan");
+  await expect(sp.locator("article").first()).toBeVisible();
+  await expect(sp.getByText(nudge)).toHaveCount(0);
+  await expect(sp.getByText("Send to PULSE")).toHaveCount(0);
+  expect((await sp.request.post("/api/billing/webcare", { data: { on: true } })).status()).toBe(402);
+  await starter.close();
+
+  // Growth: pays for the plan, sees the offer once in the report, and adds it.
+  const api = page.request;
+  await api.post("/api/auth/signup", { data: { email: "webcare@example.com", name: "Dr Tan", password: "webcare-pass-123" } });
+  const ws = await api.post("/api/workspace", { data: { name: "Harbour Dental", industry: "Dental clinic", country: "SG", website: "http://127.0.0.1:4555/" } });
+  const runId = (await ws.json()).firstRunId as string;
+  await page.goto("/app/settings#plan");
+  await page.locator("#plan").getByRole("button", { name: "Choose Growth" }).click();
+  await expect(page.locator("#plan").getByText("Payment received. Your new plan is active now.")).toBeVisible();
+
+  await page.goto(`/app/runs/${runId}`);
+  await expect(page.getByText("Every check we ran")).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(nudge)).toHaveCount(1);
+  await expect(page.getByText(/twice a month, as many as you need each round, for S\$299\/month/)).toBeVisible();
+  await expect(page.locator("aside").getByRole("link", { name: "Website changes" })).toHaveCount(0);
+  await page.goto("/app/plan");
+  await expect(page.getByText(nudge)).toHaveCount(1);
+  await page.getByRole("link", { name: "See how it works" }).click();
+  await expect(page).toHaveURL(/\/app\/website-changes$/);
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Add website changes (S$299/month)" }).click();
+  await expect(page.getByText("Your website login", { exact: true })).toBeVisible();
+  await expect(page.locator("aside").getByRole("link", { name: "Website changes" })).toBeVisible();
+  const added = (await subCalls()).at(-1)!;
+  expect(added.body["items[0][price_data][unit_amount]"]).toBe("29900");
+  expect(added.body["items[0][price_data][currency]"]).toBe("sgd");
+  expect(added.body["items[0][metadata][kind]"]).toBe("webcare");
+  expect(added.body["proration_behavior"]).toBe("always_invoice");
+
+  // With the add-on, the report shows a link to send changes instead of the offer.
+  await page.goto(`/app/runs/${runId}`);
+  await expect(page.getByText(nudge)).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Send to PULSE/ })).toHaveAttribute("href", "/app/website-changes");
+
+  // Rounds wait for a login; the password is saved encrypted and never sent back.
+  expect((await api.post("/api/website-changes", { data: { text: "Too early" } })).status()).toBe(409);
+  const password = "Harbour-Admin-7731!";
+  await page.goto("/app/website-changes");
+  await expect(page.getByRole("button", { name: "Submit this round" })).toBeDisabled();
+  await page.getByLabel("Website login page").fill("harbourdental.example/wp-admin");
+  await page.getByLabel("Username or email").fill("pulse-team");
+  await page.getByLabel("Password").fill(password);
+  await page.getByLabel("Notes for PULSE").fill("Two-step codes go to Mei at the front desk.");
+  await page.getByRole("button", { name: "Save login details" }).click();
+  await expect(page.getByText("Login details saved.")).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Website login page")).toHaveValue("https://harbourdental.example/wp-admin");
+  await expect(page.getByLabel("Password")).toHaveValue("");
+  await expect(page.getByText("Saved. Leave it empty to keep it")).toBeVisible();
+  expect(await page.content()).not.toContain(password);
+
+  // First round from the page, with one prescription picked; the second by API; the third is refused.
+  await page.getByLabel("Changes for this round").fill("Homepage: change the main headline to Gentle dentistry at Harbourfront\nContact page: add our WhatsApp number");
+  await page.locator("#round").getByRole("checkbox").first().check();
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Submit this round" }).click();
+  await expect(page.getByText("Sent. The PULSE team has your changes")).toBeVisible();
+  expect((await api.post("/api/website-changes", { data: { text: "Footer: update the opening hours" } })).ok()).toBeTruthy();
+  const third = await api.post("/api/website-changes", { data: { text: "One more thing" } });
+  expect(third.status()).toBe(409);
+  expect((await third.json()).error).toContain("both rounds");
+  await page.reload();
+  await expect(page.getByText("0 of 2 rounds left this month")).toBeVisible();
+  await expect(page.getByText(/Next round opens on 1 /)).toBeVisible();
+  await expect(page.getByText(/Last round sent on/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Submit this round" })).toBeDisabled();
+
+  // The team is emailed each round, with the login page and username but never the password.
+  const emails = ((await (await page.request.get(`${STRIPE}/__emails`)).json()) as { auth: string; body: { to: string[]; subject: string; text: string; html: string; reply_to: string } }[]).filter(
+    (e) => e.body.subject === "Website changes: Harbour Dental",
+  );
+  expect(emails).toHaveLength(2);
+  for (const e of emails) {
+    expect(JSON.stringify(e)).not.toContain(password);
+    expect(e.auth).toBe("Bearer re_test_mock");
+    expect(e.body.to).toEqual(["team@example.com"]);
+    expect(e.body.reply_to).toBe("webcare@example.com");
+    expect(e.body.text).toContain("https://harbourdental.example/wp-admin");
+    expect(e.body.text).toContain("Username: pulse-team");
+    expect(e.body.text).toMatch(new RegExp(`${APP.replace(/[.]/g, "\\.")}/admin/website-changes/wc_`));
+  }
+  expect(emails[0].body.text).toContain("Gentle dentistry at Harbourfront");
+  expect(emails[0].body.text).toContain("From the prescriptions: ");
+
+  // An admin opens the round, reveals the password and marks it done; the owner sees that.
+  const team = await browser.newContext({ baseURL: APP });
+  const tp = await team.newPage();
+  await tp.request.post("/api/auth/signup", { data: { email: "webcare-admin@example.com", name: "PULSE Admin", password: "webcare-admin-pass-1" } });
+  expect((await tp.request.post("/api/admin/claim", { data: { token: "e2e-setup-token-1234567890" } })).ok()).toBeTruthy();
+  await tp.goto("/admin");
+  await tp.getByRole("link", { name: /Website changes/ }).click();
+  await expect(tp.getByRole("link", { name: /Harbour Dental/ })).toHaveCount(2);
+  await tp.getByRole("link", { name: /Harbour Dental/ }).first().click();
+  await expect(tp.getByText("Footer: update the opening hours")).toBeVisible();
+  await expect(tp.getByText("pulse-team")).toBeVisible();
+  expect(await tp.content()).not.toContain(password);
+  const roundId = tp.url().split("/").pop()!;
+  expect((await api.post(`/api/admin/website-changes/${roundId}/reveal`)).status()).toBe(403);
+  await tp.getByRole("button", { name: "Reveal password" }).click();
+  await expect(tp.getByTestId("revealed-password")).toHaveText(password);
+  await tp.reload();
+  await expect(tp.getByText(/Password revealed by PULSE Admin/)).toBeVisible();
+  await tp.getByLabel("Status").selectOption("done");
+  await tp.getByLabel("Note for the owner").fill("Opening hours updated in the footer.");
+  await tp.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(tp.getByText("Saved. The owner sees it")).toBeVisible();
+  await team.close();
+  await page.reload();
+  await expect(page.locator("#history").getByText("Done", { exact: true })).toBeVisible();
+  await expect(page.getByText("Opening hours updated in the footer.")).toBeVisible();
+
+  // Moving down to Starter takes the add-on off the subscription.
+  await page.goto("/app/settings#plan");
+  await expect(page.getByText("Website changes by PULSE is on")).toBeVisible();
+  page.once("dialog", (d) => d.accept());
+  await page.locator("#plan").getByRole("button", { name: "Switch to Starter" }).click();
+  await expect(page.getByText(/You're on Starter/).first()).toBeVisible();
+  const down = (await subCalls()).at(-1)!;
+  expect(down.body["items[1][deleted]"]).toBe("true");
+  await page.goto("/app/website-changes");
+  await expect(page.getByText("Website changes are an add-on for Growth and Pro.")).toBeVisible();
+  await expect(page.locator("aside").getByRole("link", { name: "Website changes" })).toHaveCount(0);
+});

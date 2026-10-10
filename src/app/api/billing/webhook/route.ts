@@ -27,12 +27,13 @@ export async function POST(req: Request) {
     if (ws) {
       const active = sub.status === "active" || sub.status === "trialing";
       if (event.type === "customer.subscription.deleted" || !active) {
-        db().prepare("UPDATE workspaces SET plan = 'free', extra_outlets = 0, stripe_subscription_id = CASE WHEN ? THEN NULL ELSE stripe_subscription_id END WHERE id = ?").run(event.type === "customer.subscription.deleted" ? 1 : 0, ws.id);
+        db().prepare("UPDATE workspaces SET plan = 'free', extra_outlets = 0, webcare = 0, stripe_subscription_id = CASE WHEN ? THEN NULL ELSE stripe_subscription_id END WHERE id = ?").run(event.type === "customer.subscription.deleted" ? 1 : 0, ws.id);
       } else {
         const plan = planOfSubscription(sub);
         if (plan) db().prepare("UPDATE workspaces SET plan = ? WHERE id = ?").run(plan, ws.id);
         else console.warn(`[stripe] subscription ${sub.id} has a price that isn't mapped to a plan; plan left unchanged`);
-        db().prepare("UPDATE workspaces SET extra_outlets = ? WHERE id = ?").run(subscriptionItems(sub).outlets?.quantity ?? 0, ws.id);
+        const items = subscriptionItems(sub);
+        db().prepare("UPDATE workspaces SET extra_outlets = ?, webcare = ? WHERE id = ?").run(items.outlets?.quantity ?? 0, items.webcare ? 1 : 0, ws.id);
       }
     }
   }

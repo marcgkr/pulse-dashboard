@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { usage } from "@/lib/runs";
 import { unreadForOwner } from "@/lib/support";
 import { outletLimit } from "@/lib/config";
+import { webcareActive } from "@/lib/webcare";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         demo={!aiEnabled()}
         admin={isAdmin(user)}
         supportUnread={unreadForOwner(ws.id)}
+        websiteChanges={webcareActive(ws)}
       />
       <main className="lg:pl-64 print:pl-0">
         <div className="mx-auto max-w-6xl px-4 py-8 md:px-8 md:py-10">{children}</div>

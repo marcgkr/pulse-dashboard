@@ -13,6 +13,8 @@ import { MemoryList } from "@/components/memory-list";
 import { AutopilotToggle, BusinessList, PromoRedeem } from "@/components/settings-pro";
 import { promoActive } from "@/lib/promos";
 import { outletLimit, planById } from "@/lib/config";
+import { webcareActive } from "@/lib/webcare";
+import Link from "next/link";
 
 export const metadata = { title: "Settings" };
 
@@ -152,6 +154,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <p className="text-sm text-ink-2">
             Prices in {market.currency}. You&apos;re on <strong>{u.plan.name}</strong>. {u.used} of {u.limit} reports used this month{owned.length > 1 ? ", across all your outlets" : ""} (sample reports in demo mode don&apos;t count).
           </p>
+          {webcareActive(ws) && (
+            <p className="mt-2 text-sm text-ink-2">
+              Website changes by PULSE is on ({formatPrice(market, market.prices.webcare)}/month).{" "}
+              <Link href="/app/website-changes" className="font-semibold text-scrub hover:underline">
+                Manage it
+              </Link>
+            </p>
+          )}
           <div className="mt-5">
             <PlanPicker
               plans={PLANS.map((p) => ({

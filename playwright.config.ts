@@ -38,6 +38,12 @@ export default defineConfig({
         // Payments against tests/mock-stripe.
         STRIPE_SECRET_KEY: "sk_test_mock",
         STRIPE_API_BASE: `http://127.0.0.1:${STRIPE}`,
+        // Website logins are stored encrypted; team emails go to the Resend stand-in in tests/mock-stripe.
+        ENCRYPTION_KEY: "ZTJlLXRlc3Qta2V5LTMyLWJ5dGVzLWxvbmctMTIzNDU=",
+        RESEND_API_KEY: "re_test_mock",
+        RESEND_API_BASE: `http://127.0.0.1:${STRIPE}/resend`,
+        EMAIL_FROM: "MarketingRx <test@example.com>",
+        TEAM_EMAIL: "team@example.com",
         // Pro accounts get a WhatsApp button on Help.
         SUPPORT_WHATSAPP: "6500000000",
         NO_PROXY: "*",

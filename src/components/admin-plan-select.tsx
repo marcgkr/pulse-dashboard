@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { PLANS } from "@/lib/config";
+import { PLANS, planById } from "@/lib/config";
 
-export function AdminPlanSelect({ workspaceId, plan, outlets }: { workspaceId: string; plan: string; outlets: number }) {
+export function AdminPlanSelect({ workspaceId, plan, outlets, webcare }: { workspaceId: string; plan: string; outlets: number; webcare: boolean }) {
   const [value, setValue] = useState(plan);
   const [extra, setExtra] = useState(String(outlets));
+  const [care, setCare] = useState(webcare);
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   return (
     <div className="flex items-center gap-2">
@@ -41,6 +42,23 @@ export function AdminPlanSelect({ workspaceId, plan, outlets }: { workspaceId: s
             className="w-10 rounded border border-line bg-white px-1.5 py-1 text-sm"
           />
           outlets
+        </label>
+      )}
+      {planById(value).websiteCare && (
+        <label className="flex items-center gap-1 text-xs text-ink-2">
+          <input
+            type="checkbox"
+            checked={care}
+            onChange={async (e) => {
+              const next = e.target.checked;
+              setCare(next);
+              setState("saving");
+              const res = await fetch("/api/admin/plan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workspaceId, webcare: next }) });
+              setState(res.ok ? "saved" : "error");
+            }}
+            aria-label="Website changes add-on"
+          />
+          Website changes
         </label>
       )}
       {state === "saved" && <span className="text-xs text-scrub">Saved</span>}

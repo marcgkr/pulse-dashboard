@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import type { WebcareOffer } from "@/lib/webcare";
+import { WebsiteCareNudge } from "../website-care-nudge";
 import { CircleAlert, CircleCheck, ExternalLink, FileText, Link2, PlayCircle, TriangleAlert } from "lucide-react";
 import {
   META_MAX,
@@ -85,7 +87,7 @@ function MetaRow({ label, value, hint }: { label: string; value: string; hint?: 
 
 const CtaButton = ({ text }: { text: string }) => <p className="mt-3 inline-flex rounded-full bg-scrub px-4 py-2 text-sm font-semibold text-white">{text}</p>;
 
-export function ArticleReport({ result }: { result: ArticleResultView }) {
+export function ArticleReport({ result, webcare }: { result: ArticleResultView; webcare?: WebcareOffer | null }) {
   const brief = result.brief;
   const a = upgradeArticle(result.article, brief);
   const vids = videosBySection(a);
@@ -299,6 +301,8 @@ export function ArticleReport({ result }: { result: ArticleResultView }) {
           </Card>
         </ReportSection>
       )}
+
+      <WebsiteCareNudge offer={webcare} ask={`Want us to put this ${noun} on your website for you?`} />
     </div>
   );
 }

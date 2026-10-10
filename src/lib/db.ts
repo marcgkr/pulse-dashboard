@@ -227,6 +227,37 @@ function migrate(db: Database.Database) {
       seen_by_team INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS support_ws ON support_messages(workspace_id, created_at);
+    -- Website changes by PULSE (src/lib/webcare.ts): the login the owner shares, password encrypted.
+    CREATE TABLE IF NOT EXISTS website_logins (
+      workspace_id TEXT PRIMARY KEY REFERENCES workspaces(id) ON DELETE CASCADE,
+      login_url TEXT NOT NULL DEFAULT '',
+      username TEXT NOT NULL DEFAULT '',
+      password_enc TEXT,
+      notes TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    );
+    -- Each round of changes an owner sends. items is a JSON array of { text, detail? }.
+    CREATE TABLE IF NOT EXISTS website_change_requests (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      items TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'submitted',
+      created_at TEXT NOT NULL,
+      done_at TEXT,
+      admin_note TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS website_changes_ws ON website_change_requests(workspace_id, created_at);
+    -- Sensitive things admins do, such as revealing a website password.
+    CREATE TABLE IF NOT EXISTS admin_audit (
+      id TEXT PRIMARY KEY,
+      admin_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      action TEXT NOT NULL,
+      workspace_id TEXT,
+      ref TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS admin_audit_ref ON admin_audit(ref, created_at);
   `);
   addColumn(db, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
   // Pro accounts can run several businesses; this is the one the owner is looking at.
@@ -243,6 +274,8 @@ function migrate(db: Database.Database) {
   addColumn(db, "workspaces", "videos_synced_at", "TEXT");
   // The connected account (Page, Instagram account, channel) a video came from.
   addColumn(db, "social_videos", "account_id", "TEXT NOT NULL DEFAULT ''");
+  // Growth and Pro: "Website changes by PULSE" add-on (a Stripe subscription item, metadata.kind = "webcare").
+  addColumn(db, "workspaces", "webcare", "INTEGER NOT NULL DEFAULT 0");
   addColumn(db, "workspaces", "stripe_subscription_id", "TEXT");
   addColumn(db, "workspaces", "country", "TEXT NOT NULL DEFAULT 'SG'");
   addColumn(db, "connections", "last_sync_at", "TEXT");
@@ -298,6 +331,8 @@ export type WorkspaceRow = {
   promo_code?: string | null;
   extra_outlets?: number;
   videos_synced_at?: string | null;
+  /** 1 when the account pays for the website changes add-on. Extra businesses copy it from the first one. */
+  webcare?: number;
   /** Not a column. The plan the account pays for, when a promo lifts `plan` above it. */
   paid_plan?: string;
   stripe_customer_id: string | null;
@@ -367,6 +402,28 @@ export type SupportMessageRow = {
   created_at: string;
   seen_by_owner: number;
   seen_by_team: number;
+};
+
+export type WebsiteLoginRow = {
+  workspace_id: string;
+  login_url: string;
+  username: string;
+  /** encrypt(password, workspace id). Never sent to the browser; admins reveal it on the server. */
+  password_enc: string | null;
+  notes: string;
+  updated_at: string;
+};
+
+export type WebsiteChangeRow = {
+  id: string;
+  workspace_id: string;
+  user_id: string | null;
+  /** JSON: { text: string; detail?: string }[] */
+  items: string;
+  status: "submitted" | "in_progress" | "done";
+  created_at: string;
+  done_at: string | null;
+  admin_note: string;
 };
 
 export type ConnectionRow = {

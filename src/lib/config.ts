@@ -1,4 +1,4 @@
-import type { Market } from "./markets";
+import { formatPrice, type Market } from "./markets";
 
 // Brand + commercial settings live here so the name, domain and plans can change in one place.
 
@@ -62,6 +62,8 @@ export type Plan = {
   extraOutlets: boolean;
   /** Weekly Site Doctor and monthly AI Visibility re-checks run on their own (src/lib/autopilot.ts). */
   autopilot: boolean;
+  /** Can add "Website changes by PULSE" (src/lib/webcare.ts) at the market's webcare price a month. */
+  websiteCare: boolean;
   /** How many of the latest connected videos get transcribed (src/lib/videos.ts). */
   transcribeVideos: number;
   /** The Google Business Profile specialist (src/lib/agents/gbp.ts). */
@@ -91,6 +93,7 @@ export const PLANS: Plan[] = [
     maxOutlets: 1,
     extraOutlets: false,
     autopilot: false,
+    websiteCare: false,
     transcribeVideos: 0,
     gbp: false,
   },
@@ -109,6 +112,7 @@ export const PLANS: Plan[] = [
     maxOutlets: 1,
     extraOutlets: false,
     autopilot: false,
+    websiteCare: false,
     transcribeVideos: 0,
     gbp: false,
   },
@@ -127,6 +131,7 @@ export const PLANS: Plan[] = [
     maxOutlets: 1,
     extraOutlets: false,
     autopilot: false,
+    websiteCare: true,
     transcribeVideos: 20,
     gbp: false,
   },
@@ -154,6 +159,7 @@ export const PLANS: Plan[] = [
     maxOutlets: 5,
     extraOutlets: true,
     autopilot: true,
+    websiteCare: true,
     transcribeVideos: 100,
     gbp: true,
     exclusives: [
@@ -189,9 +195,10 @@ export const LIVE_SYNC_PLANS: PlanId[] = ["growth", "pro"];
 
 /**
  * What each plan includes, as rows that line up across plan cards and the comparison table.
- * `value` is shown instead of a tick when a row has a per-plan amount.
+ * `value` is shown instead of a tick when a row has a per-plan amount. Rows with a price take the
+ * visitor's market.
  */
-export type PlanRow = { label: string; detail?: string; value: (p: Plan) => boolean | string };
+export type PlanRow = { label: string; detail?: string; value: (p: Plan, m?: Market) => boolean | string };
 
 export const PLAN_ROWS: PlanRow[] = [
   {
@@ -216,6 +223,11 @@ export const PLAN_ROWS: PlanRow[] = [
   },
   { label: "Live chat with the PULSE team", value: () => true },
   { label: "Priority support on WhatsApp", value: (p) => p.id === "pro" },
+  {
+    label: "Website changes done for you",
+    detail: "Two rounds a month, as many changes as you want in each round, made on your website by the PULSE team.",
+    value: (p, m) => (p.websiteCare ? (m ? `Add-on ${formatPrice(m, m.prices.webcare)}/mo` : "Add-on") : false),
+  },
 ];
 
 /** Plain-language translation of a plan's monthly report allowance. */

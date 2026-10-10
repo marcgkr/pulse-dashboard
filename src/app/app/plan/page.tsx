@@ -6,6 +6,8 @@ import { parseTask } from "@/lib/runs";
 import { RxSlip } from "@/components/rx-slip";
 import { ButtonLink, EmptyState, PageHeader, cx } from "@/components/ui";
 import { agentColor } from "@/lib/agent-colors";
+import { webcareOffer } from "@/lib/webcare";
+import { WebsiteCareNudge } from "@/components/website-care-nudge";
 
 export const metadata = { title: "Prescriptions" };
 
@@ -30,6 +32,8 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const tasks = rows.map(parseTask);
   const byAgent = db().prepare("SELECT agent, COUNT(*) n FROM tasks WHERE workspace_id = ? AND " + tab.where + " GROUP BY agent").all(ws.id) as { agent: string; n: number }[];
   const quick = tasks.filter((t) => t.effort === "quick" && t.status !== "done").length;
+  // Once per page, and only where there are open website fixes to hand over.
+  const showWebcare = tab.id === "open" && tasks.some((t) => t.agent === "site");
 
   const href = (p: { tab?: string; agent?: string | null }) => {
     const q = new URLSearchParams();
@@ -76,6 +80,8 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           </Link>
         ))}
       </div>
+
+      {showWebcare && <WebsiteCareNudge offer={webcareOffer(ws)} className="mb-6" />}
 
       {tasks.length === 0 ? (
         <EmptyState

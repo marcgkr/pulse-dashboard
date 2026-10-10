@@ -9,6 +9,7 @@ import { Badge, Card, Label, ReportSection, cx } from "../ui";
 import { CopyButton } from "../copy-button";
 import { useRunAgent } from "../run-agent";
 import { ArticleReport, type ArticleResultView } from "./article-report";
+import type { WebcareOffer } from "@/lib/webcare";
 
 type KeywordsResult = {
   mode?: "discover" | "expand" | "article";
@@ -371,8 +372,8 @@ function DataTable({ data }: { data: ParsedData }) {
 
 // ---------- Report ----------
 
-export function KeywordsReport({ result, run }: { result: KeywordsResult; run?: RunRef }) {
-  if (result.article) return <ArticleReport result={{ ...result, article: result.article }} />;
+export function KeywordsReport({ result, run, webcare }: { result: KeywordsResult; run?: RunRef; webcare?: WebcareOffer | null }) {
+  if (result.article) return <ArticleReport result={{ ...result, article: result.article }} webcare={webcare} />;
   return <KeywordMapReport result={result} run={run} />;
 }
 

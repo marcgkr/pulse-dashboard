@@ -76,6 +76,12 @@ export function rateLimit(key: string, limit: number, windowMs: number): boolean
   return true;
 }
 
+/** Whether a key is already at its limit, without counting this call. Pair with rateLimit() to count only failures. */
+export function rateLimited(key: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  return (buckets.get(key) ?? []).filter((t) => now - t < windowMs).length >= limit;
+}
+
 export function errorResponse(e: unknown) {
   if (e instanceof HttpError) return Response.json({ error: e.message }, { status: e.status });
   throw e;
