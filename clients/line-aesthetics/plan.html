@@ -238,7 +238,7 @@ Mobile: 9123 4567
     <h3>Before these go live</h3>
     <ul class="plain todo">
       <li>Confirm +65 8985 5001 is the clinic's WhatsApp line. It's the mobile on their website, but the Camden listing also shows +65 6555 5008.</li>
-      <li>Add the Meta Pixel ID to each page (one line at the bottom, <code>pixelId</code>).</li>
+      <li>Done: Meta Pixel 4678264112498182 is installed on all three pages and assigned to the ad account. Confirm the first real PageView and Lead in Events Manager once the pages are hosted.</li>
       <li>Optional: add a Make or Google Sheets webhook URL (<code>webhook</code>) so leads are logged even if someone never hits send in WhatsApp.</li>
       <li>Swap the green "Dr Ram Nath" block for a real photo of Dr Ram.</li>
       <li>Check with the clinic: whether listed fees are before GST, and that 12 to 18 months is the longevity they're comfortable quoting for nose threads (one current ad says 1 to 2 years).</li>
@@ -263,7 +263,7 @@ Mobile: 9123 4567
     <p>Checked against the live account on 13 Oct 2026. Over the last 14 days the account spent about $313 a day: $269 on thread lift and $44 on HA fillers.</p>
     <h3>Account gaps</h3>
     <ul class="plain todo">
-      <li><strong>No pixel.</strong> No dataset is connected to this ad account, so a website campaign has nothing to optimise for. An admin of the Line Aesthetics business needs to create one in Events Manager and assign it to the ad account. The ID then goes into <code>pixelId</code> on each landing page.</li>
+      <li><strong>Pixel: fixed.</strong> "Line Aesthetics Website" (4678264112498182) was created on 13 Oct, assigned to this ad account and installed on the three landing pages. It has not fired yet because the pages aren't hosted.</li>
       <li><strong>Instagram isn't assigned to the ad account in Business Settings.</strong> Ads do run on the clinic's Instagram (through the Page), but the account isn't listed as an asset of this ad account, so Instagram audiences can't be built through the API. Either assign it in Business Settings or build the Instagram audience in Ads Manager.</li>
       <li><strong>Ad sets overlap.</strong> Luxury, Broad and Advantage+ all target women 23 to 65 in Singapore with Advantage+ audience on, so Meta expands each one and they compete in the same auctions. Consolidate to one ad set per treatment.</li>
     </ul>
