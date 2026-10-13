@@ -256,4 +256,38 @@ Mobile: 9123 4567
     <p class="soft">Booked consults need the clinic's help: ask the front desk to note the ref code for each chat that turns into a booking. A shared sheet is enough.</p>
   </div>
 </section>
+
+<section>
+  <div class="col">
+    <h2>Campaign build</h2>
+    <p>Checked against the live account on 13 Oct 2026. Over the last 14 days the account spent about $313 a day: $269 on thread lift and $44 on HA fillers.</p>
+    <h3>Account gaps</h3>
+    <ul class="plain todo">
+      <li><strong>No pixel.</strong> No dataset is connected to this ad account, so a website campaign has nothing to optimise for. An admin of the Line Aesthetics business needs to create one in Events Manager and assign it to the ad account. The ID then goes into <code>pixelId</code> on each landing page.</li>
+      <li><strong>No Instagram account linked for ads.</strong> Engagement audiences can only be built from the Facebook Page until the clinic's Instagram is connected in Business Settings.</li>
+      <li><strong>Ad sets overlap.</strong> Luxury, Broad and Advantage+ all target women 23 to 65 in Singapore with Advantage+ audience on, so Meta expands each one and they compete in the same auctions. Consolidate to one ad set per treatment.</li>
+    </ul>
+    <h3>Audiences</h3>
+    <ul class="plain">
+      <li>Created: <em>PULSE | FB Page Engagers 365d</em>, for retargeting.</li>
+      <li>Created: <em>PULSE | Page Messagers 90d (exclude)</em>, to keep prospecting on new people. This catches Messenger chats; WhatsApp chats from click-to-WhatsApp ads may not land in it.</li>
+      <li>To create in Ads Manager: video viewers who watched 50% or more of any Dr Ram video in the last 180 days. Video audiences can't be made through the API connection used here.</li>
+    </ul>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Campaign</th><th>Ad sets</th><th>Optimises for</th><th>Budget share</th></tr></thead>
+      <tbody>
+        <tr><td>PULSE | CTWA | Nose Thread Lift</td><td>1, women 23+</td><td>Conversations</td><td>30%, +20% every 3 days under $12/chat</td></tr>
+        <tr><td>PULSE | CTWA | Face Thread Lift</td><td>1, women, 35+ as suggestion</td><td>Conversations</td><td>30%</td></tr>
+        <tr><td>PULSE | Leads | LP Test<small>Needs the pixel first</small></td><td>1 per treatment, each to its own page</td><td>Website Lead</td><td>25%</td></tr>
+        <tr><td>PULSE | CTWA | HA Fillers</td><td>1, women 25+</td><td>Conversations</td><td>10%</td></tr>
+        <tr><td>PULSE | Retarget | Engagers</td><td>1, Page engagers and video viewers, minus messagers</td><td>Conversations</td><td>5%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="col">
+    <p>Stay on lowest-cost bidding. Each landing page ad set needs around 50 Lead events before a cost cap is worth testing, which is two to three weeks at this budget. A target cost per lead needs two numbers from the clinic: how many leads book a consult, and what a first thread lift or filler patient is worth.</p>
+  </div>
+</section>
 </div>
