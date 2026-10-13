@@ -1,0 +1,259 @@
+<title>Line Aesthetics Creative Plan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Italiana&display=swap">
+<style>
+/* Layout: single reading column (about 70ch) with wider breakouts for the data table and the ad grid. */
+:root {
+  --bg: #f2f3ef; --surface: #ffffff; --fg: #1b2422; --soft: #55605d; --rule: #d6dbd3;
+  --accent: #2d5a52; --accent-wash: #e3ece8; --good: #2f7a4f; --warn: #a06418; --bad: #a3352b;
+  --display: "Italiana", Georgia, serif; --body: "Figtree", "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #151b1a; --surface: #1d2523; --fg: #e8ece9; --soft: #a3aeaa; --rule: #2e3835;
+  --accent: #8cc2b5; --accent-wash: #22312d; --good: #7cc79a; --warn: #e0a95a; --bad: #ef8a7e; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #151b1a; --surface: #1d2523; --fg: #e8ece9; --soft: #a3aeaa; --rule: #2e3835;
+  --accent: #8cc2b5; --accent-wash: #22312d; --good: #7cc79a; --warn: #e0a95a; --bad: #ef8a7e; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.65; }
+.page { max-width: 1080px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 80px; }
+.col { max-width: 46rem; }
+a { color: var(--accent); }
+h1, h2 { font-family: var(--display); font-weight: 400; text-wrap: balance; line-height: 1.08; }
+h1 { font-size: clamp(2.4rem, 6vw, 3.8rem); margin: 0 0 12px; }
+h2 { font-size: clamp(1.8rem, 4vw, 2.5rem); margin: 0 0 14px; }
+h3 { font-size: 1.05rem; margin: 26px 0 6px; }
+.kicker { font-size: 0.75rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin: 0 0 10px; }
+.meta { color: var(--soft); font-size: 0.9rem; }
+section { border-top: 1px solid var(--rule); padding-block: 44px; }
+header.top { padding-bottom: 32px; }
+p { margin: 0 0 14px; }
+.soft { color: var(--soft); }
+
+.summary { display: grid; gap: 14px; margin-top: 24px; }
+@media (min-width: 760px) { .summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.call { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 18px; min-width: 0; }
+.call b { display: block; font-size: 1rem; margin-bottom: 4px; }
+.call span { color: var(--soft); font-size: 0.92rem; }
+
+.tablewrap { overflow-x: auto; margin: 18px 0 8px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; font-variant-numeric: tabular-nums; min-width: 680px; }
+th, td { padding: 10px 14px; border-bottom: 1px solid var(--rule); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; white-space: normal; }
+thead th { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--soft); font-weight: 600; }
+tbody tr:last-child td { border-bottom: 0; }
+td small { display: block; color: var(--soft); font-size: 0.8rem; }
+.pill { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 99px; border: 1px solid currentColor; }
+.pill.good { color: var(--good); } .pill.warn { color: var(--warn); } .pill.bad { color: var(--bad); }
+
+.patterns { display: grid; gap: 0; margin-top: 16px; }
+.pattern { display: grid; gap: 4px 24px; padding: 14px 0; border-bottom: 1px solid var(--rule); }
+@media (min-width: 760px) { .pattern { grid-template-columns: 15rem 1fr; } }
+.pattern b { font-weight: 600; }
+.pattern span { color: var(--soft); min-width: 0; }
+
+.treat { margin-top: 10px; }
+.treat-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 20px; }
+.treat-head a { font-weight: 600; text-decoration: none; }
+.scripts { display: grid; gap: 14px; margin: 18px 0 26px; }
+@media (min-width: 900px) { .scripts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.script { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 18px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.script .tag { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--soft); font-weight: 600; }
+.script h4 { font-size: 1.05rem; margin: 0; }
+.script .hook { border-left: 2px solid var(--accent); padding-left: 10px; font-size: 0.95rem; }
+.script ol { margin: 0; padding-left: 18px; color: var(--soft); font-size: 0.92rem; display: grid; gap: 4px; }
+.script .cta { font-size: 0.88rem; color: var(--soft); margin-top: auto; }
+
+.ads { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); margin-top: 10px; }
+.ads figure { margin: 0; min-width: 0; }
+.ads img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 4px; border: 1px solid var(--rule); }
+.ads figcaption { font-size: 0.85rem; color: var(--soft); margin-top: 6px; }
+
+.lps { display: grid; gap: 14px; margin-top: 18px; }
+@media (min-width: 760px) { .lps { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.lp { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 18px; min-width: 0; text-decoration: none; color: var(--fg); display: block; }
+.lp:hover { border-color: var(--accent); }
+.lp b { display: block; font-family: var(--display); font-size: 1.6rem; font-weight: 400; color: var(--accent); }
+.lp span { font-size: 0.9rem; color: var(--soft); }
+.msg { background: var(--accent-wash); border-radius: 6px; padding: 14px 16px; font-size: 0.88rem; white-space: pre-wrap; overflow-x: auto; margin: 10px 0 18px; }
+ul.plain { padding-left: 18px; margin: 0 0 14px; }
+ul.plain li { margin-bottom: 6px; }
+.todo li::marker { color: var(--warn); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="page">
+<header class="top">
+  <p class="kicker">PULSE Digital &middot; Line Aesthetics Clinic</p>
+  <h1>Line Aesthetics Creative Plan</h1>
+  <p class="meta">Meta ad account Line Aesthetics Clinic &middot; data for the last 90 days to 13 Oct 2026 &middot; nose thread lift, face thread lift, HA fillers</p>
+  <div class="summary">
+    <div class="call"><b>Put more behind the nose</b><span>The nose ad is bringing in WhatsApp chats at $6.83 each. Face ads cost $22 to $31. It has only been live about a week, so scale in steps.</span></div>
+    <div class="call"><b>Fix lead quality, not chat volume</b><span>Thread lift drove 1,187 chats but only 69 recorded leads. The new landing pages ask 3 qualifying questions before the chat starts.</span></div>
+    <div class="call"><b>Give fillers video</b><span>HA fillers are only running on static images, at $51 a chat. Every winner in this account is Dr Ram on camera.</span></div>
+  </div>
+</header>
+
+<section>
+  <div class="col">
+    <h2>What the account says</h2>
+    <p>All three campaigns use click-to-WhatsApp, so the result below is a WhatsApp conversation started. Same creative across different ad sets is grouped into one row.</p>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Creative</th><th>Spend</th><th>Chats</th><th>Cost / chat</th><th>CTR</th><th>Read</th></tr></thead>
+      <tbody>
+        <tr><td>Non-Surgical Nose Enhancement<small>Nose ad set, live since ~5 Oct, CPM $20</small></td><td>$1,230</td><td>180</td><td>$6.83</td><td>2.54%</td><td><span class="pill good">Scale</span></td></tr>
+        <tr><td>Heaviness Jaw<small>Face, 3 ad sets</small></td><td>$11,006</td><td>507</td><td>$21.71</td><td>2.8&ndash;3.0%</td><td><span class="pill good">Keep, new hooks</span></td></tr>
+        <tr><td>Biggest Misconception<small>Face, 3 ad sets</small></td><td>$7,938</td><td>286</td><td>$27.75</td><td>3.1&ndash;3.5%</td><td><span class="pill warn">Refresh</span></td></tr>
+        <tr><td>How Does Thread Lift Work?<small>Face, 3 ad sets, CPM $86&ndash;93</small></td><td>$6,392</td><td>206</td><td>$31.03</td><td>3.4&ndash;3.9%</td><td><span class="pill warn">Refresh</span></td></tr>
+        <tr><td>Other nose videos<small>Not Permanent, Asian Nose, Who Is Suitable</small></td><td>$287</td><td>8</td><td>$35.87</td><td>2.9&ndash;3.7%</td><td><span class="pill warn">Too early</span></td></tr>
+        <tr><td>HA Promo statics C1&ndash;C3<small>HA Fillers Promo, Oct 2026</small></td><td>$618</td><td>12</td><td>$51.48</td><td>1.3&ndash;3.6%</td><td><span class="pill bad">Replace</span></td></tr>
+        <tr><td>Skin Booster video + carousel<small>Campaign paused</small></td><td>$12,331</td><td>261</td><td>$47.25</td><td>0.9&ndash;1.9%</td><td><span class="pill bad">Paused</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="col">
+    <h3>What stands out</h3>
+    <p>The nose ad set is running at roughly a third of the face cost per chat, mostly because its CPM is $20 against $64 to $93 on the face ad sets. Treat it as an early read. It has had about a week and a reach of under 30,000, so expect cost per chat to drift up as frequency builds.</p>
+    <p>The thread lift campaign has a frequency of 5.1 over 90 days and the same three face videos have carried it since April and May. Click-through is still healthy, so the angles work. What's tired is the opening seconds, which is the cheapest thing to replace.</p>
+    <p>The bigger leak is after the click. The thread lift campaign recorded 69 leads from 1,187 chats, about 1 in 17, which works out to $389 per lead. I'm reading "leads" as the chats the clinic marked as a lead in WhatsApp; worth confirming with the front desk how they tag them. Either way, most chats are not turning into consults, which is what the landing pages are built to change.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <h2>What wins in aesthetics ads, and what Singapore allows</h2>
+    <p>The Meta Ad Library shows what's running, not how it performs, so the global read comes from ads that clinics in the US, UK, Korea and Australia keep live for months (usually a sign they're paying off) plus Line's own numbers above. These are the patterns that show up again and again:</p>
+  </div>
+  <div class="patterns col">
+    <div class="pattern"><b>Doctor to camera</b><span>The injector or surgeon explaining one idea in 20 to 40 seconds. Line already proves this: every top ad is Dr Ram talking.</span></div>
+    <div class="pattern"><b>Myth-busting first line</b><span>"You don't need surgery to..." or "The biggest misconception about...". It's the angle behind the nose winner and Biggest Misconception.</span></div>
+    <div class="pattern"><b>Say who it's not for</b><span>Clinics that disqualify on camera get fewer but better enquiries. It also reads as honest, which matters for a doctor-led brand.</span></div>
+    <div class="pattern"><b>One area, one problem</b><span>"Tired under-eyes" beats "fillers for 5 areas". The current HA statics list every area at once.</span></div>
+    <div class="pattern"><b>Hook stacking on winners</b><span>Keep the body of a proven video and test 3 to 5 new first lines. Cheaper than new shoots and the fastest fix for fatigue.</span></div>
+    <div class="pattern"><b>Price shown up front</b><span>Filters out people who will never book. Line's fees are already public, so use them.</span></div>
+    <div class="pattern"><b>Quiz before contact</b><span>Two or three taps before the form. Raises lead quality and gives the clinic context before they reply.</span></div>
+  </div>
+  <div class="col">
+    <h3>What we can't copy</h3>
+    <p>A lot of the strongest overseas aesthetics ads lean on before-and-after photos and patient testimonials. Singapore's rules for medical clinic advertising don't allow those, and neither do superlatives like "best" or promised results. Meta also restricts before-and-after imagery for cosmetic procedures. So everything here is built on Dr Ram's authority, the mechanism, honest suitability and price. That's also the space competitors leave open, since most of them run discount-led offers.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <h2>New creatives</h2>
+    <p>Videos are scripted for Dr Ram to camera, 9:16, burned-in captions, 20 to 40 seconds, with the first line of on-screen text matching the spoken hook. Statics are ready to upload in 4:5 for feed and 9:16 for Stories and Reels.</p>
+  </div>
+
+  <div class="treat">
+    <div class="treat-head"><h3>Nose thread lift</h3><a href="lp/nose-thread-lift.html">Landing page &rarr;</a></div>
+    <div class="scripts">
+      <div class="script"><span class="tag">Iterate on winner</span><h4>Three new openings</h4>
+        <p class="hook">Keep the body of Non-Surgical Nose Enhancement. Test these first lines: "Your nose bridge can go up without a single cut." / "I do this in 30 minutes, and you go back to work tomorrow." / "Thinking about rhinoplasty? Watch this first."</p>
+        <p class="cta">CTA: "Tap below to check if your nose is suitable."</p></div>
+      <div class="script"><span class="tag">New angle</span><h4>Threads or filler for your nose?</h4>
+        <p class="hook">"Should you use threads or filler on your nose? It depends on one thing."</p>
+        <ol><li>Threads lift and define, especially the tip.</li><li>Filler adds height and volume along the bridge.</li><li>Some noses need both. Dr Ram decides after checking the tip cartilage.</li></ol>
+        <p class="cta">CTA: "Answer 3 questions and I'll tell you which fits."</p></div>
+      <div class="script"><span class="tag">Re-cut existing</span><h4>The Asian nose</h4>
+        <p class="hook">"Most nose thread lift techniques weren't designed for an Asian nose."</p>
+        <ol><li>Lower bridge, thicker skin, softer tip.</li><li>That changes thread count and where they go.</li><li>25 years working with Asian faces.</li></ol>
+        <p class="cta">Good footage, only $96 spent. Re-edit with this hook and give it a fair budget.</p></div>
+    </div>
+  </div>
+
+  <div class="treat">
+    <div class="treat-head"><h3>Face thread lift</h3><a href="lp/face-thread-lift.html">Landing page &rarr;</a></div>
+    <div class="scripts">
+      <div class="script"><span class="tag">Iterate on winner</span><h4>Heaviness Jaw, new openings</h4>
+        <p class="hook">"Your jawline didn't disappear. It moved." / "Look tired in photos but fine in the mirror? It's often your cheeks dropping." / "Jowls often come from tissue that's slipped down, not weight."</p>
+        <p class="cta">Body unchanged. Run all three in the Luxury ad set where Heaviness Jaw already wins.</p></div>
+      <div class="script"><span class="tag">New angle</span><h4>Thread lift or HIFU?</h4>
+        <p class="hook">"Thread lift or HIFU? Here's how I decide for my patients."</p>
+        <ol><li>HIFU uses ultrasound energy to tighten from within, no needles.</li><li>Threads physically reposition tissue that has dropped.</li><li>Many people ask for one when they need the other.</li></ol>
+        <p class="cta">CTA: "Not sure which you need? Three questions, link below."</p></div>
+      <div class="script"><span class="tag">New angle</span><h4>What recovery actually looks like</h4>
+        <p class="hook">"Here's what the first week after a thread lift really looks like."</p>
+        <ol><li>Day 1: some swelling and tightness.</li><li>Days 2 to 4: most people back at work.</li><li>Following months: collagen builds as threads dissolve.</li></ol>
+        <p class="cta">Downtime is the objection the top ad answers, so lean into it. Dr Ram explains; no patient footage.</p></div>
+    </div>
+  </div>
+
+  <div class="treat">
+    <div class="treat-head"><h3>HA fillers</h3><a href="lp/ha-fillers.html">Landing page &rarr;</a></div>
+    <div class="scripts">
+      <div class="script"><span class="tag">New, video</span><h4>Under-eyes</h4>
+        <p class="hook">"Slept eight hours and still look tired? It might not be tiredness."</p>
+        <ol><li>Hollows under the eye cast shadows.</li><li>Sleep and eye cream can't fill a hollow.</li><li>HA filler can, if the area is suitable. Dr Ram checks first.</li></ol>
+        <p class="cta">CTA: "$530 per syringe. Check if under-eye filler suits you."</p></div>
+      <div class="script"><span class="tag">New, video</span><h4>How much filler do you need?</h4>
+        <p class="hook">"The most common thing I hear: I don't want to look overdone."</p>
+        <ol><li>Overdone usually means wrong placement, not one syringe too many.</li><li>Start with the area that changes the face most.</li><li>Plan agreed before anything is injected.</li></ol>
+        <p class="cta">CTA: "Tell me which area bothers you most."</p></div>
+      <div class="script"><span class="tag">New, video</span><h4>When I say no</h4>
+        <p class="hook">"Sometimes the right amount of filler is none."</p>
+        <ol><li>Sagging needs lift, not volume.</li><li>Adding filler there makes the face heavier.</li><li>That's why assessment comes first.</li></ol>
+        <p class="cta">Builds trust and feeds the thread lift funnel too.</p></div>
+    </div>
+  </div>
+
+  <h3>Statics</h3>
+  <div class="ads">
+    <figure><img src="ads/png/nose-myth-4x5.png" alt="Static ad: Reshaping your nose doesn't have to mean surgery"><figcaption>Nose &middot; myth-busting, extends the winning angle</figcaption></figure>
+    <figure><img src="ads/png/nose-checks-4x5.png" alt="Static ad: Before a single thread goes in, Dr Ram checks three things"><figcaption>Nose &middot; three checks, suitability and safety</figcaption></figure>
+    <figure><img src="ads/png/face-jaw-4x5.png" alt="Static ad: Heaviness along the jawline? Lift it back."><figcaption>Face &middot; jawline, static version of the top spender</figcaption></figure>
+    <figure><img src="ads/png/face-two-stage-4x5.png" alt="Static ad: One treatment. Two lifts."><figcaption>Face &middot; how it works, two stages</figcaption></figure>
+    <figure><img src="ads/png/ha-map-4x5.png" alt="Static ad: Filler isn't one size fits all, with a face map"><figcaption>HA &middot; face map and $530 per syringe</figcaption></figure>
+    <figure><img src="ads/png/ha-undereye-4x5.png" alt="Static ad: Slept 8 hours. Still look tired?"><figcaption>HA &middot; under-eye, single-area hook</figcaption></figure>
+  </div>
+  <p class="soft" style="margin-top:12px">9:16 versions of each sit in the same folder with a -9x16 suffix.</p>
+</section>
+
+<section>
+  <div class="col">
+    <h2>Landing pages</h2>
+    <p>One page per treatment. Each asks three questions with tap-to-answer buttons, then name and mobile, then opens WhatsApp to the clinic with everything typed in. The patient only has to press send.</p>
+  </div>
+  <div class="lps">
+    <a class="lp" href="lp/nose-thread-lift.html"><b>Nose thread lift</b><span>What to change &middot; previous nose procedures &middot; timing</span></a>
+    <a class="lp" href="lp/face-thread-lift.html"><b>Face thread lift</b><span>Main concern &middot; age group &middot; timing</span></a>
+    <a class="lp" href="lp/ha-fillers.html"><b>HA fillers</b><span>Area &middot; filler before &middot; timing</span></a>
+  </div>
+  <div class="col">
+    <h3>What the clinic receives</h3>
+    <div class="msg">Hi Line Aesthetics, I'd like to ask about a nose thread lift.
+
+What I'd like to change: Sharper, lifted tip
+Previous nose procedures: Nose filler
+Timing: Within the next 2 weeks
+
+Name: Sarah Tan
+Mobile: 9123 4567
+
+(Ref NTL / heaviness-jaw-v2)</div>
+    <p>The ref code at the end tells the front desk which page the chat came from, and picks up the ad name automatically if the ad URL carries <code>utm_content</code>. Someone who answers "previous surgery" and "within 2 weeks" can be prioritised before they've typed a word.</p>
+    <p>Each page fires a Meta <code>Lead</code> event when the form is sent, plus custom <code>QuizStart</code> and <code>QuizStep</code> events, so a website campaign can optimise for people who finish the quiz rather than people who click.</p>
+
+    <h3>Before these go live</h3>
+    <ul class="plain todo">
+      <li>Confirm +65 8985 5001 is the clinic's WhatsApp line. It's the mobile on their website, but the Camden listing also shows +65 6555 5008.</li>
+      <li>Add the Meta Pixel ID to each page (one line at the bottom, <code>pixelId</code>).</li>
+      <li>Optional: add a Make or Google Sheets webhook URL (<code>webhook</code>) so leads are logged even if someone never hits send in WhatsApp.</li>
+      <li>Swap the green "Dr Ram Nath" block for a real photo of Dr Ram.</li>
+      <li>Check with the clinic: whether listed fees are before GST, and that 12 to 18 months is the longevity they're comfortable quoting for nose threads (one current ad says 1 to 2 years).</li>
+      <li>Host on a clinic subdomain, for example nose.lineaestheticsclinic.com, so the ad link matches the brand.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <h2>How to roll it out</h2>
+    <p><strong>Week 1.</strong> Shift part of the face budget into the nose ad set and raise it in steps of about 20% every two or three days while cost per chat stays under $12. Upload the new face openings into the existing thread lift ad sets so they inherit learning.</p>
+    <p><strong>Weeks 1 to 2.</strong> Launch one new campaign with the Leads objective, conversion location website, optimising for the <code>Lead</code> event, sending to the three landing pages. Give it around 20% of thread lift spend and keep click-to-WhatsApp running beside it. Use the new videos and statics in both so the creative isn't what's being compared.</p>
+    <p><strong>Week 3.</strong> Compare the two routes on booked consults, not chats. If the landing pages bring fewer chats but more consults per dollar, move budget across. HA fillers move to video as soon as Dr Ram's footage is shot, and the current statics come off once the under-eye video has spent around $300.</p>
+    <p class="soft">Booked consults need the clinic's help: ask the front desk to note the ref code for each chat that turns into a booking. A shared sheet is enough.</p>
+  </div>
+</section>
+</div>

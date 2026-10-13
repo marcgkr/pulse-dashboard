@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Line Aesthetics statics</title>
+<!-- Source for the static ads. Render each .ad at 1080x1350 (feed) or with body.story at 1080x1920 (Stories/Reels).
+     Uses the same palette and type as the landing pages so ad and page feel like one journey. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Italiana&display=swap">
+<style>
+:root {
+  --linen: #f2f3ef; --paper: #fff; --ink: #1b2422; --soft: #55605d; --rule: #cfd5cd;
+  --jade: #2d5a52; --jade-deep: #1f423c; --wash: #e3ece8; --blush: #e6cfc4;
+  --display: "Italiana", Georgia, serif; --body: "Figtree", Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: #888; font-family: var(--body); color: var(--ink); display: grid; gap: 40px; padding: 40px; justify-content: center; }
+.ad { width: 1080px; height: 1350px; position: relative; overflow: hidden; background: var(--linen); display: flex; flex-direction: column; padding: 84px 84px 0; }
+body.story .ad { height: 1920px; padding-top: 250px; }
+.ad.dark { background: var(--jade-deep); color: #f2f3ef; --soft: #b9c9c3; --rule: rgba(242,243,239,.25); }
+.thread { position: absolute; inset: 0; pointer-events: none; }
+body.story .thread { top: 420px; height: 1350px; bottom: auto; }
+.eyebrow { font-size: 26px; letter-spacing: .2em; text-transform: uppercase; font-weight: 600; color: var(--jade); position: relative; }
+.dark .eyebrow { color: var(--blush); }
+h1 { font-family: var(--display); font-weight: 400; font-size: 104px; line-height: 1.02; margin: 34px 0 0; letter-spacing: -.005em; position: relative; }
+h1 em { font-style: normal; color: var(--jade); }
+.dark h1 em { color: var(--blush); }
+.sub { font-size: 38px; line-height: 1.38; color: var(--soft); margin: 30px 0 0; max-width: 820px; position: relative; }
+.grow { flex: 1; position: relative; }
+.chips { display: flex; gap: 0; border-top: 2px solid var(--rule); position: relative; background: inherit; margin: 0 -84px; padding: 0 84px; }
+.chips div { flex: 1; padding: 26px 0 30px; }
+.chips div + div { padding-left: 26px; border-left: 2px solid var(--rule); }
+.chips b { display: block; font-family: var(--display); font-weight: 400; font-size: 56px; line-height: 1; }
+.chips span { font-size: 24px; color: var(--soft); }
+.cta { margin: 0 -84px; background: var(--jade); color: #fff; display: flex; justify-content: space-between; align-items: center; padding: 34px 84px; font-size: 34px; font-weight: 600; position: relative; }
+.dark .cta { background: var(--blush); color: var(--jade-deep); }
+body.story .cta { padding-bottom: 300px; }
+.cta small { font-weight: 400; font-size: 26px; opacity: .85; }
+.list { list-style: none; margin: 56px 0 0; padding: 0; position: relative; display: grid; gap: 34px; }
+.list li { display: grid; grid-template-columns: 110px 1fr; align-items: baseline; border-top: 2px solid var(--rule); padding-top: 26px; }
+.list .n { font-family: var(--display); font-size: 72px; color: var(--jade); line-height: .9; }
+.dark .list .n { color: var(--blush); }
+.list b { font-size: 40px; font-weight: 600; display: block; }
+.list span { font-size: 30px; color: var(--soft); line-height: 1.35; display: block; margin-top: 6px; }
+.foot { font-size: 26px; color: var(--soft); position: relative; padding: 0 0 34px; }
+.stages { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 60px; position: relative; }
+.stage { background: var(--paper); padding: 36px; border-radius: 6px; }
+.stage .when { font-size: 24px; letter-spacing: .16em; text-transform: uppercase; color: var(--jade); font-weight: 600; }
+.stage b { display: block; font-family: var(--display); font-weight: 400; font-size: 54px; line-height: 1.05; margin: 16px 0 12px; }
+.stage span { font-size: 28px; color: var(--soft); line-height: 1.4; }
+.map { position: absolute; right: 40px; top: 360px; width: 520px; }
+body.story .map { top: 640px; }
+.price { position: relative; display: flex; align-items: baseline; gap: 18px; padding-bottom: 14px; }
+.price b { font-family: var(--display); font-weight: 400; font-size: 150px; line-height: 1; color: var(--jade); }
+.price span { font-size: 30px; color: var(--soft); line-height: 1.3; }
+.legal { font-size: 20px; color: var(--soft); position: relative; padding: 0 0 22px; }
+</style>
+</head>
+<body>
+
+<!-- N1: nose, myth-busting hook (iterates on the winning "Non-Surgical Nose Enhancement" angle) -->
+<section class="ad" id="nose-myth">
+  <svg class="thread" viewBox="0 0 1080 1350" preserveAspectRatio="none"><path d="M-40 1060 C 260 960, 420 820, 600 720 S 960 560, 1140 470" fill="none" stroke="#e6cfc4" stroke-width="4"/><circle cx="600" cy="720" r="9" fill="#2d5a52"/><path d="M-40 1120 C 280 1020, 450 880, 640 780 S 990 620, 1140 540" fill="none" stroke="#e6cfc4" stroke-width="2"/></svg>
+  <div class="eyebrow">Nose thread lift &middot; Dr Ram Nath</div>
+  <h1>Reshaping your nose doesn't have to mean <em>surgery.</em></h1>
+  <p class="sub">Dissolvable threads lift the bridge and define the tip. You see the change the same day.</p>
+  <div class="grow"></div>
+  <div class="chips">
+    <div><b>20&ndash;30</b><span>minutes</span></div>
+    <div><b>No cuts</b><span>local anaesthetic only</span></div>
+    <div><b>$900</b><span>from, nose tip</span></div>
+  </div>
+  <div class="cta">Check if your nose suits threads <small>30-second check &rarr;</small></div>
+</section>
+
+<!-- N2: nose, suitability / authority (the "Who is suitable" and "Asian nose" scripts as a static) -->
+<section class="ad dark" id="nose-checks">
+  <div class="eyebrow">Nose thread lift &middot; Camden Medical Centre</div>
+  <h1>Before a single thread goes in, Dr Ram checks <em>three things.</em></h1>
+  <ol class="list">
+    <li><span class="n">1</span><div><b>Skin thickness</b><span>Thicker skin over the bridge can need more threads.</span></div></li>
+    <li><span class="n">2</span><div><b>Tip cartilage</b><span>Decides what threads can realistically lift.</span></div></li>
+    <li><span class="n">3</span><div><b>Blood vessels</b><span>The key safety check, especially after filler or surgery.</span></div></li>
+  </ol>
+  <div class="grow"></div>
+  <p class="foot">Not every nose suits a thread lift. If yours doesn't, you'll hear it from us.</p>
+  <div class="cta">See if you're suitable <small>3 questions &rarr;</small></div>
+</section>
+
+<!-- F1: face, iterates on the top spender "Heaviness Jaw" -->
+<section class="ad" id="face-jaw">
+  <svg class="thread" viewBox="0 0 1080 1350" preserveAspectRatio="none"><g transform="translate(0,-230)"><path d="M420 1250 C 560 1150, 700 1090, 820 960 S 980 640, 1000 420" fill="none" stroke="#e6cfc4" stroke-width="4"/><path d="M820 960 l 70 -150" stroke="#2d5a52" stroke-width="4" fill="none"/><path d="M872 832 l 18 -22 l 4 28" stroke="#2d5a52" stroke-width="4" fill="none"/><path d="M640 1110 l 60 -150" stroke="#2d5a52" stroke-width="4" fill="none"/><path d="M684 984 l 16 -24 l 6 28" stroke="#2d5a52" stroke-width="4" fill="none"/></g></svg>
+  <div class="eyebrow">Face thread lift &middot; Dr Ram Nath</div>
+  <h1>Heaviness along the jawline? <em>Lift it back.</em></h1>
+  <p class="sub">Fine threads reposition sagging tissue, no surgery. Most people are back to their routine in a few days.</p>
+  <div class="grow"></div>
+  <div class="chips">
+    <div><b>Same day</b><span>visible lift</span></div>
+    <div><b>Few days</b><span>back to routine</span></div>
+    <div><b>$900</b><span>from, per area</span></div>
+  </div>
+  <div class="cta">Is a thread lift right for you? <small>30-second check &rarr;</small></div>
+</section>
+
+<!-- F2: face, mechanism (iterates on "How does thread lift work?") -->
+<section class="ad" id="face-two-stage">
+  <div class="eyebrow">How a thread lift works</div>
+  <h1>One treatment. <em>Two lifts.</em></h1>
+  <div class="stages">
+    <div class="stage"><div class="when">Same day</div><b>Tissue is lifted</b><span>Threads gently reposition sagging cheeks and jowls.</span></div>
+    <div class="stage"><div class="when">Following months</div><b>Collagen builds</b><span>As threads dissolve, your skin gets firmer.</span></div>
+  </div>
+  <p class="sub">Dr Ram Nath, 25+ years in aesthetic medicine, plans each thread around your face.</p>
+  <div class="grow"></div>
+  <div class="cta">Check your suitability <small>3 questions &rarr;</small></div>
+</section>
+
+<!-- H1: fillers, face map (replaces the all-areas promo statics) -->
+<section class="ad" id="ha-map">
+  <svg class="map" viewBox="0 0 520 700" aria-hidden="true">
+    <path d="M260 40 C 400 40, 470 160, 466 310 C 462 450, 400 570, 260 650 C 120 570, 58 450, 54 310 C 50 160, 120 40, 260 40 Z" fill="none" stroke="#2d5a52" stroke-width="3"/>
+    <g fill="#2d5a52"><circle cx="180" cy="300" r="12"/><circle cx="340" cy="300" r="12"/><circle cx="140" cy="390" r="12"/><circle cx="380" cy="390" r="12"/><circle cx="260" cy="525" r="12"/><circle cx="260" cy="615" r="12"/><circle cx="260" cy="340" r="12"/></g>
+  </svg>
+  <div class="eyebrow">HA fillers &middot; Dr Ram Nath</div>
+  <h1 style="max-width:560px">Filler isn't <em>one size fits all.</em></h1>
+  <ul class="list" style="max-width:520px;gap:22px;margin-top:44px">
+    <li style="grid-template-columns:1fr;padding-top:18px"><b style="font-size:34px">Under-eyes &middot; Cheeks</b></li>
+    <li style="grid-template-columns:1fr;padding-top:18px"><b style="font-size:34px">Lips &middot; Chin &middot; Jawline</b></li>
+    <li style="grid-template-columns:1fr;padding-top:18px"><span style="margin:0;font-size:28px">Your plan is set after Dr Ram assesses your face, never before.</span></li>
+  </ul>
+  <div class="grow"></div>
+  <div class="price"><b>$530*</b><span>per syringe<br>FDA-approved, CE-marked HA</span></div>
+  <div class="legal">*T&amp;Cs apply. Subject to medical assessment and suitability.</div>
+  <div class="cta">Find out what you'd need <small>30-second check &rarr;</small></div>
+</section>
+
+<!-- H2: fillers, under-eye problem hook (single area converts better than "all areas") -->
+<section class="ad dark" id="ha-undereye">
+  <svg class="thread" viewBox="0 0 1080 1350" preserveAspectRatio="none"><path d="M-20 900 C 200 980, 400 980, 560 900 S 900 760, 1100 820" fill="none" stroke="#e6cfc4" stroke-opacity=".5" stroke-width="3"/></svg>
+  <div class="eyebrow">Under-eye filler &middot; Camden Medical Centre</div>
+  <h1>Slept 8 hours. Still look <em>tired?</em></h1>
+  <p class="sub">Under-eye hollows cast shadows that sleep can't fix. Dr Ram assesses whether HA filler is the right answer for yours.</p>
+  <div class="grow"></div>
+  <div class="chips">
+    <div><b>$530*</b><span>per syringe</span></div>
+    <div><b>Doctor-led</b><span>25+ years experience</span></div>
+    <div><b>Dissolvable</b><span>hyaluronic acid</span></div>
+  </div>
+  <div class="legal">*T&amp;Cs apply. Subject to medical assessment and suitability.</div>
+  <div class="cta">Check if under-eye filler suits you <small>&rarr;</small></div>
+</section>
+
+</body>
+</html>
