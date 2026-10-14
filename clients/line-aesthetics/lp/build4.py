@@ -159,7 +159,7 @@ TEMPLATE = """<!doctype html>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=Italiana&display=swap">
-<link rel="stylesheet" href="la.css?v=2">
+<link rel="stylesheet" href="la.css?v=3">
 </head>
 <body>
 <noscript><img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id={pixel}&amp;ev=PageView&amp;noscript=1"></noscript>
@@ -209,7 +209,7 @@ TEMPLATE = """<!doctype html>
 <script>
 window.LP = Object.assign({lp_json}, {{ whatsapp: "{whatsapp}", pixelId: "{pixel}", webhook: "", drPhoto: "assets/dr-ram-suit.webp" }});
 </script>
-<script src="la.js?v=2"></script>
+<script src="la.js?v=3"></script>
 </body>
 </html>
 """
