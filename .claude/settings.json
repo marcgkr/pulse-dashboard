@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Meta_Ads_MCP__ads_create_campaign",
+      "mcp__Meta_Ads_MCP__ads_create_ad_set",
+      "mcp__Meta_Ads_MCP__ads_create_creative",
+      "mcp__Meta_Ads_MCP__ads_create_ad",
+      "mcp__Meta_Ads_MCP__ads_update_entity"
+    ]
+  }
+}
