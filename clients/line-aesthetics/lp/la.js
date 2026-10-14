@@ -47,9 +47,9 @@
     window.fbq("init", C.pixelId);
     window.fbq("track", "PageView");
   }
-  function track(name, data, custom) {
+  function track(name, data, custom, eventId) {
     data = Object.assign({ content_name: C.treatment }, data || {});
-    if (window.fbq) window.fbq(custom ? "trackCustom" : "track", name, data);
+    if (window.fbq) window.fbq(custom ? "trackCustom" : "track", name, data, eventId ? { eventID: eventId } : undefined);
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push(Object.assign({ event: "lp_" + name.toLowerCase() }, data));
   }
@@ -121,7 +121,13 @@
         if (!(navigator.sendBeacon && navigator.sendBeacon(C.webhook, new Blob([body], { type: "text/plain" })))) fetch(C.webhook, { method: "POST", body: body, keepalive: true, mode: "no-cors" });
       } catch (err) { /* WhatsApp still carries the lead */ }
     }
-    track("Lead", { value: 0, currency: "SGD" });
+    /* Advanced matching: the pixel hashes these in the browser before sending. Improves lead matching on Meta. */
+    if (window.fbq && C.pixelId) {
+      var ph = clean(phone).replace(/^\+/, "");
+      if (/^[89]\d{7}$/.test(ph)) ph = "65" + ph;
+      window.fbq("init", C.pixelId, { ph: ph, fn: name.split(" ")[0].toLowerCase(), country: "sg" });
+    }
+    track("Lead", { value: 0, currency: "SGD" }, false, "lead-" + C.ref + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7));
     step = N;
     show('<p class="q">Thank you, ' + esc(name.split(" ")[0]) + ".</p>" +
       '<p style="color:var(--soft);margin:0 0 18px">WhatsApp is opening with your answers. Tap send and Dr Ram&rsquo;s team will reply during clinic hours.</p>' +
