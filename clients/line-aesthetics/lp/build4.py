@@ -153,7 +153,9 @@ TEMPLATE = """<!doctype html>
 <title>{title}</title>
 <meta name="description" content="{sub}">
 <meta name="theme-color" content="#f3edea">
-<link rel="icon" href="assets/logo.png">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=Italiana&display=swap">
